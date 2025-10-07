@@ -1,16 +1,16 @@
 import streamlit as st
-    import pandas as pd
-    import numpy as np
-    from sklearn.metrics.pairwise import cosine_similarity
-    from sklearn.linear_model import LinearRegression
-    import firebase_admin
-    from firebase_admin import credentials, firestore
-    from datetime import datetime
-    import random
-    import os
-    import hashlib
-    from textblob import TextBlob
-    import re
+import pandas as pd
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.linear_model import LinearRegression
+import firebase_admin
+from firebase_admin import credentials, firestore
+from datetime import datetime
+import random
+import os
+import hashlib
+from textblob import TextBlob
+import re
 
     # Firebase setup
     @st.cache_resource
