@@ -15,15 +15,20 @@ import re
 @st.cache_resource
 def init_firebase():
     file_path = "/content/the-brain-app-a0824-firebase-adminsdk-fbsvc-5d3ad34668.json"  # Colab path
-    if os.path.exists(file_path):
-        cred = credentials.Certificate(file_path)
-        firebase_admin.initialize_app(cred)
-    elif "firebase" in st.secrets:
-        cred_dict = dict(st.secrets["firebase"])  # Convert AttrDict to dict
-        cred = credentials.Certificate(cred_dict)
-        firebase_admin.initialize_app(cred)
-    else:
-        raise Exception("Firebase credentials not found! Upload JSON or set secrets.")
+    try:
+        # Check if Firebase app already exists
+        firebase_admin.get_app()
+    except ValueError:
+        # Initialize Firebase only if not already initialized
+        if os.path.exists(file_path):
+            cred = credentials.Certificate(file_path)
+            firebase_admin.initialize_app(cred)
+        elif "firebase" in st.secrets:
+            cred_dict = dict(st.secrets["firebase"])  # Convert AttrDict to dict
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred)
+        else:
+            raise Exception("Firebase credentials not found! Upload JSON or set secrets.")
     db = firestore.client()
     # Add sample roadmaps
     sample_roadmaps = [
