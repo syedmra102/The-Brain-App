@@ -1,6 +1,7 @@
-hours,days_to_mastery
-1,10000
-2,5000
-3,3333
-4,2500
-5,2000
+streamlit
+pandas
+numpy
+scikit-learn
+firebase-admin
+textblob
+python-dateutil
