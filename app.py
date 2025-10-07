@@ -21,7 +21,7 @@ def init_firebase():
         cred = credentials.Certificate(file_path)
         firebase_admin.initialize_app(cred)
     elif "firebase" in st.secrets:
-        cred_dict = json.loads(st.secrets["firebase"])
+        cred_dict = dict(st.secrets["firebase"])  # Convert AttrDict to dict
         cred = credentials.Certificate(cred_dict)
         firebase_admin.initialize_app(cred)
     else:
@@ -36,7 +36,6 @@ def init_firebase():
     for roadmap in sample_roadmaps:
         db.collection('roadmaps').document(roadmap['field']).set(roadmap)
     return db
-
 # Hash password
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
