@@ -16,7 +16,7 @@ import json
 # Firebase setup
 @st.cache_resource
 def init_firebase():
-    file_path = "/content/the-brain-app-a0824-firebase-adminsdk-fbsvc-5d3ad34668.json"  # Your JSON filename
+    file_path = "/content/the-brain-app-a0824-firebase-adminsdk-fbsvc-5d3ad34668.json"  # Colab path
     if os.path.exists(file_path):
         cred = credentials.Certificate(file_path)
         firebase_admin.initialize_app(cred)
@@ -74,25 +74,16 @@ def load_data():
         data = pd.read_csv("data.csv")  # Streamlit Cloud path
         return data
     except FileNotFoundError:
-        data = pd.read_csv("/content/data.csv")  # Colab path
-        return data
-
-# ML: Recommend goal
-def recommend_goal(interests, df):
-    interest_vector = np.zeros(len(df.columns[1:]))
-    for interest in interests:
-        if interest in df.columns[1:]:
-            interest_vector[df.columns[1:].index(interest)] = 1
-    similarities = cosine_similarity([interest_vector], df.iloc[:, 1:])[0]
-    top_idx = np.argmax(similarities)
-    return df['field'][top_idx]
+        st.error("data.csv not found in repo!")
+        raise
 
 # ML: Progress prediction
 def predict_progress(hours_per_day, total_hours=0):
     try:
         data = pd.read_csv("progress_data.csv")  # Streamlit Cloud path
     except FileNotFoundError:
-        data = pd.read_csv("/content/progress_data.csv")  # Colab path
+        st.error("progress_data.csv not found in repo!")
+        raise
     X = data[['hours']].values
     y = data['days_to_mastery'].values
     model = LinearRegression().fit(X, y)
@@ -344,10 +335,13 @@ def main():
                         db, user_id, stage, distractions_avoided, work_done, sleep_early, 
                         pushups, water_liters, sugar_avoided, pocket_money, review)
                     st.write(message)
-                    if os.path.exists(image_path):
-                        st.image(image_path, caption=f"{quote} Screenshot this!")
-                    else:
-                        st.warning("Add images to 'images/' folder in repo.")
+                    try:
+                        if os.path.exists(image_path):
+                            st.image(image_path, caption=f"{quote} Screenshot this!")
+                        else:
+                            st.warning(f"Image not found: {image_path}. Please add images to 'images/' folder.")
+                    except Exception as e:
+                        st.warning(f"Image loading failed: {str(e)}. Continue without images.")
                     st.metric("Streak", f"{streak_days} days")
                     st.metric("Savings", f"{savings} PKR")
 
