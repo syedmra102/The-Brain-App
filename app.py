@@ -261,33 +261,137 @@ def main():
         if st.button("Yes"):
             st.subheader("Your Life After the 105 Days Challenge")
             st.markdown("""
-            **Individual Benefits**:
-            - **Health**: Feel energetic with 5L water daily, no sugar, and 8 hours sleep.
-            - **Focus**: No distractions (social media, gaming) = laser-sharp focus like Elon Musk!
-            - **Skills**: Master your field (e.g., Cricket, Programming) with daily practice.
-            - **Savings**: Save pocket money for your goals (e.g., cricket gear, courses).
-            - **Confidence**: Earn badges (Silver, Platinum, Gold) to boost your self-esteem.
-            - **Mindset**: Build a wealthy, positive mindset for unstoppable success.
+                **Individual Benefits**:
+                - **Health**: Feel energetic with 5L water daily, no sugar, and 8 hours sleep.
+                - **Focus**: No distractions (social media, gaming) = laser-sharp focus like Elon Musk!
+                - **Skills**: Master your field (e.g., Cricket, Programming) with daily practice.
+                - **Savings**: Save pocket money for your goals (e.g., cricket gear, courses).
+                - **Confidence**: Earn badges (Silver, Platinum, Gold) to boost your self-esteem.
+                - **Mindset**: Build a wealthy, positive mindset for unstoppable success.
 
-            **Detailed Rules**:
-            - Fill a 30-second daily tick mark form before sleeping.
-            - **Silver Stage (15 days)**: Work 2 hours/day, avoid distractions (e.g., no Instagram).
-            - **Platinum Stage (30 days)**: Work 4 hours/day, 30 pushups, 5L water.
-            - **Gold Stage (60 days)**: Work 6 hours/day, wake at 4 AM, sleep by 9 PM, 50 pushups, no sugar/junk/alcohol.
-            - Fail tasks? Add pocket money to savings for your field.
-            - Complete tasks? Get a motivational wallpaper with a quote to set as your phone background!
-            - After 105 days, use savings to invest in your field (e.g., buy equipment, enroll in courses).
+                **Detailed Rules**:
+                - Fill a 30-second daily tick mark form before sleeping.
+                - **Silver Stage (15 days)**: Work 2 hours/day, avoid distractions (e.g., no Instagram).
+                - **Platinum Stage (30 days)**: Work 4 hours/day, 30 pushups, 5L water.
+                - **Gold Stage (60 days)**: Work 6 hours/day, wake at 4 AM, sleep by 9 PM, 50 pushups, no sugar/junk/alcohol.
+                - **Failure**: If you miss tasks, add pocket money to savings (e.g., 50 PKR/day).
+                - **Success**: Complete tasks daily to earn a motivational wallpaper with a quote (screenshot it!).
+                - After 105 days, use savings to invest in your field (e.g., buy equipment, enroll in courses).
 
-            **Fine Details**:
-            - **Daily Form**: Takes 30 seconds, tick boxes for tasks (e.g., worked, no distractions).
-            - **Distractions**: Social media, gaming, TV, etc., count as failures unless marked 'None'.
-            - **Savings**: Pocket money goes to savings if you fail tasks (e.g., 50 PKR/day adds up!).
-            - **Badges**: Earn Silver (15 days), Platinum (30 days), Gold (60 days) badges.
-            - **Calendar**: Tracks your progress daily, shows completed days with green ticks.
-            - **Failure Rule**: If you fail tasks, streak resets to 0, but savings grow.
-            - **Success Rule**: Complete tasks daily to maintain streak and earn badges.
+                **Fine Details**:
+                - **Daily Form**: Takes 30 seconds, tick boxes for tasks (e.g., worked, no distractions).
+                - **Distractions**: Social media, gaming, TV, etc., count as failures unless marked 'None'.
+                - **Savings**: Pocket money goes to savings if you fail tasks (e.g., 50 PKR/day adds up!).
+                - **Badges**: Earn Silver (15 days), Platinum (30 days), Gold (60 days) badges.
+                - **Calendar**: Tracks your progress daily, shows completed days with green ticks.
+                - **Failure Rule**: If you fail tasks, streak resets to 0, but savings grow.
+                - **Success Rule**: Complete tasks daily to maintain streak and earn badges.
 
-            **Stages**:
-            - **Silver (15 days)**: Build basic habits (2 hours work, no distractions).
-            - **Platinum (30 days)**: Level up with fitness (4 hours work, 30 pushups, 5L water).
-            - **
+                **Stages**:
+                - **Silver (15 days)**: Build basic habits (2 hours work, no distractions).
+                - **Platinum (30 days)**: Level up with fitness (4 hours work, 30 pushups, 5L water).
+                - **Gold (60 days)**: Master discipline (6 hours work, 4 AM wake-up, 9 PM sleep, 50 pushups, no sugar).
+            """)
+            with st.form("agree_form"):
+                agree_button = st.form_submit_button("I Agree & Start Challenge!")
+                if agree_button:
+                    try:
+                        db = init_firebase()
+                        st.session_state.stage = "Silver"
+                        db.collection('users').document(user_id).update({'stage': 'Silver'})
+                        st.success("Challenge started! You're now in Silver stage! 🎉")
+                        st.experimental_rerun()
+                    except Exception as e:
+                        st.error(f"Challenge start failed: {str(e)}")
+
+        # Dashboard
+        if st.session_state.stage:
+            st.header("Your Dashboard")
+            try:
+                db = init_firebase()
+                doc = db.collection('users').document(user_id).get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    field = data.get('interests', 'Cricket').split(',')[0] if data.get('interests') else 'Cricket'
+                    streak_days = data.get('streak_days', 0)
+                    savings = data.get('savings', 0.0)
+                    stage = data.get('stage', 'Silver')
+                    st.metric("Stage", stage)
+                    st.metric("Streak", f"{streak_days}/{15 if stage == 'Silver' else 30 if stage == 'Platinum' else 60}")
+                    st.metric("Savings for Field", f"{savings} PKR")
+                    steps, month1, tips = get_roadmap(db, field)
+                    st.subheader(f"Roadmap for {field}")
+                    st.write(f"**Starting Steps:** {steps}")
+                    st.write(f"**1-Month Plan:** {month1}")
+                    st.write(f"**Uniqueness Tips:** {tips}")
+                else:
+                    st.error("User data not found in Firestore!")
+            except Exception as e:
+                st.error(f"Dashboard load failed: {str(e)}")
+
+            # Progress Calendar
+            st.subheader("Progress Calendar")
+            try:
+                logs = db.collection('daily_logs').where('user_id', '==', user_id).stream()
+                log_list = [log.to_dict() for log in logs]
+                if log_list:
+                    df_logs = pd.DataFrame(log_list)
+                    df_logs['date'] = pd.to_datetime(df_logs['date'])
+                    df_logs['Completed'] = df_logs.apply(
+                        lambda row: (row['distractions_avoided'] and row['work_done']) if stage == "Silver" else
+                                    (row['distractions_avoided'] and row['work_done'] and row['pushups'] >= 30 and row['water_liters'] >= 5) if stage == "Platinum" else
+                                    (row['distractions_avoided'] and row['work_done'] and row['sleep_early'] and row['pushups'] >= 50 and row['water_liters'] >= 5 and row['sugar_avoided']), axis=1)
+                    st.write(df_logs[['date', 'Completed']].set_index('date'))
+                else:
+                    st.info("Log your first day to see your calendar!")
+            except Exception as e:
+                st.error(f"Progress calendar failed: {str(e)}")
+
+            # Daily Check-In
+            st.header("Daily Check-In (Fill Before Sleeping)")
+            with st.form("daily_check_in"):
+                st.write("Tick the boxes for today's tasks:")
+                distractions_avoided = st.checkbox("I avoided distractions (e.g., no social media, gaming)")
+                work_done = st.checkbox(f"I worked {2 if stage == 'Silver' else 4 if stage == 'Platinum' else 6} hours on my field")
+                sleep_early = st.checkbox("I slept early (before 9 PM)") if stage == "Gold" else False
+                pushups = st.number_input("Pushups done today (30 for Platinum, 50 for Gold)", 0, 100, 0) if stage in ["Platinum", "Gold"] else 0
+                water_liters = st.number_input("Water drunk today (liters, 5 for Platinum/Gold)", 0.0, 10.0, 0.0) if stage in ["Platinum", "Gold"] else 0.0
+                sugar_avoided = st.checkbox("I avoided sugar/junk/alcohol") if stage == "Gold" else True
+                pocket_money = st.number_input("Today's pocket money (PKR)", 0.0, 10000.0, 0.0)
+                review = st.text_area("Daily Review (e.g., what went well?)", value="None")
+                submit_check_in = st.form_submit_button("Submit Check-In")
+
+                if submit_check_in:
+                    try:
+                        db = init_firebase()
+                        message, streak_days, savings, image_path, quote = daily_check_in(
+                            db, user_id, stage, distractions_avoided, work_done, sleep_early, 
+                            pushups, water_liters, sugar_avoided, pocket_money, review)
+                        st.write(message)
+                        try:
+                            if os.path.exists(image_path):
+                                st.image(image_path, caption=f"{quote} Screenshot this and set as your wallpaper!")
+                            else:
+                                st.warning(f"Image not found: {image_path}. Please add images to 'images/' folder.")
+                        except Exception as e:
+                            st.warning(f"Image loading failed: {str(e)}. Continue without images.")
+                        st.metric("Current Streak", f"{streak_days} days")
+                        st.metric("Savings for Field", f"{savings} PKR")
+                        badges, stage = update_badges(db, user_id, streak_days, stage)
+                        if badges:
+                            st.balloons()
+                            st.success(f"🎉 Earned Badges: {', '.join(badges)}")
+                        if stage == "Gold" and streak_days >= 60:
+                            st.success(f"🎉 Gold Badge Achieved! Use your {savings} PKR to develop your field!")
+                    except Exception as e:
+                        st.error(f"Daily check-in failed: {str(e)}")
+
+        # Logout button
+        if st.button("Logout"):
+            st.session_state.logged_in = False
+            st.session_state.user_id = None
+            st.session_state.stage = None
+            st.experimental_rerun()
+
+if __name__ == "__main__":
+    main()
