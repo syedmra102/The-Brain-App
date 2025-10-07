@@ -16,15 +16,13 @@ import re
 def init_firebase():
     file_path = "/content/the-brain-app-a0824-firebase-adminsdk-fbsvc-5d3ad34668.json"  # Colab path
     try:
-        # Check if Firebase app already exists
-        firebase_admin.get_app()
+        firebase_admin.get_app()  # Check if app already exists
     except ValueError:
-        # Initialize Firebase only if not already initialized
         if os.path.exists(file_path):
             cred = credentials.Certificate(file_path)
             firebase_admin.initialize_app(cred)
         elif "firebase" in st.secrets:
-            cred_dict = dict(st.secrets["firebase"])  # Convert AttrDict to dict
+            cred_dict = dict(st.secrets["firebase"])
             cred = credentials.Certificate(cred_dict)
             firebase_admin.initialize_app(cred)
         else:
@@ -199,6 +197,13 @@ def main():
         st.session_state.user_id = None
         st.session_state.stage = None
 
+    # Initialize Firebase
+    try:
+        db = init_firebase()
+    except Exception as e:
+        st.error(f"Firebase initialization failed: {str(e)}")
+        return
+
     # Login/Registration Form
     if not st.session_state.logged_in:
         st.header("Login or Register")
@@ -208,12 +213,6 @@ def main():
             login_button = st.form_submit_button("Login")
             register_button = st.form_submit_button("Register (New User)")
 
-            try:
-                db = init_firebase()
-            except Exception as e:
-                st.error(f"Firebase initialization failed: {str(e)}")
-                return
-
             if login_button:
                 if user_id and password:
                     if check_user(user_id, password, db):
@@ -222,7 +221,7 @@ def main():
                         doc = db.collection('users').document(user_id).get()
                         st.session_state.stage = doc.to_dict().get('stage', 'Silver') if doc.exists else 'Silver'
                         st.success(f"Welcome back, {user_id}!")
-                        st.experimental_rerun()
+                        st.rerun()
                     else:
                         st.error("Username or password incorrect. Try again or register.")
                 else:
@@ -236,7 +235,7 @@ def main():
                     else:
                         save_user(user_id, password, db)
                         st.success(f"Registered successfully, {user_id}! Now login.")
-                        st.experimental_rerun()
+                        st.rerun()
                 else:
                     st.error("Please enter username and password.")
     else:
@@ -253,10 +252,9 @@ def main():
             submit_profile = st.form_submit_button("Save Profile")
             if submit_profile:
                 try:
-                    db = init_firebase()
                     save_profile(user_id, interests, hours_per_day, distractions, db)
                     st.success("Profile saved! 🎉")
-                    st.experimental_rerun()
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Profile save failed: {str(e)}")
 
@@ -264,6 +262,8 @@ def main():
         st.header("Do You Want to Change Your Life?")
         st.markdown("**Join the 105 Days Challenge!** Click 'Yes' to see how your life will transform!")
         if st.button("Yes"):
+            st.session_state.show_challenge = True
+        if st.session_state.get("show_challenge", False):
             st.subheader("Your Life After the 105 Days Challenge")
             st.markdown("""
                 **Individual Benefits**:
@@ -301,11 +301,11 @@ def main():
                 agree_button = st.form_submit_button("I Agree & Start Challenge!")
                 if agree_button:
                     try:
-                        db = init_firebase()
                         st.session_state.stage = "Silver"
                         db.collection('users').document(user_id).update({'stage': 'Silver'})
                         st.success("Challenge started! You're now in Silver stage! 🎉")
-                        st.experimental_rerun()
+                        st.session_state.show_challenge = False
+                        st.rerun()
                     except Exception as e:
                         st.error(f"Challenge start failed: {str(e)}")
 
@@ -313,7 +313,6 @@ def main():
         if st.session_state.stage:
             st.header("Your Dashboard")
             try:
-                db = init_firebase()
                 doc = db.collection('users').document(user_id).get()
                 if doc.exists:
                     data = doc.to_dict()
@@ -368,7 +367,6 @@ def main():
 
                 if submit_check_in:
                     try:
-                        db = init_firebase()
                         message, streak_days, savings, image_path, quote = daily_check_in(
                             db, user_id, stage, distractions_avoided, work_done, sleep_early, 
                             pushups, water_liters, sugar_avoided, pocket_money, review)
@@ -396,7 +394,7 @@ def main():
             st.session_state.logged_in = False
             st.session_state.user_id = None
             st.session_state.stage = None
-            st.experimental_rerun()
+            st.rerun()
 
 if __name__ == "__main__":
     main()
