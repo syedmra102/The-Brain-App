@@ -19,7 +19,7 @@ st.markdown(
         border-radius: 8px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     }
-    /* Title color (white for contrast on blue) */
+    /* Title color (white for contrast) */
     h1 {
         color: #ffffff; /* White for title */
     }
@@ -32,13 +32,13 @@ st.markdown(
     }
     /* Green buttons */
     .stButton>button {
-        background-color: #28a745; /* Green buttons */
+        background-color: #28a745; /* Bright green buttons */
         color: white;
         border-radius: 8px;
         font-weight: bold;
     }
     .stButton>button:hover {
-        background-color: #218838; /* Darker green on hover */
+        background-color: #2ecc71; /* Lighter green on hover */
     }
     /* Error message styling */
     .stAlert {
