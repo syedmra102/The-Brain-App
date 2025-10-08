@@ -30,15 +30,16 @@ st.markdown(
         color: #ffffff; /* White for subheader */
         margin-bottom: 20px;
     }
-    /* Green buttons */
+    /* Green buttons with !important to override defaults */
     .stButton>button {
-        background-color: #28a745; /* Bright green buttons */
-        color: white;
+        background-color: #28a745 !important; /* Bright green buttons */
+        color: white !important;
         border-radius: 8px;
         font-weight: bold;
+        border: none;
     }
     .stButton>button:hover {
-        background-color: #2ecc71; /* Lighter green on hover */
+        background-color: #2ecc71 !important; /* Lighter green on hover */
     }
     /* Error message styling */
     .stAlert {
