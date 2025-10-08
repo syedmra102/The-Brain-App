@@ -32,7 +32,7 @@ st.markdown(
     }
     /* Green buttons with !important to override defaults */
     .stButton>button {
-        background-color: #28a745 !important; /* Bright green buttons */
+        background-color: green !important; /* Bright green buttons */
         color: white !important;
         border-radius: 8px;
         font-weight: bold;
