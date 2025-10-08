@@ -190,7 +190,7 @@ def page_login():
         if check_user(username, password):
             st.session_state.user = username
             st.success("Logged in!")
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Login failed. Check username/password.")
 
@@ -238,7 +238,7 @@ def page_ml_predict():
         st.write("**Free plan to become top 1%** — stage-based plan that also improves your health & skills.")
         if st.button("Yes, make me top 1%! (Free plan)"):
             st.session_state.offer_accepted = True
-            st.experimental_rerun()
+            st.rerun()
 
 def page_offer_and_rules():
     st.header("How your life will look after the Challenge")
@@ -260,7 +260,7 @@ def page_offer_and_rules():
     st.markdown("---")
     if st.button("Show Rules & Start Challenge"):
         st.session_state.show_rules = True
-        st.experimental_rerun()
+        st.rerun()
 
     if st.session_state.get("show_rules"):
         st.header("Stages & Rules")
@@ -287,7 +287,7 @@ def page_offer_and_rules():
             if st.session_state.user:
                 update_profile(st.session_state.user, {"joined": True, "started_on": datetime.now().strftime("%Y-%m-%d"), "stage": "Silver", "streak_days": 0})
                 st.success("Challenge started! You are now in Silver stage.")
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error("Login first to start the challenge.")
 
@@ -358,7 +358,7 @@ def page_daily_logging():
             st.success("Well done! You completed today's tasks. Take a motivational quote image from Google and set it as your wallpaper.")
         else:
             st.warning(f"Task not completed. {pocket_money} PKR added to your savings as penalty.")
-        st.experimental_rerun()
+        st.rerun()
 
     # show logs summary
     df = user_logs_df(username)
@@ -385,7 +385,7 @@ def main():
         st.sidebar.markdown(f"**Logged in:** {st.session_state.user}")
         if st.sidebar.button("Logout"):
             st.session_state.user = None
-            st.experimental_rerun()
+            st.rerun()
         if st.sidebar.button("Daily Logging"):
             st.session_state.page = "daily"
         if st.sidebar.button("Prediction"):
@@ -415,7 +415,7 @@ def main():
             st.success("Logged in — open Prediction from sidebar or continue below.")
             if st.button("Go to Prediction"):
                 st.session_state.page = "predict"
-                st.experimental_rerun()
+                st.rerun()
 
     elif page == "predict":
         page_ml_predict()
