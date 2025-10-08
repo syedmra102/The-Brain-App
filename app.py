@@ -369,7 +369,7 @@ def page_daily():
             st.rerun()
         else:
             # open modal for penalty payment / don't count option
-            with st.expander("⚠️ You missed some tasks — penalty required (click to open)")::
+            with st.expander("⚠️ You missed some tasks — penalty required (click to open)"):
                 st.write("You did not complete all required tasks for your stage.")
                 st.write("You can either *pay pocket money* now (it will be added to your savings) or *choose not to pay* — if you choose not to pay, **this day will NOT be counted** (no log saved).")
                 pay_amt = st.number_input("Enter pocket money amount to add to savings (PKR)", 0.0, 10000.0, float(pocket_money), 1.0, key=f"pen_{username}_{today_key}")
