@@ -1,15 +1,11 @@
-# app.py (v4.2)
-# The Brain - 105 Days (final)
-# - Local data.json storage auto-created
-# - Centered popup warning box for penalty (pay & count / skip)
-# - Confetti animation (st.balloons) on success
-# - Clean logs table with separate columns per stage
-# - Blue bg, white text, green buttons, navy sidebar
+# app.py (v4.3) - Final corrected version
+# The Brain - 105 Days (v4.3)
+# - Fixes: ML->Offer navigation, penalty flow, savings update, junk-food wording, logs columns
+# - Local data.json persistence (auto-created)
 # Requirements: streamlit, pandas, numpy
 
 import streamlit as st
-import json
-import os
+import json, os
 from datetime import datetime
 import numpy as np
 import pandas as pd
@@ -57,7 +53,7 @@ def inject_style():
     section[data-testid="stSidebar"] * { color: #eaf6ff !important; }
     input, textarea { background-color: rgba(255,255,255,0.04) !important; color: white !important; }
     .card { background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px; }
-    /* Centered warning box */
+    /* Center box */
     .center-box {
       max-width:700px;
       margin: 30px auto;
@@ -69,7 +65,6 @@ def inject_style():
     }
     .center-box h3 { color: #ffdcdc; margin-top:0; }
     .center-box p { color: #ffecec; }
-    .tiny-muted { color:#d7eefc; font-size:0.9rem }
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
@@ -112,45 +107,46 @@ def update_profile(username, updates):
     save_store(store)
     return True
 
-def record_failed_day(username, log):
-    """Record a failed day (adds savings and useless_days)"""
+def record_failed_day_with_penalty(username, log):
+    """Record a failed day and add penalty to savings and increment useless_days."""
     profile = store["users"][username]["profile"]
-    # add pocket money to savings (log must contain pocket_money > 0)
-    profile["savings"] = round(profile.get("savings", 0.0) + float(log.get("pocket_money", 0.0)), 2)
+    pay = float(log.get("pocket_money", 0.0))
+    profile["savings"] = round(profile.get("savings", 0.0) + pay, 2)
     profile["useless_days"] = profile.get("useless_days", 0) + 1
     entry = {
         "user": username,
         "date": datetime.now().strftime("%Y-%m-%d"),
         "stage": profile.get("stage"),
-        "work_done": log.get("work_done", False),
-        "distraction": log.get("distraction", True),
-        "pushups": log.get("pushups", None),
-        "water_liters": log.get("water_liters", None),
-        "slept_9pm": log.get("slept_9pm", None),
-        "woke_4am": log.get("woke_4am", None),
-        "sugar_avoided": log.get("sugar_avoided", None),
-        "pocket_money": float(log.get("pocket_money", 0.0)),
+        "work_done": log.get("work_done"),
+        "distraction": log.get("distraction"),
+        "pushups": log.get("pushups"),
+        "water_liters": log.get("water_liters"),
+        "woke_4am": log.get("woke_4am"),
+        "slept_9pm": log.get("slept_9pm"),
+        "sugar_avoided": log.get("sugar_avoided"),
+        "pocket_money": pay,
+        "counted": True,
         "result": "Failed (penalty paid)"
     }
     store["logs"].append(entry)
     save_store(store)
 
 def record_success_day(username, log):
-    """Record success day (increments streak)"""
     profile = store["users"][username]["profile"]
     profile["streak_days"] = profile.get("streak_days", 0) + 1
     entry = {
         "user": username,
         "date": datetime.now().strftime("%Y-%m-%d"),
         "stage": profile.get("stage"),
-        "work_done": log.get("work_done", True),
-        "distraction": log.get("distraction", False),
-        "pushups": log.get("pushups", None),
-        "water_liters": log.get("water_liters", None),
-        "slept_9pm": log.get("slept_9pm", None),
-        "woke_4am": log.get("woke_4am", None),
-        "sugar_avoided": log.get("sugar_avoided", None),
+        "work_done": log.get("work_done"),
+        "distraction": log.get("distraction"),
+        "pushups": log.get("pushups"),
+        "water_liters": log.get("water_liters"),
+        "woke_4am": log.get("woke_4am"),
+        "slept_9pm": log.get("slept_9pm"),
+        "sugar_avoided": log.get("sugar_avoided"),
         "pocket_money": float(log.get("pocket_money", 0.0)),
+        "counted": True,
         "result": "Success"
     }
     store["logs"].append(entry)
@@ -159,11 +155,11 @@ def record_success_day(username, log):
 def user_logs(username):
     return [l for l in store["logs"] if l["user"] == username]
 
-# ---------------- Predictor (heuristic) ----------------
+# ---------------- Predictor ----------------
 TRENDING_FIELDS = ["AI", "Programming", "Cybersecurity", "Data Science", "Content Creation", "Finance", "Health", "Design"]
 DISTRACTIONS_MASTER = ["Social media", "Gaming", "YouTube", "Scrolling news", "TV/Netflix", "Sleep late", "Friends/Calls", "Browsing random sites"]
 
-def predict_percentile(field, hours_per_day, distractions_list, sugar_avoided, exercise_daily, water_liters, junk_food, woke_4am, slept_9pm):
+def predict_percentile(field, hours_per_day, distractions_list, sugar_avoided, exercise_daily, water_liters, avoid_junkfood, woke_4am, slept_9pm):
     field_popularity = {"AI":60,"Programming":55,"Cybersecurity":50,"Data Science":55,"Content Creation":45,"Finance":50,"Health":50,"Design":48}
     base = field_popularity.get(field,50)
     hours_score = min(max(hours_per_day/12,0),1)*40
@@ -171,15 +167,15 @@ def predict_percentile(field, hours_per_day, distractions_list, sugar_avoided, e
     sugar_bonus = 8 if sugar_avoided else -6
     exercise_bonus = 8 if exercise_daily else -8
     water_bonus = min(water_liters,5)/5*8
-    junk_penalty = -6 if junk_food else 4
+    junk_bonus = 4 if avoid_junkfood else -6
     sleep_bonus = 6 if (woke_4am and slept_9pm) else (-4 if not slept_9pm else 2)
-    raw = base + hours_score - distraction_penalty + sugar_bonus + exercise_bonus + water_bonus + junk_penalty + sleep_bonus
+    raw = base + hours_score - distraction_penalty + sugar_bonus + exercise_bonus + water_bonus + junk_bonus + sleep_bonus
     pct = int(np.clip((raw/120)*100, 1, 99))
     return pct
 
 # ---------------- Pages ----------------
 def page_login():
-    st.markdown("<h2 style='color:white;'>Login or Register</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color:white;'>Login / Register</h2>", unsafe_allow_html=True)
     with st.form("auth"):
         col1, col2 = st.columns([2,1])
         with col1:
@@ -191,7 +187,7 @@ def page_login():
     if register_btn:
         try:
             create_user(username, password)
-            st.success("Registered successfully. Please login.")
+            st.success("Registered successfully. Now login.")
         except ValueError as e:
             st.error(str(e))
     if login_btn:
@@ -204,11 +200,11 @@ def page_login():
             st.error("Invalid credentials.")
 
 def page_predict():
-    st.header("Quick Prediction — Where you stand globally")
-    st.markdown("Answer a few quick questions. Distractions selection is on this page.")
-    # Sidebar snapshot
+    st.header("Quick Prediction — Where do you stand?")
+    st.markdown("Answer a few quick questions. Distractions are here on the page.")
+    # Sidebar quick snapshot
     with st.sidebar:
-        st.markdown("### Profile snapshot")
+        st.markdown("### Snapshot")
         if st.session_state.user:
             p = store["users"][st.session_state.user]["profile"]
             st.write(f"User: {st.session_state.user}")
@@ -220,31 +216,48 @@ def page_predict():
             st.session_state.page = "profile"
             st.rerun()
 
-    field = st.selectbox("Choose a trending field", TRENDING_FIELDS)
-    hours = st.slider("Hours/day you spend on this field", 0.0, 12.0, 2.0, 0.5)
+    # Keep inputs in session_state so navigation survives
+    if "pred_inputs" not in st.session_state:
+        st.session_state.pred_inputs = {}
+
+    field = st.selectbox("Choose a trending field", TRENDING_FIELDS, index=TRENDING_FIELDS.index(st.session_state.pred_inputs.get("field", TRENDING_FIELDS[0])) if st.session_state.pred_inputs.get("field") in TRENDING_FIELDS else 0)
+    hours = st.slider("Hours/day you spend on this field", 0.0, 12.0, float(st.session_state.pred_inputs.get("hours", 2.0)), 0.5)
     st.markdown("### Which distractions do you face now?")
-    current_distractions = st.multiselect("", DISTRACTIONS_MASTER, default=[])
-    sugar = st.checkbox("I avoid sugar")
-    exercise = st.checkbox("I exercise daily (30-60 min)")
-    water = st.number_input("Liters of water/day", 0.0, 10.0, 2.0, 0.5)
-    junk = st.checkbox("I eat junk food often")
-    woke4 = st.checkbox("I wake ~4:00 AM")
-    sleep9 = st.checkbox("I sleep ~9:00 PM")
+    current_distractions = st.multiselect("", DISTRACTIONS_MASTER, default=st.session_state.pred_inputs.get("distractions", []))
+    sugar = st.checkbox("I avoid sugar", value=st.session_state.pred_inputs.get("avoid_sugar", False))
+    exercise = st.checkbox("I exercise daily (30-60 min)", value=st.session_state.pred_inputs.get("exercise", False))
+    water = st.number_input("Liters of water/day", 0.0, 10.0, float(st.session_state.pred_inputs.get("water", 2.0)), 0.5)
+    avoid_junk = st.checkbox("I avoid junk food today", value=st.session_state.pred_inputs.get("avoid_junk", False))
+    woke4 = st.checkbox("I wake ~4:00 AM", value=st.session_state.pred_inputs.get("woke4", False))
+    sleep9 = st.checkbox("I sleep ~9:00 PM", value=st.session_state.pred_inputs.get("sleep9", False))
+
+    # Save inputs to session so they persist across rerun/navigation
+    st.session_state.pred_inputs = {
+        "field": field, "hours": hours, "distractions": current_distractions,
+        "avoid_sugar": sugar, "exercise": exercise, "water": water,
+        "avoid_junk": avoid_junk, "woke4": woke4, "sleep9": sleep9
+    }
 
     if st.button("Get Prediction"):
-        pct = predict_percentile(field, hours, current_distractions, sugar, exercise, water, junk, woke4, sleep9)
-        st.success(f"Estimated percentile: {pct}% — you're ahead of {pct}% people.")
+        pct = predict_percentile(field, hours, current_distractions, sugar, exercise, water, avoid_junk, woke4, sleep9)
+        st.success(f"Estimated percentile: {pct}%. You are ahead of {pct}% of people.")
         if pct >= 60:
-            st.info(f"You're in top {pct}%. With a focused plan you can reach top 1%.")
+            st.info(f"You're in top {pct}%. With a focused plan top 1% is reachable.")
         elif pct >= 40:
-            st.info(f"You are around top {pct}%. With consistency you'll climb faster.")
+            st.info(f"You are around top {pct}%. A plan will accelerate progress.")
         else:
-            st.warning(f"You are around {pct}%. Don't worry — start daily habits.")
+            st.warning(f"You are around {pct}%. Start consistent daily habits.")
         st.markdown("---")
-        st.write("Do you want our free stage-based plan to reach top 1% (skills + health)?")
-        if st.button("Yes — Make me top 1% (Free plan)"):
+        st.write("Do you want our free stage-based plan to become top 1% (skills + health)?")
+        # Use unique key; always set page to offer, and save selected inputs to profile if user logged in
+        if st.button("Yes — Make me top 1% (Free plan)", key="accept_plan"):
+            # Save prediction inputs to profile if logged in
             if st.session_state.user:
-                update_profile(st.session_state.user, {"field": field, "hours_per_day": hours, "distractions": current_distractions})
+                update_profile(st.session_state.user, {
+                    "field": st.session_state.pred_inputs["field"],
+                    "hours_per_day": st.session_state.pred_inputs["hours"],
+                    "distractions": st.session_state.pred_inputs["distractions"]
+                })
             st.session_state.page = "offer"
             st.rerun()
 
@@ -273,7 +286,7 @@ def page_offer():
         st.rerun()
 
 def page_rules():
-    st.header("Stages & Rules (Read carefully)")
+    st.header("Stages & Rules")
     st.markdown("""
 **Easy (Silver)** — 15 days:
 - Work **2 hours/day**.
@@ -287,12 +300,11 @@ def page_rules():
 
 **Hard (Gold)** — 60 days:
 - Wake **4 AM**, sleep **9 PM**.
-- **1 hour** exercise each morning.
+- **1 hour** morning exercise.
 - Work **6 hours/day**.
 - **5L water**, **no sugar**, **50 pushups**, **no junk food**.
 - Daily positive mirror talk.
     """)
-    st.write("")
     if st.button("Start Challenge (Join now)"):
         if not st.session_state.user:
             st.error("Please login first.")
@@ -332,6 +344,7 @@ def page_profile():
         st.rerun()
     st.markdown("---")
     st.subheader("Profile Summary")
+    prof = store["users"][u]["profile"]
     st.write(f"- Field: {prof.get('field','Not set')}")
     st.write(f"- Interests: {', '.join(prof.get('interests',[])) or 'None'}")
     st.write(f"- Hours/day goal: {prof.get('hours_per_day',0)}")
@@ -355,85 +368,82 @@ def page_daily():
     st.markdown("---")
 
     stage = prof.get("stage","Silver")
-    # define required checkbox questions per stage
+    # define questions per stage (keys)
     if stage == "Silver":
-        questions = [
-            ("work_2h", "Did you work at least 2 hours today in your field?"),
-            ("avoid_distractions", "Did you avoid distractions today (no scrolling)?")
-        ]
+        questions = [("work_2h","Did you work at least 2 hours today in your field?"),
+                     ("avoid_distractions","Did you avoid distractions today (no scrolling)?"),
+                     ("avoid_junk","Did you avoid junk food today?")]
     elif stage == "Platinum":
-        questions = [
-            ("work_4h", "Did you work at least 4 hours today in your field?"),
-            ("avoid_distractions", "Did you avoid distractions today (no scrolling)?"),
-            ("pushups_30", "Did you do at least 30 pushups today?"),
-            ("water_5l", "Did you drink at least 5 liters of water today?")
-        ]
-    else:  # Gold
-        questions = [
-            ("work_6h", "Did you work at least 6 hours today in your field?"),
-            ("avoid_distractions", "Did you avoid distractions today (no scrolling)?"),
-            ("pushups_50", "Did you do at least 50 pushups today?"),
-            ("water_5l", "Did you drink at least 5 liters of water today?"),
-            ("avoid_sugar", "Did you avoid sugar today?"),
-            ("woke_4am", "Did you wake around 4:00 AM today?"),
-            ("slept_9pm", "Did you sleep around 9:00 PM last night?")
-        ]
+        questions = [("work_4h","Did you work at least 4 hours today in your field?"),
+                     ("avoid_distractions","Did you avoid distractions today (no scrolling)?"),
+                     ("pushups_30","Did you do at least 30 pushups today?"),
+                     ("water_5l","Did you drink at least 5 liters of water today?"),
+                     ("avoid_junk","Did you avoid junk food today?")]
+    else: # Gold
+        questions = [("work_6h","Did you work at least 6 hours today in your field?"),
+                     ("avoid_distractions","Did you avoid distractions today (no scrolling)?"),
+                     ("pushups_50","Did you do at least 50 pushups today?"),
+                     ("water_5l","Did you drink at least 5 liters of water today?"),
+                     ("avoid_sugar","Did you avoid sugar today?"),
+                     ("woke_4am","Did you wake ~4:00 AM today?"),
+                     ("slept_9pm","Did you sleep around 9:00 PM last night?"),
+                     ("avoid_junk","Did you avoid junk food today?")]
 
     today_key = datetime.now().strftime("%Y%m%d")
     responses = {}
-    with st.form("daily_check_form"):
+    with st.form("daily_form"):
         for key,label in questions:
             widget_key = f"{username}_{today_key}_{key}"
             responses[key] = st.checkbox(label, key=widget_key)
-        # optional informative fields
-        junk_key = f"{username}_{today_key}_junk"
-        junk_food = st.checkbox("Did you eat junk food today?", key=junk_key)
         pocket_key = f"{username}_{today_key}_pocket"
         pocket_money = st.number_input("If you fail and choose to pay, pocket money to save today (PKR):", 0.0, 10000.0, 0.0, 1.0, key=pocket_key)
         submit = st.form_submit_button("Submit Today's Check")
     if submit:
-        # success if all required questions are True
+        # success if all responses True
         success = all(responses.values())
-        # build log dict with stage-relevant fields
+        # build log info
         log = {
             "stage": stage,
-            "work_done": responses.get(questions[0][0], False),
-            "distraction": (not responses.get("avoid_distractions", True)) if "avoid_distractions" in dict(questions).keys() else False,
+            "work_done": responses.get(next(q for q in dict(questions).keys()), False),  # first question = work
+            "distraction": not responses.get("avoid_distractions", True),
             "pushups": None,
             "water_liters": None,
-            "slept_9pm": None,
-            "woke_4am": None,
-            "sugar_avoided": None,
+            "woke_4am": responses.get("woke_4am", None),
+            "slept_9pm": responses.get("slept_9pm", None),
+            "sugar_avoided": responses.get("avoid_sugar", None),
             "pocket_money": float(pocket_money)
         }
-        # fill detailed fields if present
-        if stage in ("Platinum", "Gold"):
-            log["pushups"] = responses.get("pushups_30", responses.get("pushups_50", None))
-            log["water_liters"] = 5.0 if responses.get("water_5l", False) else 0.0
-        if stage == "Gold":
-            log["sugar_avoided"] = responses.get("avoid_sugar", False)
-            log["woke_4am"] = responses.get("woke_4am", False)
-            log["slept_9pm"] = responses.get("slept_9pm", False)
-
+        # fill pushups and water if present
+        if "pushups_30" in dict(questions).keys() or "pushups_50" in dict(questions).keys():
+            # we only stored checkbox; convert to numeric for logs
+            if responses.get("pushups_30"):
+                log["pushups"] = 30
+            elif responses.get("pushups_50"):
+                log["pushups"] = 50
+            else:
+                log["pushups"] = 0
+        if "water_5l" in dict(questions).keys():
+            log["water_liters"] = 5.0 if responses.get("water_5l") else 0.0
+        # if success -> success flow
         if success:
-            # record success
             record_success_day(username, log)
-            st.success("Excellent — all tasks completed! Take a motivational quote image from Google and set it as your wallpaper to remind yourself of the mission.")
-            st.balloons()  # animation
+            st.success("Excellent — all tasks completed! Take a motivational quote image from Google and set it as your wallpaper to stay on mission.")
+            st.balloons()
             st.rerun()
         else:
-            # show centered warning box (red) for penalty decision
+            # show centered warning box for penalty decision
             st.markdown(
                 """
                 <div class="center-box">
-                  <h3>⚠️ You missed some required tasks today</h3>
-                  <p>You didn't complete all stage tasks. To count this day as a (failed) day and add penalty to savings, please pay pocket money below.<br>
-                  If you choose <b>Don't Count This Day</b>, then nothing will be saved and the day will not be recorded.</p>
+                  <h3>⚠️ You missed required tasks today</h3>
+                  <p>If you want this day to be recorded (as a failed day), pay pocket money now and it will be added to your savings.<br>
+                  If you choose <b>Don't Count This Day</b>, the day will NOT be recorded (no savings, no useless day increment).</p>
+                </div>
                 """,
-                unsafe_allow_html=True
+                unsafe_allow_html=True,
             )
-            col1, col2 = st.columns([1,1])
-            with col1:
+            cols = st.columns([1,1])
+            with cols[0]:
                 pay_amt_key = f"pen_amt_{username}_{today_key}"
                 pay_amt = st.number_input("Enter pocket money to pay now (PKR):", 0.0, 10000.0, float(pocket_money), 1.0, key=pay_amt_key)
                 if st.button("Pay & Count Day (Record failed day)", key=f"pay_{username}_{today_key}"):
@@ -441,47 +451,36 @@ def page_daily():
                         st.error("Enter an amount greater than 0 to pay and record the day.")
                     else:
                         log["pocket_money"] = float(pay_amt)
-                        record_failed_day(username, log)
-                        st.success(f"Penalty paid {pay_amt} PKR. Failed day recorded. Now: take a motivational quote image from Google and set it as wallpaper.")
-                        st.markdown("</div>", unsafe_allow_html=True)
+                        record_failed_day_with_penalty(username, log)
+                        st.success(f"Penalty paid {pay_amt} PKR. Failed day recorded and savings updated.")
+                        st.info("Last task: go to Google, search a motivational quote image you like, and set it as your wallpaper so when you wake up you remember you are on a mission.")
                         st.rerun()
-            with col2:
+            with cols[1]:
                 if st.button("Don't Count This Day (Skip & Don't Save)", key=f"skip_{username}_{today_key}"):
-                    st.info("This day will NOT be counted. No log saved. Remember to be consistent tomorrow.")
-                    st.markdown("</div>", unsafe_allow_html=True)
+                    st.info("This day will NOT be counted. No record saved.")
                     st.rerun()
-            # close center-box tag if not closed
-            if not st.session_state.get(f"pen_handled_{username}_{today_key}", False):
-                # mark handled? optional - we rely on rerun after button
-                pass
 
-    # ---------------- Show clean logs table ----------------
+    # ---------------- show clean logs table ----------------
     logs = user_logs(username)
     if logs:
         st.markdown("---")
         st.subheader("Recent activity (latest 10)")
         df = pd.DataFrame(logs).sort_values("date", ascending=False).head(10)
-        # Normalize columns to include all possible keys
-        # Make columns: date, stage, work_done, distraction, pushups, water_liters, woke_4am, slept_9pm, sugar_avoided, pocket_money, result
-        def safe_get(row, key):
-            return row.get(key, None) if isinstance(row, dict) else None
-        rows = []
-        for r in df.to_dict(orient="records"):
-            rows.append({
-                "date": r.get("date"),
-                "stage": r.get("stage"),
-                "work_done": r.get("work_done"),
-                "distraction": r.get("distraction"),
-                "pushups": r.get("pushups"),
-                "water_liters": r.get("water_liters"),
-                "woke_4am": r.get("woke_4am"),
-                "slept_9pm": r.get("slept_9pm"),
-                "sugar_avoided": r.get("sugar_avoided"),
-                "pocket_money": r.get("pocket_money", 0.0),
-                "result": r.get("result", r.get("result",""))
-            })
-        df_clean = pd.DataFrame(rows)
-        # show table
+        # ensure columns exist
+        df_clean = pd.DataFrame({
+            "date": df.get("date"),
+            "stage": df.get("stage"),
+            "work_done": df.get("work_done"),
+            "distraction": df.get("distraction"),
+            "pushups": df.get("pushups"),
+            "water_liters": df.get("water_liters"),
+            "woke_4am": df.get("woke_4am"),
+            "slept_9pm": df.get("slept_9pm"),
+            "sugar_avoided": df.get("sugar_avoided"),
+            "pocket_money": df.get("pocket_money"),
+            "result": df.get("result"),
+            "counted": df.get("counted")
+        })
         st.dataframe(df_clean.reset_index(drop=True))
 
 # ---------------- Main ----------------
@@ -494,6 +493,8 @@ def main():
         st.session_state.user = None
     if "page" not in st.session_state:
         st.session_state.page = "home"
+    if "pred_inputs" not in st.session_state:
+        st.session_state.pred_inputs = {}
 
     # Sidebar
     st.sidebar.title("Menu")
