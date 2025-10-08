@@ -6,14 +6,25 @@ st.set_page_config(page_title="Brain App Login", page_icon="🧠", layout="cente
 # Title
 st.title("The Brain that helps u to use your brain")
 
-# Centered subheader using container and columns
-with st.container():
-    # Create a single column in the center
-    col1, col2, col3 = st.columns([1, 2, 1])  # Middle column badi hai
-    with col2:
-        st.subheader("For login into your account press login and are u visiting for the first time please press sign up")
+# Centered subheader with CSS
+st.markdown(
+    """
+    <style>
+    .centered-subheader {
+        text-align: center;
+        font-size: 20px;
+        color: #1f2a44;
+        margin-bottom: 20px;
+    }
+    </style>
+    <h3 class="centered-subheader">
+        For login into your account press login and are u visiting for the first time please press sign up
+    </h3>
+    """,
+    unsafe_allow_html=True
+)
 
-# Login form (same as before)
+# Login form
 with st.form(key="login_form"):
     username = st.text_input("Username", placeholder="Enter your username")
     password = st.text_input("Password", type="password", placeholder="Enter your password")
