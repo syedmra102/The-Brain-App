@@ -4,43 +4,57 @@ import re
 # Set page config
 st.set_page_config(page_title="Brain App Login", page_icon="🧠", layout="centered")
 
-# Custom CSS for colors
+# Custom CSS for blue background, white form, green buttons
 st.markdown(
     """
     <style>
-    /* Background color for the entire page */
+    /* Blue background for the entire page */
     .stApp {
-        background-color: #e6f3ff; /* Light blue-gray for AI vibe */
+        background-color: #0052cc; /* Vibrant blue */
     }
-    /* Title color */
+    /* White form container */
+    .stForm {
+        background-color: #ffffff; /* White background for form */
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+    /* Title color (white for contrast on blue) */
     h1 {
-        color: #1a3c6e; /* Dark blue for title */
+        color: #ffffff; /* White for title */
     }
-    /* Subheader color */
+    /* Subheader color (white for contrast) */
     .centered-subheader {
         text-align: center;
         font-size: 20px;
-        color: #2e4b8c; /* Medium blue for subheader */
+        color: #ffffff; /* White for subheader */
         margin-bottom: 20px;
     }
-    /* Button colors */
+    /* Green buttons */
     .stButton>button {
-        background-color: #2e4b8c; /* Dark blue buttons */
+        background-color: #28a745; /* Green buttons */
         color: white;
         border-radius: 8px;
+        font-weight: bold;
     }
     .stButton>button:hover {
-        background-color: #1a3c6e; /* Darker blue on hover */
+        background-color: #218838; /* Darker green on hover */
     }
-    /* Error message color */
+    /* Error message styling */
     .stAlert {
-        background-color: #ffe6e6; /* Light red for error background */
-        color: #d91e18; /* Red for error text */
+        background-color: #ffe6e6; /* Light red for error */
+        color: #d91e18; /* Red text */
     }
-    /* Success message color */
+    /* Success message styling */
     .stSuccess {
         background-color: #e6ffed; /* Light green for success */
-        color: #2e7d32; /* Green for success text */
+        color: #2e7d32; /* Green text */
+    }
+    /* Input fields styling */
+    .stTextInput>div>input {
+        background-color: #f8f9fa; /* Light gray for input fields */
+        border: 1px solid #cccccc;
+        border-radius: 4px;
     }
     </style>
     """,
@@ -79,13 +93,13 @@ with st.form(key="login_form"):
             # Check if fields are empty
             if not username or not password:
                 raise ValueError("Username aur password dono zaroori hain!")
-            # Basic validation: username should be alphanumeric, no spaces
+            # Validate username: alphanumeric, no spaces
             if not re.match(r"^[a-zA-Z0-9]+$", username):
                 raise ValueError("Username mein sirf letters aur numbers hone chahiye, no spaces!")
             # Password length check
             if len(password) < 6:
                 raise ValueError("Password kam se kam 6 characters ka hona chahiye!")
-            # Placeholder for real auth (e.g., check against database)
+            # Placeholder for real auth
             if username == "user" and password == "pass123":
                 st.success("Login successful! Ab dashboard pe redirect kar sakte hain.")
             else:
@@ -95,7 +109,7 @@ with st.form(key="login_form"):
         except Exception as e:
             st.error("Kuch galat hua! Dobara koshish karein.")
     
-    # Handle signup (placeholder with try-except)
+    # Handle signup (placeholder)
     if signup_button:
         try:
             if not username or not password:
