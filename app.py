@@ -4,7 +4,7 @@ import re
 # Set page config
 st.set_page_config(page_title="Brain App Login", page_icon="🧠", layout="centered")
 
-# Custom CSS for blue background, white form, green buttons
+# Custom CSS for blue background, white form, red buttons
 st.markdown(
     """
     <style>
@@ -30,16 +30,16 @@ st.markdown(
         color: #ffffff; /* White for subheader */
         margin-bottom: 20px;
     }
-    /* Green buttons with !important to override defaults */
+    /* Red buttons with !important to override defaults */
     .stButton>button {
-        background-color: green !important; /* Bright green buttons */
+        background-color: #ff0000 !important; /* Bright red buttons */
         color: white !important;
         border-radius: 8px;
         font-weight: bold;
         border: none;
     }
     .stButton>button:hover {
-        background-color: #2ecc71 !important; /* Lighter green on hover */
+        background-color: #cc0000 !important; /* Darker red on hover */
     }
     /* Error message styling */
     .stAlert {
