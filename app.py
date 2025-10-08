@@ -4,56 +4,64 @@ import re
 # Set page config
 st.set_page_config(page_title="Brain App Login", page_icon="🧠", layout="centered")
 
-# Custom CSS for blue background, white form, red buttons
+# Custom CSS for blue background, white form, red buttons (updated selector)
 st.markdown(
     """
     <style>
     /* Blue background for the entire page */
     .stApp {
-        background-color: #0052cc; /* Vibrant blue */
+        background-color: #0052cc !important; /* Vibrant blue */
     }
     /* White form container */
     .stForm {
-        background-color: #ffffff; /* White background for form */
+        background-color: #ffffff !important; /* White background for form */
         padding: 20px;
         border-radius: 8px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     }
     /* Title color (white for contrast) */
     h1 {
-        color: #ffffff; /* White for title */
+        color: #ffffff !important; /* White for title */
     }
     /* Subheader color (white for contrast) */
     .centered-subheader {
         text-align: center;
         font-size: 20px;
-        color: #ffffff; /* White for subheader */
+        color: #ffffff !important; /* White for subheader */
         margin-bottom: 20px;
     }
-    /* Red buttons with !important to override defaults */
-    .stButton>button {
+    /* Red buttons with updated selector and !important */
+    div.stButton > button {
         background-color: #ff0000 !important; /* Bright red buttons */
         color: white !important;
         border-radius: 8px;
         font-weight: bold;
-        border: none;
+        border: none !important;
     }
-    .stButton>button:hover {
+    div.stButton > button:hover {
         background-color: #cc0000 !important; /* Darker red on hover */
+    }
+    /* Form submit buttons specifically */
+    div[data-testid="column"] div.stButton > button {
+        background-color: #ff0000 !important;
+        color: white !important;
+    }
+    div[data-testid="column"] div.stButton > button:hover {
+        background-color: #cc0000 !important;
     }
     /* Error message styling */
     .stAlert {
-        background-color: #ffe6e6; /* Light red for error */
-        color: #d91e18; /* Red text */
+        background-color: #ffe6e6 !important; /* Light red for error */
+        color: #d91e18 !important; /* Red text */
     }
     /* Success message styling */
     .stSuccess {
-        background-color: #e6ffed; /* Light green for success */
-        color: #2e7d32; /* Green text */
+        background-color: #e6ffed !important; /* Light green for success */
+        color: #2e7d32 !important; /* Green text */
     }
     /* Input fields styling */
-    .stTextInput>div>input {
-        background-color: #f8f9fa; /* Light gray for input fields */
+    .stTextInput > div > div > input {
+        background-color: #f8f9fa !important; /* Light gray for input fields */
         border: 1px solid #cccccc;
         border-radius: 4px;
     }
