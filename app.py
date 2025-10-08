@@ -301,7 +301,7 @@ def main():
         st.sidebar.write(f"Logged in as: **{st.session_state.user}**")
         if st.sidebar.button("Logout"):
             st.session_state.user = None
-            st.experimental_rerun()
+            st.rerun()
         if st.sidebar.button("Dashboard"):
             st.session_state.page = "dashboard"
     else:
@@ -334,7 +334,7 @@ def main():
             if ok:
                 st.session_state.user = username
                 st.success("Logged in!")
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error("Invalid credentials.")
 
@@ -376,7 +376,7 @@ def main():
             level = st.selectbox("Choose your level", ["Easy (Silver - 15 days)", "Medium (Platinum - 30 days)", "Hard (Gold - 60 days)"])
             if st.button("Next"):
                 st.session_state.page = "stages"
-                st.experimental_rerun()
+                st.rerun()
 
         elif page == "stages":
             show_rules_and_stages()
@@ -396,7 +396,7 @@ def main():
                     st.info("You already started. Go to Dashboard.")
             if st.button("Back"):
                 st.session_state.page = "home"
-                st.experimental_rerun()
+                st.rerun()
 
         elif page == "dashboard":
             dashboard(username)
