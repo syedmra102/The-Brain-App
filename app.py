@@ -30,6 +30,78 @@ def save_store(store):
 
 store = load_store()
 
+
+# ---------------- Storage helpers ----------------
+# ... (load_store and save_store definitions, which you kept) ...
+
+# ---------------- User helpers ----------------
+def create_user(username, password):
+    if not username or not password:
+        raise ValueError("Username and password required.")
+    if len(password) < 6:
+        raise ValueError("Password must be at least 6 characters.")
+    if username in store["users"]:
+        raise ValueError("Username already exists.")
+    store["users"][username] = {
+        "password": password,
+        "profile": {
+            "field": "",
+            "interests": [],
+            "hours_per_day": 0.0,
+            "stage": "Silver",
+            "streak_days": 0,
+            "savings": 0.0,
+            "started_on": None,
+            "joined": False,
+            "useless_days": 0,
+            "distractions": [],
+            "badges": [] # New: To track earned badges
+        }
+    }
+    save_store(store)
+
+def check_user(username, password):
+    u = store["users"].get(username)
+    if not u:
+        return False
+    return u["password"] == password
+
+def update_profile(username, updates):
+    if username not in store["users"]:
+        return False
+    store["users"][username]["profile"].update(updates)
+    save_store(store)
+    return True
+# ... (rest of the user helpers like record_failed_day_with_penalty, etc. should follow) ...
+
+# ---------------- Pages ----------------
+def page_login():
+    st.markdown("<h2 style='color:white;'>Login / Register</h2>", unsafe_allow_html=True)
+    with st.form("auth"):
+        col1, col2 = st.columns([2,1])
+        with col1:
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+        with col2:
+            login_btn = st.form_submit_button("Login")
+            register_btn = st.form_submit_button("Register")
+    if register_btn:
+        try:
+            create_user(username, password)
+            st.success("Registered successfully. Now login.")
+        except ValueError as e:
+            st.error(str(e))
+    if login_btn:
+        if check_user(username, password):
+            st.session_state.user = username
+            st.success("Logged in.")
+            # Default navigation is set to 'predict' after successful login
+            st.session_state.page = "predict" 
+            st.rerun()
+        else:
+            st.error("Invalid credentials.")
+
+
 # ---------------- Styling ----------------
 def inject_style():
     css = """
