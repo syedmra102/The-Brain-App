@@ -316,6 +316,7 @@ def page_predict():
         st.write("Do you want our free stage-based plan to become top 1% (skills + health)?")
         if st.button("Yes — Make me top 1% (Free plan)", key="accept_plan"):
             st.session_state.page = "offer"
+            st.rerun()
             if st.session_state.user:
                 update_profile(st.session_state.user, {
                     "field": st.session_state.pred_inputs["field"],
