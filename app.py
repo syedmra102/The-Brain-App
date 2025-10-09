@@ -1,8 +1,9 @@
-# app.py (v5.1) - Final Code with Fixes and Automated Goals
-# - Fixes NameError on 'today_key'.
-# - Fixes Prediction -> Offer navigation bug.
-# - Implements automatic 'hours_per_day' goal based on selected 'stage' in Profile.
-# Requirements: streamlit, pandas, numpy
+# app.py (v5.2) - Final Code with Advanced Penalty & Badge Logic
+# - Penalty logic refined: Penalty = Success day (streak continues, savings update).
+# - Badge logic requires previous badges for progression (Silver -> Platinum -> Gold).
+# - Log shows all historical days, not just the last 10.
+# - Useless day count only increments if user Fails AND Skips Penalty.
+# - Wallpaper rule displayed on ALL successful day recordings.
 
 import streamlit as st
 import json, os
@@ -65,6 +66,17 @@ def inject_style():
     }
     .center-box h3 { color: #ffdcdc; margin-top:0; }
     .center-box p { color: #ffecec; }
+    .center-box-success {
+      max-width:700px;
+      margin: 30px auto;
+      background: #002b00;
+      border: 2px solid #4dff4d;
+      padding: 18px;
+      border-radius: 12px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    }
+    .center-box-success h3 { color: #dcfdc1; margin-top:0; }
+    .center-box-success p { color: #ecffe3; }
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
@@ -90,7 +102,7 @@ def create_user(username, password):
             "joined": False,
             "useless_days": 0,
             "distractions": [],
-            "badges": [] # New: To track earned badges
+            "badges": []
         }
     }
     save_store(store)
@@ -108,36 +120,34 @@ def update_profile(username, updates):
     save_store(store)
     return True
 
-def record_failed_day_with_penalty(username, log):
-    """Record a failed day and add penalty to savings and increment useless_days."""
+def record_failed_day_skip(username):
+    """Day failed AND penalty skipped. Day is NOT counted, but useless days increment."""
     profile = store["users"][username]["profile"]
-    pay = float(log.get("pocket_money", 0.0))
-    profile["savings"] = round(profile.get("savings", 0.0) + pay, 2)
-    profile["useless_days"] = profile.get("useless_days", 0) + 1
-    # Reset streak on failure
+    
+    # Reset streak because failure occurred
     profile["streak_days"] = 0 
-    entry = {
-        "user": username,
-        "date": datetime.now().strftime("%Y-%m-%d"),
-        "stage": profile.get("stage"),
-        "work_done": log.get("work_done"),
-        "distraction": log.get("distraction"),
-        "pushups": log.get("pushups"),
-        "water_liters": log.get("water_liters"),
-        "woke_4am": log.get("woke_4am"),
-        "slept_9pm": log.get("slept_9pm"),
-        "sugar_avoided": log.get("sugar_avoided"),
-        "pocket_money": pay,
-        "counted": True,
-        "result": "Failed (penalty paid)"
-    }
-    store["logs"].append(entry)
+    
+    # Increment useless day count ONLY if they fail AND skip the penalty.
+    profile["useless_days"] = profile.get("useless_days", 0) + 1
+    
+    # DO NOT append to logs, as requested ("not countable")
     save_store(store)
 
-def record_success_day(username, log):
+def record_day_with_penalty(username, log, success_status="Success (Paid Penalty)"):
+    """
+    Records a day where penalty was paid. This guarantees a 'Success' status 
+    for the day, even if tasks were missed.
+    """
     profile = store["users"][username]["profile"]
-    profile["streak_days"] = profile.get("streak_days", 0) + 1
-    # Check for stage progression on success
+    pay = float(log.get("pocket_money", 0.0))
+    
+    # Update savings immediately
+    profile["savings"] = round(profile.get("savings", 0.0) + pay, 2)
+    
+    # Success, so increase streak (unless it was already at the max for the stage)
+    # The check_and_update_stage handles the progression and streak reset
+    profile["streak_days"] = profile.get("streak_days", 0) + 1 
+    
     check_and_update_stage(username, profile["streak_days"])
     
     entry = {
@@ -151,50 +161,68 @@ def record_success_day(username, log):
         "woke_4am": log.get("woke_4am"),
         "slept_9pm": log.get("slept_9pm"),
         "sugar_avoided": log.get("sugar_avoided"),
-        "pocket_money": float(log.get("pocket_money", 0.0)),
+        "pocket_money": pay,
         "counted": True,
-        "result": "Success"
+        "result": success_status # "Success (Paid Penalty)" or "Success"
     }
     store["logs"].append(entry)
     save_store(store)
 
-def user_logs(username):
-    return [l for l in store["logs"] if l["user"] == username]
 
 def check_and_update_stage(username, current_streak):
     profile = store["users"][username]["profile"]
     current_stage = profile.get("stage", "Silver")
     current_badges = profile.get("badges", [])
     
-    if current_stage == "Silver" and current_streak >= 15:
-        profile["stage"] = "Platinum"
-        profile["streak_days"] = 0 # Reset streak for next stage
-        # Set hours goal for the new stage
-        profile["hours_per_day"] = 4.0 
+    # Stage goals (minimum streak days required)
+    SILVER_DAYS = 15
+    PLATINUM_DAYS = 30
+    GOLD_DAYS = 60
+    
+    promoted = False
+
+    # 1. Promote from Silver -> Platinum (Requires 15 days)
+    if current_stage == "Silver" and current_streak >= SILVER_DAYS:
         if "Silver" not in current_badges:
             profile["badges"].append("Silver")
-            st.success("🏆 CONGRATULATIONS! You earned the **Silver Badge** and advanced to the **Platinum Stage**!")
-    
-    elif current_stage == "Platinum" and current_streak >= 30:
-        profile["stage"] = "Gold"
+            st.success("🏆 CONGRATULATIONS! You earned the **Silver Badge**!")
+            
+        profile["stage"] = "Platinum"
         profile["streak_days"] = 0 # Reset streak for next stage
-        # Set hours goal for the new stage
-        profile["hours_per_day"] = 6.0 
-        if "Platinum" not in current_badges:
-            profile["badges"].append("Platinum")
-            st.success("🌟 PHENOMENAL! You earned the **Platinum Badge** and advanced to the **Gold Stage**!")
+        profile["hours_per_day"] = 4.0 # Set hours goal for the new stage
+        st.success("🌟 You have advanced to the **Platinum Stage**! New goals await.")
+        promoted = True
+    
+    # 2. Promote from Platinum -> Gold (Requires 30 days AND Silver Badge)
+    elif current_stage == "Platinum" and current_streak >= PLATINUM_DAYS:
+        if "Silver" in current_badges:
+            if "Platinum" not in current_badges:
+                profile["badges"].append("Platinum")
+                st.success("🌟 PHENOMENAL! You earned the **Platinum Badge**!")
+            
+            profile["stage"] = "Gold"
+            profile["streak_days"] = 0 # Reset streak for next stage
+            profile["hours_per_day"] = 6.0 # Set hours goal for the new stage
+            st.success("👑 You have advanced to the **Gold Stage**! You are nearly unstoppable.")
+            promoted = True
+        else:
+            st.warning("You must earn the Silver Badge before progressing to Platinum stage! (Error in log history, please contact support).")
+            
+    # 3. Complete Gold Stage (Requires 60 days AND Silver + Platinum Badges)
+    elif current_stage == "Gold" and current_streak >= GOLD_DAYS:
+        if "Silver" in current_badges and "Platinum" in current_badges:
+            if "Gold" not in current_badges:
+                profile["badges"].append("Gold")
+                st.balloons()
+                st.success("👑 MISSION COMPLETE! You earned the **Gold Badge** and finished the **105-Day Challenge!**")
+                profile["joined"] = False # End of challenge
+            promoted = True # Not a stage change, but a completion status
 
-    elif current_stage == "Gold" and current_streak >= 60:
-        if "Gold" not in current_badges:
-            profile["badges"].append("Gold")
-            st.balloons()
-            st.success("👑 MISSION COMPLETE! You earned the **Gold Badge** and finished the **105-Day Challenge!**")
-            profile["joined"] = False # End of challenge
-
-    save_store(store)
+    if promoted:
+        save_store(store)
 
 
-# ---------------- Predictor ----------------
+# ---------------- Predictor and Pages (Unchanged) ----------------
 TRENDING_FIELDS = ["AI", "Programming", "Cybersecurity", "Data Science", "Content Creation", "Finance", "Health", "Design"]
 DISTRACTIONS_MASTER = ["Social media", "Gaming", "YouTube", "Scrolling news", "TV/Netflix", "Sleep late", "Friends/Calls", "Browsing random sites"]
 
@@ -212,7 +240,6 @@ def predict_percentile(field, hours_per_day, distractions_list, sugar_avoided, e
     pct = int(np.clip((raw/120)*100, 1, 99))
     return pct
 
-# ---------------- Pages ----------------
 def page_login():
     st.markdown("<h2 style='color:white;'>Login / Register</h2>", unsafe_allow_html=True)
     with st.form("auth"):
@@ -250,14 +277,12 @@ def page_predict():
             st.write(f"Stage: {p.get('stage')}")
             st.write(f"Field: {p.get('field') or 'Not set'}")
             st.write(f"Savings: {p.get('savings',0.0)} PKR")
-            # Display Badges
             st.markdown(f"**Badges:** {' '.join([f'✅ {b}' for b in p.get('badges',[])]) or 'None'}")
         st.markdown("---")
         if st.session_state.user and st.button("Open Profile"):
             st.session_state.page = "profile"
             st.rerun()
 
-    # Keep inputs in session_state so navigation survives
     if "pred_inputs" not in st.session_state:
         st.session_state.pred_inputs = {}
 
@@ -272,7 +297,6 @@ def page_predict():
     woke4 = st.checkbox("I wake ~4:00 AM", value=st.session_state.pred_inputs.get("woke4", False))
     sleep9 = st.checkbox("I sleep ~9:00 PM", value=st.session_state.pred_inputs.get("sleep9", False))
 
-    # Save inputs to session so they persist across rerun/navigation
     st.session_state.pred_inputs = {
         "field": field, "hours": hours, "distractions": current_distractions,
         "avoid_sugar": sugar, "exercise": exercise, "water": water,
@@ -290,12 +314,10 @@ def page_predict():
             st.warning(f"You are around {pct}%. Start consistent daily habits.")
         st.markdown("---")
         st.write("Do you want our free stage-based plan to become top 1% (skills + health)?")
-        # Direct navigation to offer page (Fixed)
         if st.button("Yes — Make me top 1% (Free plan)", key="accept_plan"):
             if st.session_state.user:
                 update_profile(st.session_state.user, {
                     "field": st.session_state.pred_inputs["field"],
-                    # Note: hours_per_day is set in profile page based on stage now
                     "distractions": st.session_state.pred_inputs["distractions"]
                 })
             st.session_state.page = "offer"
@@ -318,7 +340,6 @@ def page_offer():
     for i,b in enumerate(benefits,1):
         st.markdown(f"**{i}.** {b}")
     st.markdown("---")
-    # Direct navigation to rules page
     if st.button("Show Rules & Start Challenge"):
         st.session_state.page = "rules"
         st.rerun()
@@ -351,10 +372,10 @@ def page_rules():
 ### ⚠️ The Failure Rule (Discipline Nudge)
 
 If you fail any task, you have two choices:
-1.  **Pay the Penalty:** Pay the amount of pocket money you intended to save today. This money is **added to your savings**, but your **streak resets to 0**, and the day is counted as **useless**.
-2.  **Don't Count:** The day is **NOT recorded**, meaning **no streak reset**, but also **no savings** and **no useless day** count. The day is effectively a skip.
+1.  **Pay the Penalty (Day Counts as Success):** Pay the amount of pocket money you intended to save today. This money is **added to your savings**, and your **streak continues/increases**. The day is **recorded as SUCCESS (Paid Penalty)**.
+2.  **Don't Count This Day (Skip Day):** The day is **NOT recorded** (no savings), your streak **resets to 0** (because you failed the effort), and the day is counted as **useless** to reflect the lost opportunity. You must re-do today's full effort tomorrow.
 
-This enforces the habit: either you commit fully, or you pay to acknowledge failure and save for the future.
+This enforces the habit: either you commit fully, or you pay to acknowledge failure and save for the future, or you reset your streak and count a useless day.
     """)
     if st.button("Start Challenge (Join now)"):
         if not st.session_state.user:
@@ -376,7 +397,6 @@ def page_profile():
     prof = store["users"][u]["profile"]
     st.header("Your Profile — Edit & Save")
 
-    # Mapping to set hours goal automatically
     STAGE_GOAL_MAP = {"Silver": 2.0, "Platinum": 4.0, "Gold": 6.0}
 
     with st.form("profile_form"):
@@ -389,11 +409,8 @@ def page_profile():
             current_stage = prof.get("stage", "Silver")
             stage = st.selectbox("Current Stage", ["Silver","Platinum","Gold"], index=["Silver","Platinum","Gold"].index(current_stage))
             
-            # --- AUTOMATIC HOURS GOAL ---
-            # Display goal based on selected stage
             auto_hours = STAGE_GOAL_MAP.get(stage, 0.0)
             st.markdown(f"**Hours/day Goal:** **{auto_hours} hours** (Set automatically by Stage)")
-            # ----------------------------
 
             st.write(f"Savings: {prof.get('savings',0.0)} PKR")
             st.write(f"Streak days: {prof.get('streak_days',0)}")
@@ -401,11 +418,10 @@ def page_profile():
 
         save = st.form_submit_button("Save Profile")
     if save:
-        # Save profile, including the automatically determined hours goal
         update_profile(u, {
             "field": field, 
             "interests": interests, 
-            "hours_per_day": auto_hours, # Use the automated hours
+            "hours_per_day": auto_hours, 
             "stage": stage, 
             "distractions": distractions
         })
@@ -438,12 +454,13 @@ def page_daily():
     c1, c2, c3 = st.columns(3)
     c1.metric("Stage", f"{prof.get('stage','Silver')} ({prof.get('hours_per_day', 0.0)} hr goal)")
     c2.metric("Current Streak", prof.get("streak_days",0))
-    c3.metric("Savings (PKR)", prof.get("savings",0.0))
+    c3.metric("Total Savings (PKR)", prof.get("savings",0.0)) # Display total savings here
     st.markdown(f"**Badges:** {' '.join([f'✅ {b}' for b in prof.get('badges',[])]) or 'None'}")
     st.markdown("---")
 
     stage = prof.get("stage","Silver")
-    # Define questions and their corresponding log keys
+    
+    # Define questions based on stage
     if stage == "Silver":
         questions = [("work_done",f"Did you work at least {prof.get('hours_per_day', 2.0)} hours today in your field?"),
                      ("distraction","Did you avoid distractions today (no scrolling)?"),
@@ -464,14 +481,11 @@ def page_daily():
                      ("slept_9pm","Did you sleep around 9:00 PM last night?"),
                      ("avoid_junk","Did you avoid junk food today?")]
     
-    # --- FIX: Define today_key here for widget uniqueness ---
     today_key = datetime.now().strftime("%Y%m%d")
-    # -----------------------------------------------------
-
+    
     responses = {}
     with st.form("daily_form"):
         for key,label in questions:
-            # key is defined and used correctly
             widget_key = f"{username}_{today_key}_{key}" 
             responses[key] = st.checkbox(label, key=widget_key)
         pocket_key = f"{username}_{today_key}_pocket"
@@ -479,85 +493,90 @@ def page_daily():
         submit = st.form_submit_button("Submit Today's Check")
         
     if submit:
-        # success if all responses True
         success = all(responses.values())
         
         # Build log dictionary from responses, converting stage-specific inputs
         log = {
             "stage": stage,
+            # We track the actual completion status of each task for the log
             "work_done": responses.get("work_done", False),
-            "distraction": not responses.get("distraction", True), # True=Avoided -> False=Distracted
+            "distraction": responses.get("distraction", False), 
             "woke_4am": responses.get("woke_4am", None),
             "slept_9pm": responses.get("slept_9pm", None),
             "sugar_avoided": responses.get("sugar_avoided", None),
+            "avoid_junk": responses.get("avoid_junk", None),
             "pocket_money": float(pocket_money)
         }
         
         # Handle stage-specific numeric logging (pushups, water)
         log["pushups"] = 0
-        if "pushups" in responses: 
-            if stage == "Platinum" and responses["pushups"]: log["pushups"] = 30
-            elif stage == "Gold" and responses["pushups"]: log["pushups"] = 50
+        if "pushups" in responses and responses["pushups"]: 
+            log["pushups"] = 30 if stage == "Platinum" else 50 # If checked, they met the minimum
         
         log["water_liters"] = 0.0
         if "water_liters" in responses and responses["water_liters"]:
             log["water_liters"] = 5.0
             
         if success:
-            record_success_day(username, log)
-            st.success("✅ Excellent — all tasks completed! Streak continues! **Last task: Search a motivational quote image on Google and set it as your wallpaper!**")
+            # Case 1: All tasks completed (with or without penalty paid)
+            if float(pocket_money) > 0:
+                record_day_with_penalty(username, log, success_status="Success (Plus Bonus Savings)")
+                st.success(f"🎉 PERFECT DAY! You completed all tasks AND saved {pocket_money} PKR! Streak continues! **Last task: Search a motivational quote image on Google and set it as your wallpaper!**")
+            else:
+                record_day_with_penalty(username, log, success_status="Success")
+                st.success("✅ Excellent — all tasks completed! Streak continues! **Last task: Search a motivational quote image on Google and set it as your wallpaper!**")
             st.balloons()
             st.rerun()
+            
         else:
-            # Show centered warning box for penalty decision
+            # Case 2: One or more tasks failed
             st.markdown(
                 """
                 <div class="center-box">
                   <h3>⚠️ Day Failed — Decide Your Penalty</h3>
-                  <p>You missed required tasks today. To record this day (and save your pocket money), your streak must **reset to 0** and the day is counted as **useless**.</p>
-                  <p>If you choose **Don't Count This Day**, the day will NOT be recorded (no streak reset, no savings, no useless day).</p>
+                  <p>You missed one or more required tasks today. **You must pay the penalty to save the day (SUCCESS).**</p>
+                  <p>If you choose **Don't Count This Day**, your streak **resets to 0** and the day is counted as **useless**.</p>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
+            
             cols = st.columns([1,1])
             with cols[0]:
-                # Use the pocket_money from the form submission, not a new input
                 pay_amt = float(pocket_money) 
-                if st.button(f"Pay {pay_amt} PKR & Count Day (Reset Streak)", key=f"pay_{username}_{today_key}"):
+                if st.button(f"Pay {pay_amt} PKR & Count Day (SUCCESS)", key=f"pay_{username}_{today_key}"):
                     if pay_amt <= 0:
-                        st.error("Enter an amount greater than 0 to pay and record the day.")
+                        st.error("Enter an amount greater than 0 to pay the penalty and save the day.")
                     else:
                         log["pocket_money"] = pay_amt
-                        record_failed_day_with_penalty(username, log)
-                        st.success(f"Penalty paid {pay_amt} PKR. Streak reset to 0. Failed day recorded and savings updated. **Last task: Set that motivational quote wallpaper!**")
+                        record_day_with_penalty(username, log, success_status="Success (Paid Penalty)")
+                        st.success(f"Penalty paid {pay_amt} PKR. The day is saved as SUCCESS and your streak continues! **Last task: Set that motivational quote wallpaper!**")
                         st.rerun()
             with cols[1]:
-                if st.button("Don't Count This Day (Skip & Don't Save)", key=f"skip_{username}_{today_key}"):
-                    st.info("This day will NOT be counted. No record saved.")
+                if st.button("Don't Count This Day (Skip & Reset Streak)", key=f"skip_{username}_{today_key}"):
+                    # Log an empty day and reset streak
+                    record_failed_day_skip(username)
+                    st.warning("This day will NOT be counted, streak reset to 0, and a useless day counted. You must do all of the same efforts **today** (re-submit this form tomorrow).")
                     st.rerun()
 
-    # ---------------- show clean logs table ----------------
-    logs = user_logs(username)
+    # ---------------- show ALL logs table ----------------
+    logs = [l for l in store["logs"] if l["user"] == username]
     if logs:
         st.markdown("---")
-        st.subheader(f"Recent Activity (Stage: {stage})")
-        df = pd.DataFrame(logs).sort_values("date", ascending=False).head(10)
+        st.subheader(f"Full Activity Log (Current Stage: {stage})")
+        df = pd.DataFrame(logs).sort_values("date", ascending=False)
         
         # Determine columns to show based on the user's current stage
         base_cols = ["date", "stage", "result", "work_done", "distraction"]
         platinum_cols = ["pushups", "water_liters"]
         gold_cols = ["sugar_avoided", "woke_4am", "slept_9pm"]
         
-        if stage == "Silver":
-            display_cols = base_cols + ["pocket_money"]
-        elif stage == "Platinum":
-            display_cols = base_cols + platinum_cols + ["pocket_money"]
-        else: # Gold
-            display_cols = base_cols + platinum_cols + gold_cols + ["pocket_money"]
+        # Get all unique columns that have been logged for this user
+        all_cols = list(set(base_cols + platinum_cols + gold_cols + ["pocket_money"]))
         
         # Ensure all required columns for display exist in the DataFrame
-        df_clean = pd.DataFrame({col: df.get(col) for col in display_cols})
+        df_clean = pd.DataFrame({col: df.get(col) for col in all_cols})
+        df_clean = df_clean.dropna(axis=1, how='all') # Drop columns where all values are NaN
         
         # Custom renaming for the display (optional but nice)
         display_names = {
@@ -565,11 +584,11 @@ def page_daily():
             "pushups": "Pushups", "water_liters": "Water (L)", 
             "sugar_avoided": "No Sugar $\checkmark$", "woke_4am": "Wake 4AM $\checkmark$", 
             "slept_9pm": "Sleep 9PM $\checkmark$", "pocket_money": "Savings (PKR)",
-            "result": "Day Result"
+            "result": "Day Result", "stage": "Stage"
         }
         df_clean = df_clean.rename(columns=display_names)
         
-        st.dataframe(df_clean.reset_index(drop=True), hide_index=True)
+        st.dataframe(df_clean.reset_index(drop=True), hide_index=True, use_container_width=True)
 
 
 # ---------------- Main ----------------
