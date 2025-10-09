@@ -1,9 +1,7 @@
-# app.py (v5.0) - Enhanced Behavioral Nudge System
-# - Implements automatic stage progression (Silver, Platinum, Gold).
-# - Adds motivational quote nudge for discipline.
-# - Refines penalty flow and wording.
-# - Shows stage-relevant logs and badge status.
-# - Focus on Linear Scoring Model for transparency.
+# app.py (v5.1) - Final Code with Fixes and Automated Goals
+# - Fixes NameError on 'today_key'.
+# - Fixes Prediction -> Offer navigation bug.
+# - Implements automatic 'hours_per_day' goal based on selected 'stage' in Profile.
 # Requirements: streamlit, pandas, numpy
 
 import streamlit as st
@@ -29,78 +27,6 @@ def save_store(store):
         json.dump(store, f, indent=2, default=str)
 
 store = load_store()
-
-
-# ---------------- Storage helpers ----------------
-# ... (load_store and save_store definitions, which you kept) ...
-
-# ---------------- User helpers ----------------
-def create_user(username, password):
-    if not username or not password:
-        raise ValueError("Username and password required.")
-    if len(password) < 6:
-        raise ValueError("Password must be at least 6 characters.")
-    if username in store["users"]:
-        raise ValueError("Username already exists.")
-    store["users"][username] = {
-        "password": password,
-        "profile": {
-            "field": "",
-            "interests": [],
-            "hours_per_day": 0.0,
-            "stage": "Silver",
-            "streak_days": 0,
-            "savings": 0.0,
-            "started_on": None,
-            "joined": False,
-            "useless_days": 0,
-            "distractions": [],
-            "badges": [] # New: To track earned badges
-        }
-    }
-    save_store(store)
-
-def check_user(username, password):
-    u = store["users"].get(username)
-    if not u:
-        return False
-    return u["password"] == password
-
-def update_profile(username, updates):
-    if username not in store["users"]:
-        return False
-    store["users"][username]["profile"].update(updates)
-    save_store(store)
-    return True
-# ... (rest of the user helpers like record_failed_day_with_penalty, etc. should follow) ...
-
-# ---------------- Pages ----------------
-def page_login():
-    st.markdown("<h2 style='color:white;'>Login / Register</h2>", unsafe_allow_html=True)
-    with st.form("auth"):
-        col1, col2 = st.columns([2,1])
-        with col1:
-            username = st.text_input("Username")
-            password = st.text_input("Password", type="password")
-        with col2:
-            login_btn = st.form_submit_button("Login")
-            register_btn = st.form_submit_button("Register")
-    if register_btn:
-        try:
-            create_user(username, password)
-            st.success("Registered successfully. Now login.")
-        except ValueError as e:
-            st.error(str(e))
-    if login_btn:
-        if check_user(username, password):
-            st.session_state.user = username
-            st.success("Logged in.")
-            # Default navigation is set to 'predict' after successful login
-            st.session_state.page = "predict" 
-            st.rerun()
-        else:
-            st.error("Invalid credentials.")
-
 
 # ---------------- Styling ----------------
 def inject_style():
@@ -144,7 +70,6 @@ def inject_style():
     st.markdown(css, unsafe_allow_html=True)
 
 # ---------------- User helpers ----------------
-# ... (create_user, check_user, update_profile remain the same) ...
 def create_user(username, password):
     if not username or not password:
         raise ValueError("Username and password required.")
@@ -187,8 +112,6 @@ def record_failed_day_with_penalty(username, log):
     """Record a failed day and add penalty to savings and increment useless_days."""
     profile = store["users"][username]["profile"]
     pay = float(log.get("pocket_money", 0.0))
-    # NOTE: The penalty flow is handled by the buttons in page_daily now.
-    # The 'pocket_money' field here is the penalty amount *chosen* by the user to save.
     profile["savings"] = round(profile.get("savings", 0.0) + pay, 2)
     profile["useless_days"] = profile.get("useless_days", 0) + 1
     # Reset streak on failure
@@ -246,6 +169,8 @@ def check_and_update_stage(username, current_streak):
     if current_stage == "Silver" and current_streak >= 15:
         profile["stage"] = "Platinum"
         profile["streak_days"] = 0 # Reset streak for next stage
+        # Set hours goal for the new stage
+        profile["hours_per_day"] = 4.0 
         if "Silver" not in current_badges:
             profile["badges"].append("Silver")
             st.success("🏆 CONGRATULATIONS! You earned the **Silver Badge** and advanced to the **Platinum Stage**!")
@@ -253,6 +178,8 @@ def check_and_update_stage(username, current_streak):
     elif current_stage == "Platinum" and current_streak >= 30:
         profile["stage"] = "Gold"
         profile["streak_days"] = 0 # Reset streak for next stage
+        # Set hours goal for the new stage
+        profile["hours_per_day"] = 6.0 
         if "Platinum" not in current_badges:
             profile["badges"].append("Platinum")
             st.success("🌟 PHENOMENAL! You earned the **Platinum Badge** and advanced to the **Gold Stage**!")
@@ -272,8 +199,6 @@ TRENDING_FIELDS = ["AI", "Programming", "Cybersecurity", "Data Science", "Conten
 DISTRACTIONS_MASTER = ["Social media", "Gaming", "YouTube", "Scrolling news", "TV/Netflix", "Sleep late", "Friends/Calls", "Browsing random sites"]
 
 def predict_percentile(field, hours_per_day, distractions_list, sugar_avoided, exercise_daily, water_liters, avoid_junkfood, woke_4am, slept_9pm):
-    # NOTE: The current function uses a simple Linear Scoring Model, which is the 
-    # most transparent and best model for a behavioral-nudge system.
     field_popularity = {"AI":60,"Programming":55,"Cybersecurity":50,"Data Science":55,"Content Creation":45,"Finance":50,"Health":50,"Design":48}
     base = field_popularity.get(field,50)
     hours_score = min(max(hours_per_day/12,0),1)*40
@@ -288,7 +213,30 @@ def predict_percentile(field, hours_per_day, distractions_list, sugar_avoided, e
     return pct
 
 # ---------------- Pages ----------------
-# ... (page_login remains the same) ...
+def page_login():
+    st.markdown("<h2 style='color:white;'>Login / Register</h2>", unsafe_allow_html=True)
+    with st.form("auth"):
+        col1, col2 = st.columns([2,1])
+        with col1:
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+        with col2:
+            login_btn = st.form_submit_button("Login")
+            register_btn = st.form_submit_button("Register")
+    if register_btn:
+        try:
+            create_user(username, password)
+            st.success("Registered successfully. Now login.")
+        except ValueError as e:
+            st.error(str(e))
+    if login_btn:
+        if check_user(username, password):
+            st.session_state.user = username
+            st.success("Logged in.")
+            st.session_state.page = "predict"
+            st.rerun()
+        else:
+            st.error("Invalid credentials.")
 
 def page_predict():
     st.header("Quick Prediction — Where do you stand?")
@@ -342,12 +290,12 @@ def page_predict():
             st.warning(f"You are around {pct}%. Start consistent daily habits.")
         st.markdown("---")
         st.write("Do you want our free stage-based plan to become top 1% (skills + health)?")
-        # Direct navigation to offer page
+        # Direct navigation to offer page (Fixed)
         if st.button("Yes — Make me top 1% (Free plan)", key="accept_plan"):
             if st.session_state.user:
                 update_profile(st.session_state.user, {
                     "field": st.session_state.pred_inputs["field"],
-                    "hours_per_day": st.session_state.pred_inputs["hours"],
+                    # Note: hours_per_day is set in profile page based on stage now
                     "distractions": st.session_state.pred_inputs["distractions"]
                 })
             st.session_state.page = "offer"
@@ -427,24 +375,40 @@ def page_profile():
     u = st.session_state.user
     prof = store["users"][u]["profile"]
     st.header("Your Profile — Edit & Save")
+
+    # Mapping to set hours goal automatically
+    STAGE_GOAL_MAP = {"Silver": 2.0, "Platinum": 4.0, "Gold": 6.0}
+
     with st.form("profile_form"):
         left, right = st.columns(2)
         with left:
-            field = st.text_input("Chosen Field", value=prof.get("field",""))
+            field = st.text_input("Chosen Field (What you want to become)", value=prof.get("field",""))
             interests = st.multiselect("Interests", ["Sports","Programming","Music","Art","Science","Business","Health"], default=prof.get("interests", []))
             distractions = st.multiselect("Your common distractions", DISTRACTIONS_MASTER, default=prof.get("distractions", []))
         with right:
-            hours = st.slider("Hours/day goal", 0.0, 12.0, float(prof.get("hours_per_day", 0.0)))
-            # Allow stage to be updated manually only if not in badges
-            current_stage_index = ["Silver","Platinum","Gold"].index(prof.get("stage","Silver"))
-            stage_options = ["Silver", "Platinum", "Gold"]
-            stage = st.selectbox("Stage", stage_options, index=current_stage_index)
+            current_stage = prof.get("stage", "Silver")
+            stage = st.selectbox("Current Stage", ["Silver","Platinum","Gold"], index=["Silver","Platinum","Gold"].index(current_stage))
+            
+            # --- AUTOMATIC HOURS GOAL ---
+            # Display goal based on selected stage
+            auto_hours = STAGE_GOAL_MAP.get(stage, 0.0)
+            st.markdown(f"**Hours/day Goal:** **{auto_hours} hours** (Set automatically by Stage)")
+            # ----------------------------
+
             st.write(f"Savings: {prof.get('savings',0.0)} PKR")
             st.write(f"Streak days: {prof.get('streak_days',0)}")
             st.write(f"Useless days: {prof.get('useless_days',0)}")
+
         save = st.form_submit_button("Save Profile")
     if save:
-        update_profile(u, {"field": field, "interests": interests, "hours_per_day": hours, "stage": stage, "distractions": distractions})
+        # Save profile, including the automatically determined hours goal
+        update_profile(u, {
+            "field": field, 
+            "interests": interests, 
+            "hours_per_day": auto_hours, # Use the automated hours
+            "stage": stage, 
+            "distractions": distractions
+        })
         st.success("Profile saved. Opening Daily Routine.")
         st.session_state.page = "daily"
         st.rerun()
@@ -472,7 +436,7 @@ def page_daily():
 
     st.header("Daily Routine — stage-specific checklist")
     c1, c2, c3 = st.columns(3)
-    c1.metric("Stage", f"{prof.get('stage','Silver')} ({len(user_logs(username))} days total)")
+    c1.metric("Stage", f"{prof.get('stage','Silver')} ({prof.get('hours_per_day', 0.0)} hr goal)")
     c2.metric("Current Streak", prof.get("streak_days",0))
     c3.metric("Savings (PKR)", prof.get("savings",0.0))
     st.markdown(f"**Badges:** {' '.join([f'✅ {b}' for b in prof.get('badges',[])]) or 'None'}")
@@ -481,17 +445,17 @@ def page_daily():
     stage = prof.get("stage","Silver")
     # Define questions and their corresponding log keys
     if stage == "Silver":
-        questions = [("work_done","Did you work at least 2 hours today in your field?"),
+        questions = [("work_done",f"Did you work at least {prof.get('hours_per_day', 2.0)} hours today in your field?"),
                      ("distraction","Did you avoid distractions today (no scrolling)?"),
                      ("avoid_junk","Did you avoid junk food today?")]
     elif stage == "Platinum":
-        questions = [("work_done","Did you work at least 4 hours today in your field?"),
+        questions = [("work_done",f"Did you work at least {prof.get('hours_per_day', 4.0)} hours today in your field?"),
                      ("distraction","Did you avoid distractions today (no scrolling)?"),
                      ("pushups","Did you do at least 30 pushups today?"),
                      ("water_liters","Did you drink at least 5 liters of water today?"),
                      ("avoid_junk","Did you avoid junk food today?")]
     else: # Gold
-        questions = [("work_done","Did you work at least 6 hours today in your field?"),
+        questions = [("work_done",f"Did you work at least {prof.get('hours_per_day', 6.0)} hours today in your field?"),
                      ("distraction","Did you avoid distractions today (no scrolling)?"),
                      ("pushups","Did you do at least 50 pushups today?"),
                      ("water_liters","Did you drink at least 5 liters of water today?"),
@@ -500,17 +464,15 @@ def page_daily():
                      ("slept_9pm","Did you sleep around 9:00 PM last night?"),
                      ("avoid_junk","Did you avoid junk food today?")]
     
-    # Map questions keys to log keys for log building
-    log_keys = {
-        "work_done": None, "distraction": None, "pushups": None, 
-        "water_liters": None, "woke_4am": None, "slept_9pm": None, 
-        "sugar_avoided": None, "avoid_junk": None
-    }
-    
+    # --- FIX: Define today_key here for widget uniqueness ---
+    today_key = datetime.now().strftime("%Y%m%d")
+    # -----------------------------------------------------
+
     responses = {}
     with st.form("daily_form"):
         for key,label in questions:
-            widget_key = f"{username}_{today_key}_{key}"
+            # key is defined and used correctly
+            widget_key = f"{username}_{today_key}_{key}" 
             responses[key] = st.checkbox(label, key=widget_key)
         pocket_key = f"{username}_{today_key}_pocket"
         pocket_money = st.number_input("Pocket money to save today (PKR):", 0.0, 10000.0, 0.0, 1.0, key=pocket_key)
@@ -560,13 +522,15 @@ def page_daily():
             )
             cols = st.columns([1,1])
             with cols[0]:
-                if st.button(f"Pay {pocket_money} PKR & Count Day (Reset Streak)", key=f"pay_{username}_{today_key}"):
-                    if float(pocket_money) <= 0:
+                # Use the pocket_money from the form submission, not a new input
+                pay_amt = float(pocket_money) 
+                if st.button(f"Pay {pay_amt} PKR & Count Day (Reset Streak)", key=f"pay_{username}_{today_key}"):
+                    if pay_amt <= 0:
                         st.error("Enter an amount greater than 0 to pay and record the day.")
                     else:
-                        log["pocket_money"] = float(pocket_money)
+                        log["pocket_money"] = pay_amt
                         record_failed_day_with_penalty(username, log)
-                        st.success(f"Penalty paid {pocket_money} PKR. Streak reset to 0. Failed day recorded and savings updated. **Last task: Set that motivational quote wallpaper!**")
+                        st.success(f"Penalty paid {pay_amt} PKR. Streak reset to 0. Failed day recorded and savings updated. **Last task: Set that motivational quote wallpaper!**")
                         st.rerun()
             with cols[1]:
                 if st.button("Don't Count This Day (Skip & Don't Save)", key=f"skip_{username}_{today_key}"):
