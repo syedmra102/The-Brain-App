@@ -1,13 +1,7 @@
 # app.py (v6.0) - EXCEPTIONAL CLASSY DESIGN
 # Premium design with amazing visuals, animations, and professional UI
 
-import streamlit as st
-import json, os
-from datetime import datetime
-import numpy as np
-import pandas as pd
 
-DATA_FILE = "data.json"
 
 # ---------------- Storage helpers ----------------
 def load_store():
