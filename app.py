@@ -8,9 +8,9 @@ def inject_css():
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
 
-    /* Full Background - Blue/White Mountains */
+    /* Full Background – Sharp, Not Blurred */
     .stApp {
-        background-image: url('https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1950&q=80');
+        background-image: url('https://images.unsplash.com/photo-1508264165352-258859e62245?auto=format&fit=crop&w=1950&q=80');
         background-size: cover;
         background-position: center;
         background-attachment: fixed;
@@ -18,13 +18,13 @@ def inject_css():
         color: #002244;
     }
 
-    /* Glass Containers */
+    /* Glass Containers (slightly transparent but crisp) */
     .glass-box {
-        background: rgba(255, 255, 255, 0.45);
+        background: rgba(255, 255, 255, 0.7);
         border-radius: 20px;
         padding: 30px 40px;
-        backdrop-filter: blur(20px);
-        box-shadow: 0 4px 30px rgba(0, 100, 200, 0.15);
+        box-shadow: 0 4px 30px rgba(0, 50, 150, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.4);
         transition: all 0.3s ease;
         margin-bottom: 25px;
     }
@@ -38,14 +38,15 @@ def inject_css():
     h1, h2, h3 {
         color: #003366 !important;
         text-align: center;
-        text-shadow: 0 2px 10px rgba(255,255,255,0.5);
+        text-shadow: 0 2px 10px rgba(255,255,255,0.7);
         letter-spacing: 0.8px;
     }
 
     /* Sidebar */
     section[data-testid="stSidebar"] {
-        background: rgba(230, 245, 255, 0.9);
-        backdrop-filter: blur(15px);
+        background: rgba(255, 255, 255, 0.85);
+        border-right: 2px solid rgba(0, 100, 200, 0.2);
+        backdrop-filter: none !important;
     }
     section[data-testid="stSidebar"] * {
         color: #003366 !important;
@@ -61,19 +62,19 @@ def inject_css():
         font-size: 17px;
         font-weight: bold;
         transition: all 0.3s ease;
-        box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+        box-shadow: 0 3px 8px rgba(0,0,0,0.2);
     }
 
     div.stButton > button:hover {
         background: linear-gradient(135deg, #00C6FF, #007BFF);
         transform: translateY(-3px);
-        box-shadow: 0 8px 18px rgba(0,0,0,0.4);
+        box-shadow: 0 8px 18px rgba(0,0,0,0.3);
     }
 
     /* Inputs */
     .stTextInput > div > div > input,
     .stNumberInput input {
-        background: rgba(255,255,255,0.9);
+        background: rgba(255,255,255,0.95);
         border-radius: 10px;
         color: #002244;
         border: 1px solid #B0E0FF;
@@ -83,20 +84,20 @@ def inject_css():
 
     /* Text */
     p, li, span, label {
-        color: #003366 !important;
+        color: #002244 !important;
         font-size: 16px !important;
     }
 
-    /* Hide footer */
     footer {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
+
 
 # =========================
 # 🚀 MAIN APP
 # =========================
 def main():
-    st.set_page_config(page_title="Brain App 🌨️", layout="wide")
+    st.set_page_config(page_title="Brain App 🏔️", layout="wide")
     inject_css()
 
     with st.sidebar:
@@ -104,28 +105,28 @@ def main():
         st.title("🧠 Brain App")
         st.markdown("**Your Focus Zone** ❄️")
         st.markdown("---")
-        mode = st.radio("Go to:", ["🏔 Home", "📊 Predict", "👨‍🏫 Teachers", "🌍 About"])
+        mode = st.radio("Navigate:", ["🏔 Home", "📊 Predict", "👨‍🏫 Teachers", "🌍 About"])
 
     # --- Home Page ---
     if mode == "🏔 Home":
-        st.markdown("<h1>Welcome to The Brain App 🌨️</h1>", unsafe_allow_html=True)
+        st.markdown("<h1>Welcome to The Brain App 🏔️</h1>", unsafe_allow_html=True)
         st.markdown("""
         <div class="glass-box">
-        <h2>❄️ Calm Blue Productivity</h2>
-        <p><b>Brain App</b> merges focus, technology, and clarity.  
-        Learn from real teachers, explore daily insights,  
-        and study in a peaceful blue-white environment that clears your mind.</p>
+        <h2>❄️ Sharp Mind in a Calm World</h2>
+        <p><b>Brain App</b> transforms your focus, discipline, and productivity through
+        a clean, calm, white-ice environment.  
+        Build your skills, track your growth, and evolve your mindset daily.</p>
         </div>
         """, unsafe_allow_html=True)
 
         st.markdown("""
         <div class="glass-box">
-        <h3>🌟 Why Students Love Brain App</h3>
+        <h3>🌟 Why People Love Brain App</h3>
         <ul>
-            <li>🌤️ Peaceful white-blue aesthetic</li>
-            <li>🧠 Real teacher-led content</li>
-            <li>📱 Works perfectly on mobile</li>
-            <li>💼 Teachers earn, students grow</li>
+            <li>🏔️ Crystal-clear white mountain visuals (no blur)</li>
+            <li>🧠 Real skill-based challenges</li>
+            <li>💡 Minimal and modern design</li>
+            <li>📱 Fully mobile responsive</li>
         </ul>
         </div>
         """, unsafe_allow_html=True)
@@ -148,12 +149,12 @@ def main():
         st.markdown("""
         <div class="glass-box">
         <h2>👩‍🏫 Become a Brain Teacher</h2>
-        <p>Start your own online tuition center, share your knowledge,  
-        and earn through your expertise while helping students globally.</p>
+        <p>Start your online tuition, share your expertise,
+        and empower students worldwide with focused learning sessions.</p>
         <ul>
-            <li>🌍 Global reach</li>
-            <li>💵 80% income share</li>
-            <li>📈 AI-powered analytics</li>
+            <li>🌍 Reach global learners</li>
+            <li>💵 Keep 80% of your income</li>
+            <li>📈 Get analytics of student progress</li>
         </ul>
         </div>
         """, unsafe_allow_html=True)
@@ -165,9 +166,10 @@ def main():
         st.markdown("""
         <div class="glass-box">
         <h2>🌨️ About Brain App</h2>
-        <p>Brain App is designed to create a <b>peaceful learning experience</b>.  
-        Built using <b>Python + Streamlit</b>, it combines technology and focus  
-        with a calm blue-white environment that enhances productivity.</p>
+        <p><b>Brain App</b> is designed for dreamers and doers who want clarity,
+        calmness, and success — all in one place.  
+        Built with <b>Python + Streamlit</b>, it merges design, focus, and mindset
+        to create the ultimate learning experience.</p>
         </div>
         """, unsafe_allow_html=True)
 
