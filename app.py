@@ -1,326 +1,182 @@
 import streamlit as st
-import json, os
-from datetime import datetime
-import numpy as np
-import pandas as pd
 
-# Simple data storage
-DATA_FILE = "data.json"
-def load_store():
-    if not os.path.exists(DATA_FILE):
-        return {"users": {}, "logs": []}
-    with open(DATA_FILE, "r") as f:
-        return json.load(f)
-def save_store(store):
-    with open(DATA_FILE, "w") as f:
-        json.dump(store, f, indent=2)
-
-store = load_store()
-
-# 🏔️ BEAUTIFUL MOUNTAIN AESTHETIC BACKGROUND
-def add_mountain_aesthetic():
+# =========================
+# 🌈 CUSTOM STYLING
+# =========================
+def inject_css():
     st.markdown("""
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
+    /* Full Background - Sharp Mountain */
     .stApp {
-        background: 
-            linear-gradient(rgba(15, 32, 65, 0.85), rgba(25, 55, 109, 0.90)),
-            url('https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&w=2000');
+        background-image: url('https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1950&q=80');
         background-size: cover;
         background-position: center;
         background-attachment: fixed;
-        color: white;
-        font-family: 'Segoe UI', system-ui, sans-serif;
-        min-height: 100vh;
+        font-family: 'Poppins', sans-serif;
+        color: #f0f0f0;
     }
-    
-    /* Beautiful text */
-    .stApp, .stApp * {
-        color: white !important;
+
+    /* Keep everything visible over background */
+    .stApp > * {
+        position: relative;
+        z-index: 1;
     }
-    
-    /* Premium cards */
-    .main .block-container {
-        background: rgba(255, 255, 255, 0.08);
-        backdrop-filter: blur(15px);
+
+    /* Headings */
+    h1, h2, h3 {
+        color: #ffffff !important;
+        text-align: center;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.4);
+        letter-spacing: 1px;
+    }
+
+    /* Glass Containers (mild transparency) */
+    .glass-box {
+        background: rgba(255, 255, 255, 0.12);
         border-radius: 20px;
-        padding: 30px;
-        margin-top: 30px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-    }
-    
-    /* Beautiful buttons */
-    .stButton>button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 12px;
-        padding: 12px 24px;
-        font-size: 16px;
-        font-weight: 600;
+        padding: 30px 40px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 6px 25px rgba(0,0,0,0.3);
         transition: all 0.3s ease;
-        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        margin-bottom: 25px;
     }
-    
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 12px 30px rgba(102, 126, 234, 0.4);
+
+    .glass-box:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.4);
     }
-    
-    /* Beautiful inputs */
-    .stTextInput>div>div>input, 
-    .stNumberInput>div>div>input {
-        background: rgba(255, 255, 255, 0.1) !important;
+
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background: rgba(20, 30, 40, 0.8);
+        backdrop-filter: blur(10px);
+    }
+    section[data-testid="stSidebar"] * {
+        color: #fff !important;
+    }
+
+    /* Buttons */
+    div.stButton > button {
+        background: linear-gradient(135deg, #0077ff, #00c6ff);
+        border: none;
         color: white !important;
-        border-radius: 12px !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        padding: 12px 16px !important;
+        border-radius: 15px;
+        padding: 10px 30px;
+        font-size: 17px;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.4);
     }
-    
-    /* Checkboxes */
-    .stCheckbox>div>label {
-        color: white !important;
-        font-size: 16px;
+
+    div.stButton > button:hover {
+        background: linear-gradient(135deg, #00c6ff, #0077ff);
+        transform: translateY(-3px);
+        box-shadow: 0 8px 18px rgba(0,0,0,0.5);
     }
-    
-    /* Hide Streamlit defaults */
-    #MainMenu {visibility: hidden;}
+
+    /* Inputs */
+    .stTextInput > div > div > input,
+    .stNumberInput input {
+        background: rgba(255,255,255,0.95);
+        border-radius: 10px;
+        color: #000;
+        border: none;
+        padding: 10px;
+        font-weight: 500;
+    }
+
+    /* Text */
+    p, li, span, label {
+        color: #ffffff !important;
+        font-size: 16px !important;
+    }
+
+    /* Footer Hide */
     footer {visibility: hidden;}
-    header {visibility: hidden;}
-    .stDeployButton {display: none;}
     </style>
     """, unsafe_allow_html=True)
 
-# Simple user functions
-def create_user(username, password):
-    if not username or not password:
-        return False, "Username and password required!"
-    if username in store["users"]:
-        return False, "Username already exists!"
-    
-    store["users"][username] = {
-        "password": password,
-        "streak": 0,
-        "savings": 0.0,
-        "stage": "Silver",
-        "joined_date": datetime.now().strftime("%Y-%m-%d"),
-        "badges": []
-    }
-    save_store(store)
-    return True, "Registration successful!"
-
-def check_user(username, password):
-    user = store["users"].get(username)
-    if not user:
-        return False
-    return user["password"] == password
-
-# 🏠 HOME PAGE - MOUNTAIN AESTHETIC
-def home_page():
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown("<h1 style='text-align: center; font-size: 3.5rem; margin-bottom: 0;'>🏔️ THE BRAIN</h1>", unsafe_allow_html=True)
-        st.markdown("<h3 style='text-align: center; color: #a8edea; margin-top: 0;'>Conquer Your Goals Like Mountains</h3>", unsafe_allow_html=True)
-        st.markdown("---")
-    
-    # Login/Register Form
-    st.markdown("<h2 style='text-align: center; color: #fed6e3;'>🚀 Begin Your Journey</h2>", unsafe_allow_html=True)
-    
-    with st.form("auth"):
-        col1, col2 = st.columns(2)
-        with col1:
-            username = st.text_input("👤 Username", placeholder="Enter your username")
-        with col2:
-            password = st.text_input("🔒 Password", type="password", placeholder="Enter your password")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            login_btn = st.form_submit_button("🎯 Login", use_container_width=True)
-        with col2:
-            register_btn = st.form_submit_button("✨ Register", use_container_width=True)
-    
-    if register_btn:
-        if username and password:
-            success, message = create_user(username, password)
-            if success:
-                st.success(f"✅ {message}")
-            else:
-                st.error(f"❌ {message}")
-        else:
-            st.warning("⚠️ Please enter both username and password")
-    
-    if login_btn:
-        if username and password:
-            if check_user(username, password):
-                st.session_state.user = username
-                st.session_state.page = "dashboard"
-                st.success("🎉 Login successful!")
-                st.rerun()
-            else:
-                st.error("❌ Invalid username or password")
-        else:
-            st.warning("⚠️ Please enter both username and password")
-    
-    # Features showcase
-    st.markdown("---")
-    st.markdown("<h2 style='text-align: center; color: #a8edea;'>🎯 Your Transformation Journey</h2>", unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown("""
-        <div style='text-align: center;'>
-            <h3>🥈 Silver Stage</h3>
-            <p>15 days • 2 hours/day</p>
-            <p>Build foundation habits</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("""
-        <div style='text-align: center;'>
-            <h3>🥇 Platinum Stage</h3>
-            <p>30 days • 4 hours/day</p>
-            <p>Advanced discipline</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown("""
-        <div style='text-align: center;'>
-            <h3>👑 Gold Stage</h3>
-            <p>60 days • 6 hours/day</p>
-            <p>Master level focus</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-# 📊 DASHBOARD - BEAUTIFUL DESIGN
-def dashboard_page():
-    user_data = store["users"][st.session_state.user]
-    
-    # Header
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown(f"<h1 style='text-align: center;'>🎯 Welcome, {st.session_state.user}!</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #fed6e3;'>Your mountain-climbing journey to success</p>", unsafe_allow_html=True)
-    
-    # Stats Dashboard
-    st.markdown("---")
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric("🔥 Current Streak", f"{user_data['streak']} days")
-    with col2:
-        st.metric("💰 Total Savings", f"{user_data['savings']:.0f} PKR")
-    with col3:
-        st.metric("🏔️ Current Stage", user_data['stage'])
-    with col4:
-        st.metric("⭐ Badges Earned", len(user_data['badges']))
-    
-    # Daily Check-in Section
-    st.markdown("---")
-    st.markdown("<h2 style='color: #a8edea;'>📝 Daily Progress Tracker</h2>", unsafe_allow_html=True)
-    
-    with st.form("daily_check"):
-        st.markdown("### ✅ Today's Achievements")
-        
-        # Stage-based tasks
-        if user_data['stage'] == "Silver":
-            task1 = st.checkbox("⏰ Work 2 hours on my goals")
-            task2 = st.checkbox("🚫 Avoid distractions")
-            task3 = st.checkbox("📚 Learn something new")
-        elif user_data['stage'] == "Platinum":
-            task1 = st.checkbox("⏰ Work 4 hours on my goals")
-            task2 = st.checkbox("💪 30 minutes exercise")
-            task3 = st.checkbox("💧 Drink 3L water")
-            task4 = st.checkbox("🚫 No junk food")
-        else:  # Gold
-            task1 = st.checkbox("⏰ Work 6 hours on my goals")
-            task2 = st.checkbox("💪 1 hour exercise")
-            task3 = st.checkbox("💧 Drink 5L water")
-            task4 = st.checkbox("🌅 Wake up early")
-            task5 = st.checkbox("🎯 Positive mindset practice")
-        
-        savings = st.number_input("💰 Money saved today (PKR)", 0, 5000, 0, 50)
-        
-        submitted = st.form_submit_button("🏔️ Submit Today's Progress", use_container_width=True)
-        
-        if submitted:
-            tasks_completed = True
-            if user_data['stage'] == "Silver":
-                tasks_completed = task1 and task2 and task3
-            elif user_data['stage'] == "Platinum":
-                tasks_completed = task1 and task2 and task3 and task4
-            else:
-                tasks_completed = task1 and task2 and task3 and task4 and task5
-            
-            if tasks_completed:
-                user_data['streak'] += 1
-                user_data['savings'] += savings
-                
-                # Check for stage promotion
-                if user_data['streak'] >= 15 and user_data['stage'] == "Silver":
-                    user_data['stage'] = "Platinum"
-                    st.balloons()
-                    st.success("🌟 CONGRATULATIONS! You advanced to PLATINUM stage!")
-                elif user_data['streak'] >= 30 and user_data['stage'] == "Platinum":
-                    user_data['stage'] = "Gold"
-                    st.balloons()
-                    st.success("👑 PHENOMENAL! You reached GOLD stage!")
-                
-                save_store(store)
-                st.success("🎉 Amazing! Today's progress recorded successfully!")
-            else:
-                st.warning("⚠️ Complete all tasks to continue your streak!")
-    
-    # Progress Visualization
-    st.markdown("---")
-    st.markdown("<h2 style='color: #a8edea;'>📈 Your Journey Progress</h2>", unsafe_allow_html=True)
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        # Streak progress
-        target_streak = 15 if user_data['stage'] == "Silver" else 30 if user_data['stage'] == "Platinum" else 60
-        progress = min(user_data['streak'] / target_streak, 1.0)
-        st.metric("🏔️ Mountain Progress", f"{progress*100:.1f}%")
-        st.progress(progress)
-    
-    with col2:
-        # Savings goal
-        savings_goal = 5000
-        savings_progress = min(user_data['savings'] / savings_goal, 1.0)
-        st.metric("💰 Savings Goal", f"{savings_progress*100:.1f}%")
-        st.progress(savings_progress)
-    
-    # Logout button
-    st.markdown("---")
-    if st.button("🚪 Logout from Mountain Peak", use_container_width=True):
-        st.session_state.user = None
-        st.session_state.page = "home"
-        st.rerun()
-
-# 🎯 MAIN APP
+# =========================
+# 🚀 MAIN APP
+# =========================
 def main():
-    st.set_page_config(
-        page_title="The Brain - Mountain Journey", 
-        page_icon="🏔️", 
-        layout="wide",
-        initial_sidebar_state="collapsed"
-    )
-    
-    # Add the beautiful mountain aesthetic background
-    add_mountain_aesthetic()
-    
-    # Initialize session state
-    if "user" not in st.session_state:
-        st.session_state.user = None
-    if "page" not in st.session_state:
-        st.session_state.page = "home"
-    
-    # Show the right page
-    if st.session_state.user:
-        dashboard_page()
-    else:
-        home_page()
+    st.set_page_config(page_title="Brain App 🌄", layout="wide")
+    inject_css()
+
+    with st.sidebar:
+        st.image("https://cdn-icons-png.flaticon.com/512/10307/10307982.png", width=100)
+        st.title("🧠 Brain App")
+        st.markdown("**Your Focus Zone** ⛰️")
+        st.markdown("---")
+        mode = st.radio("Go to:", ["🏔 Home", "📊 Predict", "👨‍🏫 Teachers", "🌍 About"])
+
+    # --- Home Page ---
+    if mode == "🏔 Home":
+        st.markdown("<h1>Welcome to The Brain App 🌄</h1>", unsafe_allow_html=True)
+        st.markdown("""
+        <div class="glass-box">
+        <h2>✨ The Calm Place to Learn</h2>
+        <p><b>Brain App</b> brings together <b>YouTube + WhatsApp</b> into one calm, focused platform for learning.  
+        Teachers can create their own tuition centers, upload daily teaching statuses,  
+        and students can explore and learn — without distractions.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <div class="glass-box">
+        <h3>🌟 Why Students Love Brain App</h3>
+        <ul>
+            <li>🧘‍♂️ Distraction-free learning</li>
+            <li>🏔 Sharp, aesthetic mountain theme</li>
+            <li>🎥 Real teacher content and insights</li>
+            <li>💰 Teachers earn, students grow</li>
+        </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # --- Predict Page ---
+    elif mode == "📊 Predict":
+        st.markdown('<div class="glass-box">', unsafe_allow_html=True)
+        st.subheader("🔮 Predict Your Success Rate")
+        name = st.text_input("Enter your name:")
+        hours = st.number_input("Study hours per day:", 0, 24, 6)
+        focus = st.slider("Focus level (0–10):", 0, 10, 7)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        if st.button("Predict 🌟"):
+            result = (hours * focus) * 1.5
+            st.success(f"{name}, your predicted success rate is **{min(result, 100):.1f}%**!")
+
+    # --- Teachers Page ---
+    elif mode == "👨‍🏫 Teachers":
+        st.markdown("""
+        <div class="glass-box">
+        <h2>👩‍🏫 Become a Brain Teacher</h2>
+        <p>Open your own tuition center, share your real teaching journey,  
+        and inspire learners around the world.</p>
+        <ul>
+            <li>🌍 Global reach</li>
+            <li>💵 80% income share</li>
+            <li>📈 AI-powered growth</li>
+        </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Join as Teacher 💼"):
+            st.info("✅ Application submitted successfully!")
+
+    # --- About Page ---
+    elif mode == "🌍 About":
+        st.markdown("""
+        <div class="glass-box">
+        <h2>🌄 About Brain App</h2>
+        <p>Brain App is built for students and teachers who want peace, focus,  
+        and productivity — without distraction.  
+        Developed using <b>Python + Streamlit</b> with love and calm aesthetics.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
 
 if __name__ == "__main__":
     main()
