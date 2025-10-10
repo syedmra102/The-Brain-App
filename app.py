@@ -1,389 +1,310 @@
+# app.py
 import streamlit as st
-import json, os
-from datetime import datetime
-import numpy as np
-import pandas as pd
+import base64
+from pathlib import Path
+import time
 
-# Simple data storage
-DATA_FILE = "data.json"
-def load_store():
-    if not os.path.exists(DATA_FILE):
-        return {"users": {}, "logs": []}
-    with open(DATA_FILE, "r") as f:
-        return json.load(f)
-def save_store(store):
-    with open(DATA_FILE, "w") as f:
-        json.dump(store, f, indent=2)
+# ---- Paths to your images in the environment (provided by you) ----
+IMG1_PATH = "/mnt/data/my background.webp"  # first image
+IMG2_PATH = "/mnt/data/myaa.jpg"            # second image
 
-store = load_store()
+# ---- helper: encode local image to base64 for CSS embedding ----
+def img_to_data_uri(path: str):
+    p = Path(path)
+    if not p.exists():
+        return ""
+    mime = "image/webp" if p.suffix.lower() == ".webp" else "image/jpeg"
+    data = p.read_bytes()
+    b64 = base64.b64encode(data).decode()
+    return f"data:{mime};base64,{b64}"
 
-# 🏔️ BEAUTIFUL WHITE/BLUE MOUNTAIN AESTHETIC
-def add_white_blue_mountain_bg():
-    st.markdown("""
+BG1_URI = img_to_data_uri(IMG1_PATH)
+BG2_URI = img_to_data_uri(IMG2_PATH)
+
+# ---- Inject CSS with placeholders for two backgrounds ----
+def inject_css():
+    # CSS contains two classes .bg-1 and .bg-2 which we swap via JS or class toggle.
+    css = f"""
     <style>
-    .stApp {
-        background: 
-            linear-gradient(rgba(240, 248, 255, 0.92), rgba(224, 247, 250, 0.95)),
-            url('https://images.unsplash.com/photo-1519681393784-d120267933ba?ixlib=rb-4.0.3&w=2000');
-        background-size: cover;
-        background-position: center;
-        background-attachment: fixed;
-        color: #2c3e50;
-        font-family: 'Segoe UI', system-ui, sans-serif;
-        min-height: 100vh;
-    }
-    
-    /* Beautiful dark text for contrast */
-    .stApp, .stApp * {
-        color: #2c3e50 !important;
-    }
-    
-    /* Premium glass cards */
-    .main .block-container {
-        background: rgba(255, 255, 255, 0.75);
-        backdrop-filter: blur(20px);
-        border-radius: 24px;
-        padding: 35px;
-        margin-top: 30px;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        box-shadow: 0 20px 40px rgba(135, 206, 250, 0.15);
-        transition: all 0.3s ease;
-    }
-    
-    .main .block-container:hover {
-        box-shadow: 0 25px 50px rgba(135, 206, 250, 0.25);
-        transform: translateY(-5px);
-    }
-    
-    /* Beautiful blue buttons */
-    .stButton>button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white !important;
-        border: none;
-        border-radius: 16px;
-        padding: 14px 28px;
-        font-size: 16px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
-    }
-    
-    .stButton>button:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
-        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-    }
-    
-    /* Beautiful inputs */
-    .stTextInput>div>div>input, 
-    .stNumberInput>div>div>input {
-        background: rgba(255, 255, 255, 0.9) !important;
-        color: #2c3e50 !important;
-        border-radius: 14px !important;
-        border: 2px solid #e3f2fd !important;
-        padding: 14px 18px !important;
-        font-size: 16px;
-        transition: all 0.3s ease;
-    }
-    
-    .stTextInput>div>div>input:focus, 
-    .stNumberInput>div>div>input:focus {
-        border: 2px solid #667eea !important;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
-    }
-    
-    /* Checkboxes */
-    .stCheckbox>div>label {
-        color: #2c3e50 !important;
-        font-size: 16px;
-        font-weight: 500;
-    }
-    
-    /* Metrics styling */
-    .stMetric {
-        background: rgba(255, 255, 255, 0.8);
-        border-radius: 20px;
-        padding: 20px;
-        border: 1px solid rgba(135, 206, 250, 0.3);
-        box-shadow: 0 10px 30px rgba(135, 206, 250, 0.1);
-    }
-    
-    /* Progress bars */
-    .stProgress > div > div > div {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 10px;
-    }
-    
-    /* Hide Streamlit defaults */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    .stDeployButton {display: none;}
-    
-    /* Custom headers */
-    .blue-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-align: center;
-        font-weight: 800;
-    }
-    
-    .blue-subheader {
-        color: #5d7da8 !important;
-        text-align: center;
-        font-weight: 600;
-    }
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+
+    :root {{
+      --accent-1: #007BFF;
+      --accent-2: #00C6FF;
+      --ink: #00325a;
+      --card-bg: rgba(255,255,255,0.85);
+      --glass-border: rgba(176,224,255,0.6);
+    }}
+
+    html, body, [data-testid="stAppViewContainer"] {{
+      height: 100%;
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+    }}
+
+    /* Container that holds the app background */
+    .bg-root {{
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      transition: opacity 0.8s ease;
+    }}
+
+    .bg-1 {{
+      background-image: url("{BG1_URI}");
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      width: 100%;
+      height: 100%;
+    }}
+    .bg-2 {{
+      background-image: url("{BG2_URI}");
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      width: 100%;
+      height: 100%;
+    }}
+
+    /* Ensure sharp: do not blur or darken background */
+    .bg-overlay {{
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }}
+
+    /* Main app content sits above */
+    .app-content {{
+      position: relative;
+      z-index: 1;
+    }}
+
+    /* Glass card (white-blue theme, crisp not blurred) */
+    .glass {{
+      background: var(--card-bg);
+      border-radius: 18px;
+      padding: 28px;
+      margin-bottom: 22px;
+      box-shadow: 0 8px 30px rgba(2,32,71,0.08);
+      border: 1px solid var(--glass-border);
+      color: var(--ink);
+    }}
+
+    h1, h2, h3 {{
+      color: var(--ink) !important;
+      margin: 6px 0 14px 0 !important;
+    }}
+    p, li, label, span {{
+      color: var(--ink) !important;
+    }}
+
+    /* Sidebar custom */
+    section[data-testid="stSidebar"] {{
+      background: rgba(255,255,255,0.95) !important;
+      border-right: 1px solid rgba(0,120,200,0.08);
+    }}
+    section[data-testid="stSidebar"] * {{
+      color: var(--ink) !important;
+    }}
+
+    /* Buttons */
+    div.stButton > button, .stButton button {{
+      background: linear-gradient(135deg, var(--accent-1), var(--accent-2)) !important;
+      color: white !important;
+      border-radius: 12px !important;
+      padding: 10px 18px !important;
+      border: none !important;
+      box-shadow: 0 6px 18px rgba(0,123,255,0.12) !important;
+      font-weight: 600 !important;
+    }}
+    div.stButton > button:hover, .stButton button:hover {{
+      transform: translateY(-3px);
+    }}
+
+    /* Inputs: white inputs with subtle blue border */
+    .stTextInput>div>div>input, .stNumberInput input, .stSelectbox>div>div>div, textarea {{
+      background: #ffffff !important;
+      color: #001428 !important;
+      border-radius: 10px !important;
+      border: 1px solid rgba(0,120,200,0.12) !important;
+      padding: 10px !important;
+    }}
+
+    /* Responsive: adjust sidebar and card padding on small screens */
+    @media (max-width: 600px) {{
+      .glass {{
+        padding: 18px;
+        border-radius: 14px;
+      }}
+      .stApp {{
+        background-attachment: scroll;
+      }}
+      .stSidebar {{
+        position: relative;
+      }}
+    }}
     </style>
-    """, unsafe_allow_html=True)
+    """
 
-# Simple user functions
-def create_user(username, password):
-    if not username or not password:
-        return False, "Username and password required!"
-    if username in store["users"]:
-        return False, "Username already exists!"
-    
-    store["users"][username] = {
-        "password": password,
-        "streak": 0,
-        "savings": 0.0,
-        "stage": "Silver",
-        "joined_date": datetime.now().strftime("%Y-%m-%d"),
-        "badges": []
+    # Add the container elements and CSS into the page
+    st.markdown(css, unsafe_allow_html=True)
+
+    # Add two divs for backgrounds. We will toggle their visibility via JS.
+    # Initially show bg-1.
+    bg_html = """
+    <div id="bg-root" class="bg-root">
+      <div id="bg1" class="bg-1" style="opacity:1;"></div>
+      <div id="bg2" class="bg-2" style="opacity:0;"></div>
+      <div class="bg-overlay"></div>
+    </div>
+    """
+    st.markdown(bg_html, unsafe_allow_html=True)
+
+# ---- JS snippet to toggle backgrounds and optionally auto-rotate ----
+def inject_js():
+    js = """
+    <script>
+    const setBackground = (n) => {
+      const b1 = document.getElementById('bg1');
+      const b2 = document.getElementById('bg2');
+      if(!b1||!b2) return;
+      if(n===1){ b1.style.opacity = 1; b2.style.opacity = 0; }
+      else { b1.style.opacity = 0; b2.style.opacity = 1; }
     }
-    save_store(store)
-    return True, "Registration successful!"
 
-def check_user(username, password):
-    user = store["users"].get(username)
-    if not user:
-        return False
-    return user["password"] == password
+    // Listen for custom events from Streamlit
+    window.addEventListener('message', event => {
+      if(!event.data) return;
+      const msg = event.data;
+      if(msg.type === 'SET_BG'){
+        setBackground(msg.value);
+      }
+      if(msg.type === 'AUTO_ROTATE'){
+        // msg.value = {enabled: true/false, interval: seconds}
+        if(msg.value.enabled){
+          let cur = 1;
+          window._brain_interval && clearInterval(window._brain_interval);
+          window._brain_interval = setInterval(() => {
+            cur = cur === 1 ? 2 : 1;
+            setBackground(cur);
+          }, msg.value.interval*1000);
+        } else {
+          window._brain_interval && clearInterval(window._brain_interval);
+        }
+      }
+    }, false);
+    </script>
+    """
+    st.components.v1.html(js, height=0, scrolling=False)
 
-# 🏠 HOME PAGE - WHITE/BLUE AESTHETIC
-def home_page():
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown("<h1 class='blue-header' style='font-size: 4rem; margin-bottom: 0;'>🏔️ THE BRAIN</h1>", unsafe_allow_html=True)
-        st.markdown("<h3 class='blue-subheader' style='margin-top: 0;'>Climb Your Personal Everest</h3>", unsafe_allow_html=True)
-        st.markdown("---")
-    
-    # Login/Register Form
-    st.markdown("<h2 style='text-align: center; color: #667eea;'>🚀 Begin Your Ascent</h2>", unsafe_allow_html=True)
-    
-    with st.form("auth"):
-        col1, col2 = st.columns(2)
-        with col1:
-            username = st.text_input("👤 Username", placeholder="Enter your username")
-        with col2:
-            password = st.text_input("🔒 Password", type="password", placeholder="Enter your password")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            login_btn = st.form_submit_button("🎯 Begin Climb", use_container_width=True)
-        with col2:
-            register_btn = st.form_submit_button("✨ Start Journey", use_container_width=True)
-    
-    if register_btn:
-        if username and password:
-            success, message = create_user(username, password)
-            if success:
-                st.success(f"✅ {message}")
-            else:
-                st.error(f"❌ {message}")
-        else:
-            st.warning("⚠️ Please enter both username and password")
-    
-    if login_btn:
-        if username and password:
-            if check_user(username, password):
-                st.session_state.user = username
-                st.session_state.page = "dashboard"
-                st.success("🎉 Welcome to the mountains!")
-                st.rerun()
-            else:
-                st.error("❌ Invalid username or password")
-        else:
-            st.warning("⚠️ Please enter both username and password")
-    
-    # Features showcase
-    st.markdown("---")
-    st.markdown("<h2 style='text-align: center; color: #667eea;'>🎯 Your Climbing Journey</h2>", unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown("""
-        <div style='text-align: center; padding: 20px; background: rgba(255,255,255,0.7); border-radius: 20px; border: 1px solid #e3f2fd;'>
-            <h3 style='color: #667eea;'>🥈 Base Camp</h3>
-            <p style='color: #5d7da8;'>15 days • 2 hours/day</p>
-            <p style='color: #5d7da8;'>Build foundation habits</p>
+# ---- helper to send message to JS via Streamlit (postMessage hack) ----
+def send_bg_message(n):
+    # We cannot directly call postMessage easily; instead we create a tiny HTML that posts to window.
+    html = f"""
+    <script>
+      window.postMessage({{type:'SET_BG', value:{n}}}, "*");
+    </script>
+    """
+    st.components.v1.html(html, height=0)
+
+def send_auto_rotate(enabled: bool, interval_sec: int = 8):
+    html = f"""
+    <script>
+      window.postMessage({{type:'AUTO_ROTATE', value:{{enabled:{str(enabled).lower()}, interval:{interval_sec}}} }}, "*");
+    </script>
+    """
+    st.components.v1.html(html, height=0)
+
+# ---- App pages ----
+def page_home():
+    st.markdown('<div class="glass">', unsafe_allow_html=True)
+    st.markdown("<h1>Welcome to The Brain App</h1>", unsafe_allow_html=True)
+    st.markdown("<p>Sharp white-ice mountain backgrounds (no blur). Use the controls in the sidebar to switch backgrounds or enable auto-rotate.</p>", unsafe_allow_html=True)
+    st.markdown("""
+        <div style="display:flex; gap:20px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:260px;">
+            <h3>Focus-first Design</h3>
+            <p>Clean, crisp UI with white-blue cards that remain readable on top of a sharp photographic background.</p>
+          </div>
+          <div style="flex:1; min-width:260px;">
+            <h3>Teacher-led Learning</h3>
+            <p>Teachers create tuition centers, share daily statuses, and students join focused courses without distraction.</p>
+          </div>
         </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("""
-        <div style='text-align: center; padding: 20px; background: rgba(255,255,255,0.7); border-radius: 20px; border: 1px solid #e3f2fd;'>
-            <h3 style='color: #667eea;'>🥇 High Camp</h3>
-            <p style='color: #5d7da8;'>30 days • 4 hours/day</p>
-            <p style='color: #5d7da8;'>Advanced discipline</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown("""
-        <div style='text-align: center; padding: 20px; background: rgba(255,255,255,0.7); border-radius: 20px; border: 1px solid #e3f2fd;'>
-            <h3 style='color: #667eea;'>👑 Summit</h3>
-            <p style='color: #5d7da8;'>60 days • 6 hours/day</p>
-            <p style='color: #5d7da8;'>Master level focus</p>
-        </div>
-        """, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# 📊 DASHBOARD - WHITE/BLUE DESIGN
-def dashboard_page():
-    user_data = store["users"][st.session_state.user]
-    
-    # Header
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown(f"<h1 class='blue-header'>🎯 Welcome, {st.session_state.user}!</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #5d7da8;'>Climbing towards your personal summit</p>", unsafe_allow_html=True)
-    
-    # Stats Dashboard
-    st.markdown("---")
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric("🔥 Current Streak", f"{user_data['streak']} days", delta="+1 today" if user_data['streak'] > 0 else None)
-    with col2:
-        st.metric("💰 Total Savings", f"{user_data['savings']:.0f} PKR", delta=f"+{user_data['savings']/100:.0f}%")
-    with col3:
-        st.metric("🏔️ Current Stage", user_data['stage'])
-    with col4:
-        st.metric("⭐ Badges", len(user_data['badges']))
-    
-    # Daily Check-in Section
-    st.markdown("---")
-    st.markdown("<h2 style='color: #667eea;'>📝 Daily Climbing Log</h2>", unsafe_allow_html=True)
-    
-    with st.form("daily_check"):
-        st.markdown("### ✅ Today's Ascent")
-        
-        # Stage-based tasks
-        if user_data['stage'] == "Silver":
-            task1 = st.checkbox("⏰ Work 2 hours on my goals")
-            task2 = st.checkbox("🚫 Avoid digital distractions")
-            task3 = st.checkbox("📚 Learn something new (30 min)")
-        elif user_data['stage'] == "Platinum":
-            task1 = st.checkbox("⏰ Work 4 hours on my goals")
-            task2 = st.checkbox("💪 30 minutes exercise")
-            task3 = st.checkbox("💧 Drink 3L water")
-            task4 = st.checkbox("🍎 Healthy eating")
-        else:  # Gold
-            task1 = st.checkbox("⏰ Work 6 hours on my goals")
-            task2 = st.checkbox("💪 1 hour exercise")
-            task3 = st.checkbox("💧 Drink 5L water")
-            task4 = st.checkbox("🌅 Wake up at 5 AM")
-            task5 = st.checkbox("🎯 Mindfulness practice")
-        
-        savings = st.number_input("💰 Money saved today (PKR)", 0, 5000, 0, 50)
-        
-        submitted = st.form_submit_button("🏔️ Log Today's Climb", use_container_width=True)
-        
-        if submitted:
-            tasks_completed = True
-            if user_data['stage'] == "Silver":
-                tasks_completed = task1 and task2 and task3
-            elif user_data['stage'] == "Platinum":
-                tasks_completed = task1 and task2 and task3 and task4
-            else:
-                tasks_completed = task1 and task2 and task3 and task4 and task5
-            
-            if tasks_completed:
-                user_data['streak'] += 1
-                user_data['savings'] += savings
-                
-                # Check for stage promotion
-                if user_data['streak'] >= 15 and user_data['stage'] == "Silver":
-                    user_data['stage'] = "Platinum"
-                    user_data['badges'].append("Base Camp Complete")
-                    st.balloons()
-                    st.success("🌟 CONGRATULATIONS! You reached HIGH CAMP! (Platinum Stage)")
-                elif user_data['streak'] >= 30 and user_data['stage'] == "Platinum":
-                    user_data['stage'] = "Gold"
-                    user_data['badges'].append("High Camp Complete")
-                    st.balloons()
-                    st.success("👑 PHENOMENAL! You're approaching the SUMMIT! (Gold Stage)")
-                elif user_data['streak'] >= 60 and user_data['stage'] == "Gold":
-                    user_data['badges'].append("Summit Reached")
-                    st.balloons()
-                    st.success("🏆 EVEREST CONQUERED! You completed the 105-Day Challenge!")
-                
-                save_store(store)
-                st.success("🎉 Today's ascent recorded! You're climbing higher! 🏔️")
-            else:
-                st.warning("⚠️ Complete all climbing tasks to continue your ascent!")
-    
-    # Progress Visualization
-    st.markdown("---")
-    st.markdown("<h2 style='color: #667eea;'>📈 Your Climbing Progress</h2>", unsafe_allow_html=True)
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        # Altitude progress
-        target_streak = 15 if user_data['stage'] == "Silver" else 30 if user_data['stage'] == "Platinum" else 60
-        progress = min(user_data['streak'] / target_streak, 1.0)
-        altitude = user_data['streak'] * 100  # Each day = 100m climbed
-        st.metric("🏔️ Current Altitude", f"{altitude}m")
-        st.progress(progress)
-        st.caption(f"Climbing to {target_streak * 100}m")
-    
-    with col2:
-        # Summit goal
-        total_journey = 105
-        journey_progress = min(user_data['streak'] / total_journey, 1.0)
-        st.metric("🎯 Journey Complete", f"{journey_progress*100:.1f}%")
-        st.progress(journey_progress)
-        st.caption(f"105-Day Summit Challenge")
-    
-    # Badges Section
-    if user_data['badges']:
-        st.markdown("---")
-        st.markdown("<h2 style='color: #667eea;'>🏆 Climbing Achievements</h2>", unsafe_allow_html=True)
-        
-        for badge in user_data['badges']:
-            st.success(f"✅ {badge}")
-    
-    # Logout button
-    st.markdown("---")
-    if st.button("🚪 Descend from Summit", use_container_width=True):
-        st.session_state.user = None
-        st.session_state.page = "home"
-        st.rerun()
+def page_predict():
+    st.markdown('<div class="glass">', unsafe_allow_html=True)
+    st.markdown("<h2>🔮 Quick Prediction</h2>", unsafe_allow_html=True)
+    name = st.text_input("Your name")
+    hours = st.slider("Hours/day you study", 0, 24, 4)
+    distractions = st.selectbox("Main distraction", ["None","Social media","YouTube","Gaming","Sleepiness"])
+    if st.button("Estimate focus percentile"):
+        # simplistic formula to give a feel
+        base = 35
+        score = base + hours*3 - (0 if distractions=="None" else 8)
+        pct = max(1, min(99, int(score)))
+        st.success(f"{name or 'User'}, estimated focus percentile: {pct}%")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# 🎯 MAIN APP
+def page_teachers():
+    st.markdown('<div class="glass">', unsafe_allow_html=True)
+    st.markdown("<h2>👩‍🏫 Teachers</h2>", unsafe_allow_html=True)
+    st.markdown("<p>Apply to become a teacher: create your tuition center, post daily teaching updates, and reach students worldwide.</p>", unsafe_allow_html=True)
+    if st.button("Apply as Teacher"):
+        st.info("Application received — we'll contact you by email (demo).")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+def page_about():
+    st.markdown('<div class="glass">', unsafe_allow_html=True)
+    st.markdown("<h2>About The Brain App</h2>", unsafe_allow_html=True)
+    st.markdown("<p>A distraction-free learning hub with AI-ready features. Designed with white-ice mountain aesthetics — crisp, clear, and calm.</p>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ---- Main ----
 def main():
-    st.set_page_config(
-        page_title="The Brain - Mountain Ascent", 
-        page_icon="🏔️", 
-        layout="wide",
-        initial_sidebar_state="collapsed"
-    )
-    
-    # Add the beautiful white/blue mountain aesthetic background
-    add_white_blue_mountain_bg()
-    
-    # Initialize session state
-    if "user" not in st.session_state:
-        st.session_state.user = None
-    if "page" not in st.session_state:
-        st.session_state.page = "home"
-    
-    # Show the right page
-    if st.session_state.user:
-        dashboard_page()
+    st.set_page_config(page_title="The Brain App - White Ice", layout="wide")
+    inject_css()
+    inject_js()  # JS that listens for postMessage
+
+    # sidebar controls
+    with st.sidebar:
+        st.image("https://cdn-icons-png.flaticon.com/512/10307/10307982.png", width=90)
+        st.title("🧠 Brain App")
+        st.write("White-ice mountain theme")
+        st.markdown("---")
+        st.markdown("**Background controls**")
+        bg_choice = st.radio("Choose background:", ("Image 1 (my background.webp)", "Image 2 (myaa.jpg)"))
+        auto = st.checkbox("Auto-rotate backgrounds every 8s", value=False)
+        st.markdown("---")
+        st.markdown("**Navigate**")
+        page = st.radio("Page:", ("Home","Predict","Teachers","About"))
+
+        st.markdown("---")
+        st.markdown("Mobile-friendly: yes ✅")
+
+    # apply background selection via postMessage
+    # map bg_choice to 1 or 2
+    selected = 1 if "Image 1" in bg_choice else 2
+    send_bg_message(selected)
+    send_auto_rotate(auto, 8)
+
+    # page routing
+    st.markdown('<div class="app-content">', unsafe_allow_html=True)
+    if page == "Home":
+        page_home()
+    elif page == "Predict":
+        page_predict()
+    elif page == "Teachers":
+        page_teachers()
     else:
-        home_page()
+        page_about()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # small footer area
+    st.markdown("<div style='padding:14px 0; color:#001428; text-align:center;'>Built with ❤️ — White Ice Mountain theme</div>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
