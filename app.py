@@ -1,85 +1,75 @@
 import streamlit as st
 import matplotlib.pyplot as plt
-from model import predict, categorical_columns
-import pandas as pd
+from model import predict
 
-# ===== Streamlit Styling =====
-st.set_page_config(page_title="Brain App - AI Learning", page_icon="🧠", layout="wide")
+st.set_page_config(page_title="Brain App", page_icon="🧠", layout="wide")
 
+# === CUSTOM THEME ===
 st.markdown("""
-    <style>
-        .stApp {
-            background-color: #e8f5ff;
-            color: white;
-            font-family: 'Poppins', sans-serif;
-        }
-        h1, h2, h3, h4 {
-            color: white;
-            text-shadow: 0px 0px 8px #00bfff;
-        }
-        .stButton button {
-            background-color: #00ff9d;
-            color: black;
-            font-weight: bold;
-            border-radius: 8px;
-            padding: 10px 20px;
-        }
-    </style>
+<style>
+    .stApp {
+        background-color: #0b3d91;
+        color: white;
+    }
+    .stButton>button {
+        background-color: #28a745;
+        color: white;
+        border-radius: 10px;
+        height: 3em;
+        width: 100%;
+        font-size: 16px;
+    }
+    .stSidebar {
+        background-color: #062863;
+        color: white;
+    }
+</style>
 """, unsafe_allow_html=True)
 
-# ===== Sidebar Navigation =====
-st.sidebar.title("🧭 Navigation")
-page = st.sidebar.radio("Go to", ["🏠 Home", "📊 Dashboard", "ℹ️ About"])
+st.sidebar.title("🧠 Brain App Dashboard")
+page = st.sidebar.radio("Navigation", ["🏠 Home", "📊 Dashboard", "ℹ️ About"])
 
-# ===== HOME PAGE =====
 if page == "🏠 Home":
-    st.title("🧠 Brain App - AI Performance Predictor")
-    st.subheader("Welcome to your AI-based Performance Analyzer!")
+    st.title("Welcome to Brain App")
+    st.write("✨ Predict your **learning performance percentile** based on your habits.")
+    st.image("https://images.unsplash.com/photo-1616401784845-180882ba9b1b", use_container_width=True)
+    st.write("---")
+    st.write("Navigate to the **Dashboard** to use the AI predictor.")
 
-    st.write("""
-    This tool uses a trained **XGBoost Machine Learning model** to predict your performance percentile 
-    based on your habits, study hours, and distractions.
-    """)
-
-# ===== DASHBOARD =====
 elif page == "📊 Dashboard":
-    st.title("📊 Performance Predictor Dashboard")
+    st.title("📊 Performance Predictor")
+    st.write("Fill in the details below:")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        hours = st.number_input("Study Hours per Day", 0.5, 12.0, 5.0)
-        distractions = st.number_input("Distraction Count", 0, 15, 3)
-    with col2:
-        inputs = {}
-        for col in categorical_columns:
-            inputs[col] = st.selectbox(col.replace("_", " ").title(), ["Yes", "No"])
-    
-    inputs["hours"] = hours
-    inputs["distraction_count"] = distractions
+    hours = st.slider("📘 Study Hours (per day)", 0.5, 12.0, 6.0)
+    distraction_count = st.slider("📱 Distractions per day", 0, 15, 5)
 
-    if st.button("🔮 Predict My Performance"):
-        percentile = predict(inputs)
-        st.success(f"🎯 You are in the Top **{percentile:.1f}%** of performers!")
+    habits = {}
+    for habit in ["avoid_sugar", "avoid_junk_food", "drink_5L_water", "sleep_early", "exercise_daily", "wakeup_early"]:
+        habits[habit] = st.selectbox(f"{habit.replace('_', ' ').title()}", ["Yes", "No"])
 
-        # ===== Bar Chart =====
-        st.subheader("Feature Breakdown")
-        features = ["Study Hours", "Distraction Control", "Habits Impact"]
-        values = [100 - percentile, percentile, (percentile + 20) % 100]
+    if st.button("🔮 Predict Performance"):
+        inputs = {"hours": hours, "distraction_count": distraction_count, **habits}
+        result = predict(inputs)
+        st.success(f"🏆 Your Predicted Top Percentile: **{result:.1f}%**")
 
-        fig, ax = plt.subplots()
-        ax.bar(features, values, color="#00bfff", edgecolor="white")
-        ax.set_title("Performance Breakdown", color="white", fontsize=14)
-        ax.set_ylabel("Percentile", color="white")
-        ax.tick_params(colors="white")
+        # Simple bar chart
+        fig, ax = plt.subplots(figsize=(8, 4))
+        ax.bar(["Overall"], [result], color="#00BFFF")
+        ax.set_ylim(0, 100)
+        ax.set_ylabel("Top Percentile")
+        ax.set_title("Performance Prediction")
         st.pyplot(fig)
 
-# ===== ABOUT PAGE =====
 elif page == "ℹ️ About":
     st.title("ℹ️ About Brain App")
     st.write("""
-    **Brain App** is an AI-driven platform that helps learners understand their performance patterns.  
-    It uses **XGBoost Regression** and real-world simulated data to predict percentile ranking 
-    based on behavioral habits and learning consistency.
+    This app uses **Machine Learning (XGBoost)** to predict your learning percentile 
+    based on daily habits and study patterns.
+    
+    🧩 Built with:
+    - Streamlit
+    - XGBoost
+    - Scikit-Learn  
+    - Matplotlib
     """)
 
-    st.info("Made with 💙 by Syed Imran Shah (Future Tech Entrepreneur)")
