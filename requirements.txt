@@ -6,3 +6,6 @@ scikit-learn
 firebase-admin
 textblob
 python-dateutil
+matplotlib
+scikit-learn
+xgboost
