@@ -6,29 +6,7 @@ st.set_page_config(page_title="Login", layout="centered")
 
 
 
-st.markdown("""
-<style>
-.title {
-    text-align: center;
-    color: white;
-    font-family: 'Great Vibes', cursive;
-    font-size: 60px;
-    position: relative;
-}
-
-.title::after {
-    content: '';
-    display: block;
-    width: 120px;
-    height: 4px;
-    background: linear-gradient(to right, #00FFAB, #0077FF);
-    margin: 10px auto 0;
-    border-radius: 2px;
-}
-</style>
-
-<h1 class="title">🧠 The Brain App</h1>
-""", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: white;'>𝓣𝓱𝓮 𝓑𝓻𝓪𝓲𝓷 𝓐𝓹𝓹</h1>", unsafe_allow_html=True)
 
 
 # Center the form in the page
