@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 import streamlit as st
 import hashlib
 from datetime import datetime
@@ -12,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ===== PROFESSIONAL CSS =====
+# ===== PROFESSIONAL CSS WITH BLACK TEXT =====
 st.markdown("""
 <style>
     .main-header {
@@ -52,6 +53,33 @@ st.markdown("""
         margin: 0.3rem 0;
         font-size: 0.9rem;
     }
+    
+    /* FIX CHECKBOX TEXT COLOR */
+    .stCheckbox > label {
+        color: black !important;
+        font-weight: 500;
+    }
+    .stCheckbox > label > div {
+        color: black !important;
+    }
+    
+    /* FIX ALL TEXT COLORS */
+    .stApp {
+        color: black !important;
+    }
+    p, div, span {
+        color: black !important;
+    }
+    
+    /* FIX FORM TEXT */
+    .stForm {
+        color: black !important;
+    }
+    
+    /* FIX SIDEBAR TEXT */
+    .css-1d391kg {
+        color: black !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -72,9 +100,9 @@ if 'page' not in st.session_state:
 def hash_password(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
 
-# ===== FAST ML PREDICTION =====
+# ===== FAST ML PREDICTION WITH BLUE CHART =====
 def quick_performance_predict(hours, distractions, habits):
-    """Ultra-fast performance prediction without heavy ML"""
+    """Ultra-fast performance prediction"""
     base_score = (hours * 15) - (distractions * 7)
     
     # Add habit contributions
@@ -99,10 +127,10 @@ def quick_performance_predict(hours, distractions, habits):
     return percentile
 
 def quick_performance_breakdown(hours, distractions, habits):
-    """Fast performance breakdown without heavy calculations"""
+    """Performance breakdown for blue chart"""
     breakdown = {}
     
-    # Study hours percentile (simplified)
+    # Study hours percentile
     breakdown['Study Hours'] = max(10, min(95, (hours / 12) * 100))
     
     # Distraction control
@@ -126,6 +154,33 @@ def quick_performance_breakdown(hours, distractions, habits):
     
     return breakdown
 
+def create_blue_chart(breakdown, overall_percentile):
+    """Create your exact blue bar chart"""
+    fig, ax = plt.subplots(figsize=(12, 8))
+    features = list(breakdown.keys())
+    percentiles = list(breakdown.values())
+    
+    # Your exact blue color
+    bars = ax.bar(features, percentiles, color='#1E90FF', edgecolor='darkblue', alpha=0.8)
+    
+    # Add labels on bars
+    for bar, percentile in zip(bars, percentiles):
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height + 1,
+                f'Top {percentile:.1f}%', ha='center', va='bottom', 
+                fontweight='bold', fontsize=9, color='#1a237e')
+    
+    ax.set_xlabel('Performance Features', fontweight='bold', fontsize=12, color='black')
+    ax.set_ylabel('Performance Percentile', fontweight='bold', fontsize=12, color='black')
+    ax.set_title(f'PERFORMANCE BREAKDOWN ANALYSIS (Top {overall_percentile:.1f}%)', 
+                 fontweight='bold', fontsize=14, color='black')
+    ax.grid(True, alpha=0.3)
+    plt.xticks(rotation=45, ha='right')
+    ax.set_ylim(0, 100)
+    
+    plt.tight_layout()
+    return fig
+
 # ===== APP DATA =====
 CHALLENGE_STAGES = {
     'Silver': {'duration': 15, 'badge': '🥈', 'rules': ['2 hours in field', 'Avoid distractions', 'Fill form daily']},
@@ -148,7 +203,6 @@ def login_page():
         if st.button("🚀 Login", use_container_width=True):
             if username in st.session_state.users_db and st.session_state.users_db[username] == hash_password(password):
                 st.session_state.user = username
-                # Initialize user data if not exists
                 if username not in st.session_state.profiles_db:
                     st.session_state.profiles_db[username] = {}
                 if username not in st.session_state.progress_db:
@@ -175,8 +229,8 @@ def login_page():
 def dashboard():
     st.markdown(f'<div class="main-header"><h1>👋 Welcome, {st.session_state.user}!</h1></div>', unsafe_allow_html=True)
     
-    # Fast Performance Prediction
-    st.subheader("📊 Quick Performance Check")
+    # Performance Prediction
+    st.subheader("📊 Performance Prediction Analysis")
     
     col1, col2 = st.columns(2)
     with col1:
@@ -193,18 +247,16 @@ def dashboard():
             'wakeup_early': st.selectbox("Wakeup Early", ["Yes", "No"])
         }
 
-    if st.button("🎯 Check Performance", use_container_width=True):
-        # Ultra-fast prediction
+    if st.button("🎯 Predict My Performance", use_container_width=True):
+        # Fast prediction
         percentile = quick_performance_predict(hours, distractions, habits)
         breakdown = quick_performance_breakdown(hours, distractions, habits)
         
-        st.success(f"🎯 Your Performance: Top **{percentile:.1f}%**")
+        st.success(f"🎯 Your Overall Performance: Top **{percentile:.1f}%**")
         
-        # Simple progress bars instead of chart
-        st.subheader("Performance Breakdown")
-        for metric, value in breakdown.items():
-            st.write(f"**{metric}:** {value:.0f}%")
-            st.progress(int(value) / 100)
+        # Show your blue bar chart
+        fig = create_blue_chart(breakdown, percentile)
+        st.pyplot(fig)
 
     # Challenge Section
     st.markdown("---")
@@ -284,7 +336,7 @@ def daily_tracking():
     profile = st.session_state.profiles_db.get(user, {})
     progress = st.session_state.progress_db.get(user, {})
     
-    st.markdown('<div class="main-header"><h1>📝 Daily Tracking</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header"><h1>📝 Daily Progress Tracking</h1></div>', unsafe_allow_html=True)
     
     # 4 Stats Header
     stage = profile.get('stage', 'Not set')
@@ -293,19 +345,19 @@ def daily_tracking():
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.markdown(f'<div class="stat-box"><h3>Stage</h3><h2>{stage}</h2></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="stat-box"><h3>Current Stage</h3><h2>{stage}</h2></div>', unsafe_allow_html=True)
     with col2:
         st.markdown(f'<div class="stat-box"><h3>Days Left</h3><h2>{days_left}</h2></div>', unsafe_allow_html=True)
     with col3:
-        st.markdown(f'<div class="stat-box"><h3>Streak</h3><h2>{progress.get("streak_days", 0)}</h2></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="stat-box"><h3>Streak Days</h3><h2>{progress.get("streak_days", 0)}</h2></div>', unsafe_allow_html=True)
     with col4:
-        st.markdown(f'<div class="stat-box"><h3>Savings</h3><h2>${progress.get("total_savings", 0)}</h2></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="stat-box"><h3>Total Savings</h3><h2>${progress.get("total_savings", 0)}</h2></div>', unsafe_allow_html=True)
     
     # Show previous records
     if st.session_state.daily_records.get(user):
-        st.subheader("📋 Your Records")
-        for record in reversed(st.session_state.daily_records[user][-3:]):
-            status = "✅ Perfect" if record['perfect'] else f"⚠️ Penalty: ${record['penalty']}"
+        st.subheader("📋 Your Previous Records")
+        for record in reversed(st.session_state.daily_records[user][-5:]):
+            status = "✅ Perfect Day" if record['perfect'] else f"⚠️ Penalty: ${record['penalty']}"
             st.markdown(f"""
             <div class="data-record">
                 <strong>{record['date']}</strong> | {status}<br>
@@ -313,37 +365,41 @@ def daily_tracking():
             </div>
             """, unsafe_allow_html=True)
     
-    # Daily Checklist
-    st.subheader("✅ Today's Tasks")
+    st.markdown("---")
+    st.subheader("✅ Today's Challenge Checklist")
     
-    tasks = []
-    stage = profile.get('stage')
-    
-    if stage == 'Silver':
-        tasks.append(st.checkbox("2 hours in field"))
-        tasks.append(st.checkbox("Avoided distractions"))
-        tasks.append(st.checkbox("Filling this form"))
-    elif stage == 'Platinum':
-        tasks.append(st.checkbox("4 hours in field"))
-        tasks.append(st.checkbox("Avoided distractions"))
-        tasks.append(st.checkbox("1 hour exercise"))
-        tasks.append(st.checkbox("5L water"))
-        tasks.append(st.checkbox("Filling this form"))
-    elif stage == 'Gold':
-        tasks.append(st.checkbox("6 hours in field"))
-        tasks.append(st.checkbox("Avoided distractions"))
-        tasks.append(st.checkbox("1 hour exercise"))
-        tasks.append(st.checkbox("5L water"))
-        tasks.append(st.checkbox("Wake up early"))
-        tasks.append(st.checkbox("Sleep early"))
-        tasks.append(st.checkbox("No junk food"))
-        tasks.append(st.checkbox("No sugar"))
-    
-    penalty = st.number_input("Penalty $ (if skipped)", 0.0, 100.0, 0.0)
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("📅 Submit Day", use_container_width=True):
+    # Daily Checklist with proper black text
+    with st.form("daily_checklist"):
+        st.markdown("**Check all tasks you completed today:**")
+        
+        tasks = []
+        stage = profile.get('stage')
+        
+        if stage == 'Silver':
+            tasks.append(st.checkbox("✅ Gave 2 hours in my field today", value=False))
+            tasks.append(st.checkbox("✅ Avoided all distractions today", value=False))
+            tasks.append(st.checkbox("✅ Filling this form at night", value=False))
+        elif stage == 'Platinum':
+            tasks.append(st.checkbox("✅ Gave 4 hours in my field today", value=False))
+            tasks.append(st.checkbox("✅ Avoided all distractions today", value=False))
+            tasks.append(st.checkbox("✅ Completed 1 hour exercise", value=False))
+            tasks.append(st.checkbox("✅ Drank 5L water today", value=False))
+            tasks.append(st.checkbox("✅ Filling this form at night", value=False))
+        elif stage == 'Gold':
+            tasks.append(st.checkbox("✅ Gave 6 hours in my field today", value=False))
+            tasks.append(st.checkbox("✅ Avoided all distractions today", value=False))
+            tasks.append(st.checkbox("✅ Completed 1 hour exercise", value=False))
+            tasks.append(st.checkbox("✅ Drank 5L water today", value=False))
+            tasks.append(st.checkbox("✅ Woke up early (4am/5am)", value=False))
+            tasks.append(st.checkbox("✅ Will sleep early (8pm/9pm)", value=False))
+            tasks.append(st.checkbox("✅ Avoided junk food today", value=False))
+            tasks.append(st.checkbox("✅ Avoided sugar today", value=False))
+        
+        penalty_amount = st.number_input("💰 Penalty Amount (if you skipped any task)", min_value=0.0, value=0.0, step=1.0, format="%.2f")
+        
+        submitted = st.form_submit_button("📅 Submit Today's Progress", use_container_width=True)
+        
+        if submitted:
             completed = sum(tasks)
             total = len(tasks)
             perfect = completed == total
@@ -353,7 +409,7 @@ def daily_tracking():
                 'date': datetime.now().strftime("%Y-%m-%d %H:%M"),
                 'completed': completed,
                 'total': total,
-                'penalty': penalty,
+                'penalty': penalty_amount,
                 'perfect': perfect
             }
             
@@ -364,25 +420,29 @@ def daily_tracking():
             if perfect:
                 progress['days_completed'] += 1
                 progress['streak_days'] += 1
-                st.markdown('<div class="success-box"><h3>🎉 Perfect Day!</h3></div>', unsafe_allow_html=True)
-            elif completed >= total - 2 and penalty > 0:
+                st.markdown('<div class="success-box"><h3>🎉 Perfect Day Completed!</h3></div>', unsafe_allow_html=True)
+                st.balloons()
+            elif completed >= total - 2 and penalty_amount > 0:
                 progress['days_completed'] += 1
                 progress['streak_days'] = 0
-                progress['total_savings'] += penalty
-                st.markdown(f'<div class="warning-box"><h3>⚠️ Day Saved with ${penalty} Penalty</h3></div>', unsafe_allow_html=True)
+                progress['total_savings'] += penalty_amount
+                st.markdown(f'<div class="warning-box"><h3>⚠️ Day Accepted with ${penalty_amount} Penalty</h3></div>', unsafe_allow_html=True)
             else:
-                st.markdown('<div class="error-box"><h3>❌ Day Not Counted</h3></div>', unsafe_allow_html=True)
+                st.markdown('<div class="error-box"><h3>❌ Day Not Accepted</h3></div>', unsafe_allow_html=True)
             
             st.rerun()
     
-    with col2:
-        if st.button("🔄 Refill Form", use_container_width=True):
-            st.info("Form reset! Fill again.")
+    # Refill form button
+    st.markdown("---")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🔄 Fill Form Again", use_container_width=True):
+            st.info("Form reset! You can submit again.")
             st.rerun()
-    
-    if st.button("← Back to Dashboard", use_container_width=True):
-        st.session_state.page = "dashboard"
-        st.rerun()
+    with col2:
+        if st.button("← Back to Dashboard", use_container_width=True):
+            st.session_state.page = "dashboard"
+            st.rerun()
 
 # ===== MAIN APP =====
 def main():
@@ -391,8 +451,8 @@ def main():
     else:
         # Simple sidebar
         with st.sidebar:
-            st.write(f"User: {st.session_state.user}")
-            if st.button("Logout"):
+            st.write(f"**User:** {st.session_state.user}")
+            if st.button("🚪 Logout"):
                 st.session_state.user = None
                 st.session_state.page = "login"
                 st.rerun()
