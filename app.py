@@ -1,17 +1,17 @@
-# app.py (Full Code with FAST ML LOADING)
+# app.py (Functional version, restoring in-app training. WILL BE SLOW.)
 
 # ===== IMPORTS AND INITIAL SETUP =====
 import pandas as pd
 import numpy as np
-# Note: We still need the Scikit-learn classes for type hints and Scaler/Encoder usage
-from sklearn.preprocessing import LabelEncoder, StandardScaler 
-from sklearn.model_selection import train_test_split # Not used for training, but kept for full import context
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.model_selection import train_test_split
 from xgboost import XGBRegressor
 import random
 import streamlit as st
 import time
 from datetime import date, timedelta
-import pickle # <-- NEW: Used for loading pre-trained components
+# import pickle # Removed: No longer needed for loading
 
 # --- STATE MANAGEMENT INITIALIZATION ---
 if 'logged_in' not in st.session_state:
@@ -23,7 +23,7 @@ if 'user_db' not in st.session_state:
 if 'page' not in st.session_state:
     st.session_state.page = 'login'
 
-# --- CONSTANTS FOR THE CHALLENGE ---
+# --- CONSTANTS FOR THE CHALLENGE (UNCHANGED) ---
 CHALLENGE_STAGES = {
     'Silver': {
         'duration': 15,
@@ -85,47 +85,84 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- ML MODEL LOADING (NEW: Loads pre-trained components) ---
+# --- ML MODEL LOADING AND TRAINING (Restored for functionality) ---
 @st.cache_resource
 def load_ml_model():
-    """Loads pre-trained ML model and preprocessing tools from pickle files."""
-    try:
-        with open('xgb_model.pkl', 'rb') as f:
-            model = pickle.load(f)
-        with open('scaler.pkl', 'rb') as f:
-            scaler = pickle.load(f)
-        with open('encoders.pkl', 'rb') as f:
-            encoders = pickle.load(f)
-        with open('metadata.pkl', 'rb') as f:
-            metadata = pickle.load(f)
+    """Loads and trains the ML model and preprocessing tools once."""
+    
+    # 1. DATA GENERATION
+    def create_real_world_dataset():
+        N = 500
+        data = []
+        for _ in range(N):
+            hours = np.clip(np.random.normal(loc=5.5, scale=2.5), 0.5, 10.0)
+            distraction_count = int(np.clip(np.random.normal(loc=6, scale=3.5), 0, 15))
+            avoid_sugar = random.choices(['Yes', 'No'], weights=[0.4, 0.6])[0]
+            avoid_junk_food = random.choices(['Yes', 'No'], weights=[0.45, 0.55])[0]
+            drink_5L_water = random.choices(['Yes', 'No'], weights=[0.35, 0.65])[0]
+            exercise_daily = random.choices(['Yes', 'No'], weights=[0.5, 0.5])[0]
+            sleep_early = random.choices(['Yes', 'No'], weights=[0.4, 0.6])[0]
+            wakeup_early = 'Yes' if sleep_early == 'Yes' and random.random() < 0.7 else 'No'
+            score = (hours * 15) - (distraction_count * 7)
+            score += 25 if avoid_sugar == 'Yes' else -10
+            score += 20 if avoid_junk_food == 'Yes' else -5
+            score += 15 if drink_5L_water == 'Yes' else -5
+            score += 30 if sleep_early == 'Yes' else -15
+            score += 15 if exercise_daily == 'Yes' else -5
+            score += 10 if wakeup_early == 'Yes' else 0
+            if score > 150:
+                score_noise = np.random.normal(0, 0.5)
+            else:
+                score_noise = np.random.normal(0, 8)
+            final_score = score + score_noise
+            percentile = np.clip(100 - (final_score / 2.5), 1.0, 99.9)
+            data.append({
+                "hours": round(hours, 1),
+                "avoid_sugar": avoid_sugar,
+                "avoid_junk_food": avoid_junk_food,
+                "drink_5L_water": drink_5L_water,
+                "sleep_early": sleep_early,
+                "exercise_daily": exercise_daily,
+                "wakeup_early": wakeup_early,
+                "distraction_count": distraction_count,
+                "top_percentile": round(percentile, 1)
+            })
+        return pd.DataFrame(data)
 
-        return (
-            model, 
-            metadata['df'], 
-            encoders, 
-            scaler, 
-            metadata['X_cols'], 
-            metadata['cat_cols'], 
-            metadata['num_cols']
-        )
-    except FileNotFoundError:
-        st.error(
-            "ERROR: ML model files not found. Please run 'train_and_save.py' locally "
-            "and ensure 'xgb_model.pkl', 'scaler.pkl', 'encoders.pkl', and 'metadata.pkl' "
-            "are uploaded to your Streamlit Cloud repository."
-        )
-        st.stop()
-    except Exception as e:
-        st.error(f"Error loading ML components. Ensure all libraries are in requirements.txt. Error: {e}")
-        st.stop()
-
+    df = create_real_world_dataset()
+    encoders = {}
+    categorical_columns = ["avoid_sugar", "avoid_junk_food", "drink_5L_water",
+                           "sleep_early", "exercise_daily", "wakeup_early"]
+    for col in categorical_columns:
+        le = LabelEncoder()
+        df[col] = le.fit_transform(df[col])
+        encoders[col] = le
+    numeric_columns = ['hours', 'distraction_count']
+    scaler = StandardScaler()
+    df_scaled = df.copy()
+    df_scaled[numeric_columns] = scaler.fit_transform(df[numeric_columns])
+    X = df_scaled.drop(columns=['top_percentile'])
+    y = df_scaled['top_percentile']
+    
+    # --- Training is done here (makes it slow) ---
+    X_train, _, y_train, _ = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    # 2. MODEL TRAINING
+    model = XGBRegressor(
+        n_estimators=1000, learning_rate=0.05, max_depth=5, reg_lambda=1.0, 
+        subsample=0.8, colsample_bytree=0.8, random_state=42
+    )
+    model.fit(X_train, y_train)
+    
+    # 3. RETURN COMPONENTS
+    return model, df, encoders, scaler, X.columns.tolist(), categorical_columns, numeric_columns
 
 # Load model and data components once
 try:
     model, df, encoders, scaler, X_cols, cat_cols, num_cols = load_ml_model()
-except Exception:
-    # Stop is already called in load_ml_model on error
-    pass
+except Exception as e:
+    st.error(f"Error loading ML model components. Ensure all libraries are in requirements.txt. Error: {e}")
+    st.stop()
 
 
 # --- AUTHENTICATION FUNCTIONS (UNCHANGED) ---
@@ -275,7 +312,7 @@ def predict_performance_ui():
         
         st.pyplot(fig)
 
-# --- CHALLENGE PAGES LOGIC (UNCHANGED) ---
+# --- CHALLENGE PAGES LOGIC (UNCHANGED FROM LAST WORKING FIX) ---
 
 def challenge_intro_ui():
     st.title('👑 The 105-Day Challenge: Your Path to the Top 1%')
@@ -406,7 +443,7 @@ def daily_tracking_ui():
     if today_key not in challenge['daily_log']:
         challenge['daily_log'][today_key] = {'status': 'Pending', 'rules_completed': 0, 'penalty_paid': 0.0, 'rules_list': {}}
 
-    # --- TOP METRICS (FIXED) ---
+    # --- TOP METRICS ---
     current_stage_data = CHALLENGE_STAGES[challenge['stage']]
     days_in_stage = current_stage_data['duration']
     
@@ -419,8 +456,8 @@ def daily_tracking_ui():
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Current Stage", challenge['stage'])
-    col2.metric("Days Completed", saved_days_in_stage) # FIX: Show saved days
-    col3.metric("Days Remaining", days_left) # FIX: Show days left
+    col2.metric("Days Completed", saved_days_in_stage)
+    col3.metric("Days Remaining", days_left)
     col4.metric("Total Saving", f"PKR {challenge['penalty_amount']:,.2f}")
     
     st.markdown("---")
@@ -436,7 +473,7 @@ def daily_tracking_ui():
             icon = "✅" if status else "❌"
             st.markdown(f"{icon} {rule}")
         
-        # FIX: Display Last Task message if flagged
+        # Display Last Task message if flagged
         if challenge.get('last_task_message', False):
              st.markdown("---")
              st.subheader("Your Last Task for the Day:")
@@ -462,7 +499,6 @@ def daily_tracking_ui():
         # Display the checklist. Use the existing key/default to prevent warnings.
         for rule in rules:
             if rule != 'Fill the form daily': 
-                # FIX: Checkbox values are temporary, need to be saved upon button click
                 checklist[rule] = st.checkbox(f"✅ {rule}", key=f"check_{rule}_{today_key}")
         
         st.subheader("Penalty and Pocket Money")
@@ -475,7 +511,7 @@ def daily_tracking_ui():
             total_tasks = len(rules) - 1
             tasks_skipped = total_tasks - completed_tasks
             
-            log_status = "Pending" # Default to pending until accepted
+            log_status = "Pending" 
             penalty_status = 0.0
             
             # 2. Enforcement Logic
@@ -487,12 +523,12 @@ def daily_tracking_ui():
                 penalty_status = penalty_input
                 
             else:
-                # Day NOT Accepted (Skipped > 2 OR Skipped > 0 but no penalty)
+                # Day NOT Accepted 
                 if tasks_skipped > 2:
                     st.error("❌ Day NOT Accepted! You skipped more than 2 tasks (only 2 skips allowed with penalty).")
                 elif tasks_skipped > 0 and penalty_input == 0.0:
                     st.error("❌ Day NOT Accepted! You failed tasks and did not pay the penalty.")
-                return # Stop execution if day is not accepted
+                return 
                 
             # 3. Save Data and Update Stats
             
@@ -508,10 +544,10 @@ def daily_tracking_ui():
             })
             
             # Update challenge totals (only if accepted)
-            user_data['challenge']['stage_days_completed'] = saved_days_in_stage + 1 # Use the updated count
+            user_data['challenge']['stage_days_completed'] = saved_days_in_stage + 1 
             user_data['challenge']['penalty_amount'] += penalty_status
             user_data['challenge']['streak_days_penalty'] = user_data['challenge'].get('streak_days_penalty', 0) + 1 if log_status == "Saved with Penalty" else 0
-            user_data['challenge']['last_task_message'] = True # Set flag to show last task
+            user_data['challenge']['last_task_message'] = True 
             
             # Show success message and check for stage completion
             if log_status == "Perfect":
@@ -525,7 +561,7 @@ def daily_tracking_ui():
             time.sleep(1) 
             st.rerun()
 
-    # --- HISTORICAL VIEW (FIXED) ---
+    # --- HISTORICAL VIEW ---
     st.markdown("---")
     st.header("Stage Progress Log")
     
@@ -544,7 +580,7 @@ def daily_tracking_ui():
             elif log_entry['status'] == 'Saved with Penalty':
                 status_icon = "🟡 Penalty"
             else:
-                status_icon = "❌ Failed" # Should not happen based on save logic, but safe to include
+                status_icon = "❌ Failed" 
 
             log_data.append({
                 "Date": log_date_str,
