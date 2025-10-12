@@ -9,7 +9,7 @@ st.markdown("<h1 style='text-align: center;'> The Brain App</h1>", unsafe_allow_
 # Center the form in the page
 col1, col2, col3 = st.columns([1, 3, 1])
 with col2:
-st.markdown("<h1 style='text-align: center;'>Sign In</h1>", unsafe_allow_html=True)
+st.markdown("Sign In")
 
     with st.container():
         with st.form("login_form"):
