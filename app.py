@@ -2,7 +2,7 @@ import streamlit as st
 
 st.set_page_config(page_title="Login", layout="centered")
 
-st.title("🔐 The Brain App",layout="centered")
+st.title("🔐 The Brain App")
 
 # Center the form in the page
 col1, col2, col3 = st.columns([1, 2, 1])  # middle column narrower
