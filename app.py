@@ -30,7 +30,7 @@ st.markdown("<h1 style='text-align: center;'> The Brain App</h1>", unsafe_allow_
 
 
 
-col1, col2, col3 = st.columns([1, 3, 1])  # middle column narrower
+col1, col2, col3 = st.columns([1, 3, 1])  # middle column narrower
 
 
 
