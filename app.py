@@ -2,7 +2,7 @@ import streamlit as st
 st.title('The Brain App')
 with st.form("Login"):
     Username=st.text_input('Username')
-    Password=st.text_inout('Password',type='password')
+    Password=st.text_input('Password',type='password')
     Login_btn=st.form_submit_button('Login')
 
 if Login_btn:
