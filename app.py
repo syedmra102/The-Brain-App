@@ -20,18 +20,24 @@ h1 {
     color: white;
     text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
     margin-top: 40px;
-    margin-bottom: 10px;
+    margin-bottom: 20px;
 }
 
-/* Form styling */
-form {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+/* Center box container */
+.login-box {
+    background-color: rgba(255, 255, 255, 0.08);
+    border: 2px solid #00ffaa55;
+    border-radius: 20px;
+    box-shadow: 0 0 25px rgba(0,255,255,0.2);
+    padding: 40px;
+    width: 400px;
+    margin: 0 auto;
+    backdrop-filter: blur(10px);
 }
 
+/* Input styling */
 .stTextInput {
-    width: 300px !important;
+    width: 100% !important;
 }
 
 .stTextInput input {
@@ -49,9 +55,9 @@ div[data-testid="stFormSubmitButton"] button {
     color: #001f3f !important;
     font-weight: bold !important;
     border-radius: 10px !important;
-    width: 300px;
+    width: 100%;
     height: 45px;
-    margin-top: 10px;
+    margin-top: 15px;
     transition: 0.3s;
 }
 
@@ -64,12 +70,17 @@ div[data-testid="stFormSubmitButton"] button:hover {
 # ===== Title =====
 st.markdown("<h1>🧠 The Brain App</h1>", unsafe_allow_html=True)
 
-# ===== Login Form =====
+# ===== Box Container =====
+st.markdown('<div class="login-box">', unsafe_allow_html=True)
+
 with st.form("Login"):
     username = st.text_input("Username")
     password = st.text_input("Password", type='password')
     login_btn = st.form_submit_button("Login")
 
+st.markdown('</div>', unsafe_allow_html=True)
+
+# ===== Validation Logic =====
 if login_btn:
     if len(password) < 7:
         st.error('❌ Password must be at least 7 characters long.')
