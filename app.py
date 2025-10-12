@@ -1,11 +1,12 @@
 import streamlit as st
-
+import re
 st.set_page_config(page_title="Login", layout="centered")
 
-st.title("🔐 The Brain App")
+st.markdown("<h1 style='text-align: center;'> The Brain App</h1>", unsafe_allow_html=True)
+
 
 # Center the form in the page
-col1, col2, col3 = st.columns([1, 2, 1])  # middle column narrower
+col1, col2, col3 = st.columns([1, 3, 1])  # middle column narrower
 with col2:
     st.write("### Login")  # form title
     with st.form("login_form"):
@@ -23,6 +24,12 @@ st.write("")
 
 if login_btn:
     if len(password) < 7:
-        st.error("Password must be at least 7 characters!")
+        st.error('❌ Password must be at least 7 characters long.')
+    elif not re.search(r"[A-Z]", password):
+        st.error("❌ Password must include at least one uppercase letter.")
+    elif not re.search(r"[a-z]", password):
+        st.error("❌ Password must include at least one lowercase letter.")
+    elif not re.search(r"[0-9]", password):
+        st.error("❌ Password must include at least one number.")
     else:
-        st.success(f"Welcome {username}! You logged in successfully.")
+        st.success(f'Welcome {username},You login successfully !!')
