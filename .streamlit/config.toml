@@ -1,7 +1,130 @@
-[theme]
-# Base Theme
-primaryColor = "#00AEEF"            # Accent (Electric Blue)
-backgroundColor = "#0A0E1A"         # Main Background (Dark Navy)
-secondaryBackgroundColor = "#111827" # Card / Panel Background
-textColor = "#FFFFFF"               # White Text (Readable, Clean)
-font = "Poppins"                    # Modern, clean sans-serif
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Global Styles */
+* {
+    font-family: 'Poppins';
+}
+
+/* Main background with gradient */
+.stApp {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-attachment: fixed;
+}
+
+/* Sidebar styling */
+.css-1d391kg {
+    background: rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(10px);
+}
+
+/* Main container */
+.main .block-container {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+}
+
+/* Headers styling */
+h1 {
+    font-size: 3rem !important;
+    font-weight: 700 !important;
+    background: linear-gradient(135deg, #FFFFFF 0%, #E2E8F0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-align: center;
+    margin-bottom: 0.5rem !important;
+}
+
+h2 {
+    color: #E2E8F0 !important;
+    font-weight: 500 !important;
+    text-align: center;
+    margin-bottom: 2rem !important;
+}
+
+h3 {
+    color: #CBD5E0 !important;
+    font-weight: 400 !important;
+}
+
+/* Text input styling */
+.stTextInput>div>div>input {
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    color: white;
+    padding: 12px 16px;
+    font-size: 16px;
+    backdrop-filter: blur(10px);
+}
+
+.stTextInput>div>div>input:focus {
+    border-color: #7C3AED;
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.3);
+}
+
+.stTextInput>div>div>input::placeholder {
+    color: #A0AEC0;
+}
+
+/* Button styling */
+.stButton>button {
+    background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%);
+    color: white;
+    border: none;
+    padding: 14px 28px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    width: 100%;
+    transition: all 0.3s ease;
+    margin-top: 1rem;
+    backdrop-filter: blur(10px);
+}
+
+.stButton>button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(124, 58, 237, 0.4);
+    background: linear-gradient(135deg, #6D28D9 0%, #5B21B6 100%);
+}
+
+/* Label styling */
+.stTextInput label, .stTextInput div {
+    color: #E2E8F0 !important;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+/* Success/Error messages */
+.stAlert {
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+}
+
+/* Custom container for login form */
+.custom-container {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    padding: 3rem;
+    margin: 2rem auto;
+    max-width: 500px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+/* Password requirements styling */
+.password-req {
+    background: rgba(255, 255, 255, 0.05);
+    border-left: 4px solid #7C3AED;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 1.5rem 0;
+    color: #CBD5E0;
+}
+
+/* Make markdown text look better */
+.stMarkdown {
+    color: #E2E8F0;
+}
