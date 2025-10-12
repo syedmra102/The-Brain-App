@@ -1,9 +1,9 @@
-# app.py (Functional version, restoring in-app training. WILL BE SLOW.)
+# app.py (Final functional version with color and metric fixes - Still slow loading)
 
 # ===== IMPORTS AND INITIAL SETUP =====
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt # Import for plotting
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
 from xgboost import XGBRegressor
@@ -59,7 +59,7 @@ CHALLENGE_STAGES = {
     }
 }
 
-# --- PAGE CONFIGURATION & CUSTOM CSS (UNCHANGED) ---
+# --- PAGE CONFIGURATION & CUSTOM CSS (UPDATED FOR TEXT COLOR) ---
 st.set_page_config(
     page_title="Elite Performance Engine",
     page_icon="👑",
@@ -70,13 +70,13 @@ st.markdown(
     """
     <style>
     /* White Mountain Snow Ice theme: Light background, cool accents */
-    .stApp { background-color: #F8F8FF; color: #333333; }
+    .stApp { background-color: #F8F8FF; color: #1A1A1A; } /* Fixed text color to very dark gray */
     .stButton>button { background-color: #1E90FF; color: white; font-weight: bold; border-radius: 8px; padding: 10px 20px; }
     .stSelectbox label, .stNumberInput label, .stTextInput label, .stCheckbox label, .stRadio label { color: #000080; font-weight: 600; }
     h1, h2, h3, h4 { color: #000080; }
     .main-header { color: #1E90FF; font-size: 36px; font-weight: 800; text-align: center; margin-bottom: 20px; }
     /* FIX: Ensure sidebar text and headings are dark and visible */
-    [data-testid="stSidebar"] * { color: #333333 !important; }
+    [data-testid="stSidebar"] * { color: #1A1A1A !important; } /* Fixed sidebar text color */
     [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #000080 !important; }
     .stSuccess { background-color: #E6FFE6; color: #006600; border-radius: 5px; padding: 10px; }
     .stError { background-color: #FFE6E6; color: #CC0000; border-radius: 5px; padding: 10px; }
@@ -85,7 +85,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- ML MODEL LOADING AND TRAINING (Restored for functionality) ---
+# --- ML MODEL LOADING AND TRAINING (Slow, but functional) ---
 @st.cache_resource
 def load_ml_model():
     """Loads and trains the ML model and preprocessing tools once."""
@@ -218,7 +218,7 @@ def login_user():
             st.session_state.page = 'register'
             st.rerun()
 
-# --- ML PREDICTION APP LOGIC (UNCHANGED) ---
+# --- ML PREDICTION APP LOGIC (UPDATED: GRAPH COLORS) ---
 
 def predict_performance_ui():
     st.title("🎯 ML Performance Predictor")
@@ -293,7 +293,8 @@ def predict_performance_ui():
         features = list(feature_percentiles.keys())
         percentiles = list(feature_percentiles.values())
         
-        colors = ['#ADD8E6' if p > 50 else '#1E90FF' for p in percentiles]
+        # NEW COLOR SCHEME: Teal/Aqua
+        colors = ['#40E0D0' if p > 50 else '#008080' for p in percentiles]
         
         bars = ax.bar(features, percentiles, color=colors, edgecolor='#000080')
         
@@ -312,7 +313,7 @@ def predict_performance_ui():
         
         st.pyplot(fig)
 
-# --- CHALLENGE PAGES LOGIC (UNCHANGED FROM LAST WORKING FIX) ---
+# --- CHALLENGE PAGES LOGIC (UNCHANGED) ---
 
 def challenge_intro_ui():
     st.title('👑 The 105-Day Challenge: Your Path to the Top 1%')
@@ -443,7 +444,7 @@ def daily_tracking_ui():
     if today_key not in challenge['daily_log']:
         challenge['daily_log'][today_key] = {'status': 'Pending', 'rules_completed': 0, 'penalty_paid': 0.0, 'rules_list': {}}
 
-    # --- TOP METRICS (FIXED 4 COLUMNS) ---
+    # --- TOP METRICS (FIXED 4 COLUMNS: Stage, Remaining, Streak, Saving) ---
     current_stage_data = CHALLENGE_STAGES[challenge['stage']]
     days_in_stage = current_stage_data['duration']
     
@@ -452,7 +453,6 @@ def daily_tracking_ui():
     days_left = days_in_stage - saved_days_in_stage
     
     # Calculate perfect streak (days without penalty)
-    # NOTE: This calculates the streak within the current stage only.
     perfect_streak = 0
     # Iterate through logs in reverse chronological order
     for log_date_str in sorted(challenge['daily_log'].keys(), reverse=True):
@@ -471,11 +471,10 @@ def daily_tracking_ui():
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Current Stage", challenge['stage'])
     col2.metric("Days Remaining", days_left)
-    col3.metric("Perfect Day Streak", perfect_streak) # <-- This is your "Days Streak"
+    col3.metric("Perfect Day Streak", perfect_streak) # This is your "Days Streak"
     col4.metric("Total Penalty Saving", f"PKR {challenge['penalty_amount']:,.2f}")
     
     st.markdown("---")
-    # ... rest of the function remains the same ...
     
     # Check if today has already been logged/saved
     if challenge['daily_log'][today_key]['status'] != 'Pending':
@@ -610,7 +609,8 @@ def daily_tracking_ui():
         st.dataframe(df_log, use_container_width=True, hide_index=True)
     else:
         st.info("No days have been logged yet for this stage.")
-        
+
+
 def check_stage_completion(user_data):
     # This logic is called after a successful day save
     challenge = user_data['challenge']
