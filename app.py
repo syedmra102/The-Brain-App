@@ -1,24 +1,22 @@
-# app.py (Full Code for Streamlit Cloud)
+# app.py (Full Code for Streamlit Cloud - FIX Applied)
 
 # ===== IMPORTS AND INITIAL SETUP =====
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split # <--- CORRECT IMPORT
 from xgboost import XGBRegressor
 import random
 import streamlit as st
 import time
 
 # --- STATE MANAGEMENT INITIALIZATION ---
-# Initialize session state variables required across page reloads
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 if 'username' not in st.session_state:
     st.session_state.username = None
 if 'user_db' not in st.session_state:
-    # This dictionary will store all user data, including challenge progress
     st.session_state.user_db = {}
 if 'page' not in st.session_state:
     st.session_state.page = 'login'
@@ -59,14 +57,14 @@ CHALLENGE_STAGES = {
     }
 }
 
-# --- PAGE CONFIGURATION & CUSTOM CSS (VISIBILITY FIXES APPLIED) ---
+# --- PAGE CONFIGURATION & CUSTOM CSS ---
 st.set_page_config(
     page_title="Elite Performance Engine",
     page_icon="👑",
     layout="wide",
 )
 
-# Custom CSS for a professional, clean look (White Mountain Snow Ice concept)
+# Custom CSS for theme and visibility fixes
 st.markdown(
     """
     <style>
@@ -126,7 +124,7 @@ st.markdown(
 def load_ml_model():
     """Loads and trains the ML model and preprocessing tools once."""
     
-    # 1. DATA GENERATION (Your Original Logic)
+    # 1. DATA GENERATION
     def create_real_world_dataset():
         N = 500
         data = []
@@ -179,9 +177,11 @@ def load_ml_model():
     df_scaled[numeric_columns] = scaler.fit_transform(df[numeric_columns])
     X = df_scaled.drop(columns=['top_percentile'])
     y = df_scaled['top_percentile']
-    X_train, _, y_train, _ = train_split(X, y, test_size=0.2, random_state=42)
     
-    # 2. MODEL TRAINING (Your Original XGBoost Model)
+    # --- FIX APPLIED HERE ---
+    X_train, _, y_train, _ = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    # 2. MODEL TRAINING
     model = XGBRegressor(
         n_estimators=1000, learning_rate=0.05, max_depth=5, reg_lambda=1.0, 
         subsample=0.8, colsample_bytree=0.8, random_state=42
@@ -195,11 +195,12 @@ def load_ml_model():
 try:
     model, df, encoders, scaler, X_cols, cat_cols, num_cols = load_ml_model()
 except Exception as e:
+    # If this still fails, it's a library or environment issue, but not a code error.
     st.error(f"Error loading ML model components. Ensure all libraries are in requirements.txt. Error: {e}")
     st.stop()
 
 
-# --- AUTHENTICATION FUNCTIONS ---
+# --- AUTHENTICATION FUNCTIONS (UNCHANGED) ---
 
 def register_user():
     st.subheader("New User Registration")
@@ -212,7 +213,6 @@ def register_user():
         elif not new_user or not new_pass:
             st.error("Username and Password cannot be empty.")
         else:
-            # Initialize user profile with default challenge status
             st.session_state.user_db[new_user] = {
                 'password': new_pass,
                 'profile': {},
@@ -244,7 +244,7 @@ def login_user():
             st.session_state.page = 'register'
             st.rerun()
 
-# --- ML PREDICTION APP LOGIC ---
+# --- ML PREDICTION APP LOGIC (UNCHANGED) ---
 
 def predict_performance_ui():
     st.title("🎯 ML Performance Predictor")
@@ -338,7 +338,7 @@ def predict_performance_ui():
         
         st.pyplot(fig)
 
-# --- CHALLENGE PAGES LOGIC ---
+# --- CHALLENGE PAGES LOGIC (UNCHANGED) ---
 
 def challenge_intro_ui():
     st.title('👑 The 105-Day Challenge: Your Path to the Top 1%')
@@ -570,7 +570,7 @@ def check_stage_completion(user_data):
             st.session_state.page = 'dashboard'
             st.rerun()
 
-# --- MAIN PAGE ROUTER ---
+# --- MAIN PAGE ROUTER (UNCHANGED) ---
 
 def main_app():
     if st.session_state.logged_in:
