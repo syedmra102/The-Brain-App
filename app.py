@@ -1,47 +1,34 @@
 import streamlit as st
+import re
 
-st.markdown("""
-<div class="custom-container">
-    <h1>🧠 The BrainApp</h1>
-    <h2>Login to Your Account</h2>
-    
-   
-""", unsafe_allow_html=True)
+st.set_page_config(page_title="Login", layout="centered")
 
-with st.container():
-    col1, col2, col3 = st.columns([1, 2, 1])
-    
-    with col2:
-        st.markdown('<div class="custom-container">', unsafe_allow_html=True)
-        
+# Title
+st.markdown("<h1 style='text-align: center;'>🧠 The Brain App</h1>", unsafe_allow_html=True)
+
+# Center the form in the page
+col1, col2, col3 = st.columns([1, 3, 1])
+with col2:
+    st.markdown("### Login")
+
+    with st.container():
         with st.form("login_form"):
-            username = st.text_input("👤 Username", placeholder="Enter your username")
-            password = st.text_input("🔒 Password", type="password", placeholder="Enter your password")
-            
-            # Password requirements
-            st.markdown("""
-            <div class="password-req">
-                <div style="font-weight: 600; margin-bottom: 10px; color: #FFFFFF;">🔐 Password Requirements:</div>
-                <div>• At least 7 characters</div>
-                <div>• One uppercase letter</div>
-                <div>• One lowercase letter</div>
-                <div>• One number</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            login_button = st.form_submit_button("🚀 Login to BrainApp")
-            
-            if login_button:
-                if username and password:
-                    st.success("🎉 Welcome back! Login successful!")
-                else:
-                    st.error("⚠️ Please fill in all fields!")
-        
-        st.markdown("""
-        <div style="text-align: center; margin-top: 2rem; color: #CBD5E0;">
-            <div>Don't have an account? <a href="#" style="color: #7C3AED; text-decoration: none; font-weight: 500;">Sign up here</a></div>
-            <div style="margin-top: 0.5rem;"><a href="#" style="color: #7C3AED; text-decoration: none; font-weight: 500;">Forgot your password?</a></div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown('</div>', unsafe_allow_html=True)
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            st.caption("🔐 Password must contain at least 7 characters, one uppercase, one lowercase, and one number.")
+            login_btn = st.form_submit_button("Login")
+
+# Form validation
+if 'login_btn' in locals() and login_btn:
+    if len(password) < 7:
+        st.error('❌ Password must be at least 7 characters long.')
+    elif not re.search(r"[A-Z]", password):
+        st.error("❌ Password must include at least one uppercase letter.")
+    elif not re.search(r"[a-z]", password):
+        st.error("❌ Password must include at least one lowercase letter.")
+    elif not re.search(r"[0-9]", password):
+        st.error("❌ Password must include at least one number.")
+    else:
+        col1, col2, col3 = st.columns([1, 3, 1])
+        with col2:
+            st.success(f"✅ Welcome {username}, you logged in successfully!")
