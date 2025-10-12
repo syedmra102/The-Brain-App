@@ -3,7 +3,7 @@ import re
 
 st.set_page_config(page_title="The Brain App", page_icon="🧠", layout="centered")
 
-# ===== Custom CSS =====
+# ===== CSS =====
 st.markdown("""
 <style>
 /* Background */
@@ -12,34 +12,37 @@ st.markdown("""
     color: white;
 }
 
-/* Title */
-h1 {
-    text-align: center;
-    font-size: 45px;
-    font-weight: 800;
-    color: white;
-    text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
-    margin-top: 40px;
-    margin-bottom: 20px;
+/* Center everything */
+.main-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 90vh;
 }
 
-/* Center box container */
+/* Box */
 .login-box {
     background-color: rgba(255, 255, 255, 0.08);
     border: 2px solid #00ffaa55;
     border-radius: 20px;
     box-shadow: 0 0 25px rgba(0,255,255,0.2);
-    padding: 40px;
-    width: 400px;
-    margin: 0 auto;
+    padding: 40px 30px;
+    width: 380px;
     backdrop-filter: blur(10px);
 }
 
-/* Input styling */
-.stTextInput {
-    width: 100% !important;
+/* Title */
+h1 {
+    text-align: center;
+    font-size: 36px;
+    font-weight: 800;
+    color: white;
+    text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
+    margin-bottom: 25px;
 }
 
+/* Inputs */
 .stTextInput input {
     border-radius: 10px;
     height: 45px;
@@ -49,7 +52,7 @@ h1 {
     font-size: 15px;
 }
 
-/* Button styling */
+/* Button */
 div[data-testid="stFormSubmitButton"] button {
     background-color: #00FFAA !important;
     color: #001f3f !important;
@@ -57,7 +60,7 @@ div[data-testid="stFormSubmitButton"] button {
     border-radius: 10px !important;
     width: 100%;
     height: 45px;
-    margin-top: 15px;
+    margin-top: 10px;
     transition: 0.3s;
 }
 
@@ -67,20 +70,22 @@ div[data-testid="stFormSubmitButton"] button:hover {
 </style>
 """, unsafe_allow_html=True)
 
-# ===== Title =====
-st.markdown("<h1>🧠 The Brain App</h1>", unsafe_allow_html=True)
+# ===== Main container (center content) =====
+st.markdown('<div class="main-container">', unsafe_allow_html=True)
 
-# ===== Box Container =====
+# ===== Box with form =====
 st.markdown('<div class="login-box">', unsafe_allow_html=True)
+st.markdown("<h1>🧠 The Brain App</h1>", unsafe_allow_html=True)
 
 with st.form("Login"):
     username = st.text_input("Username")
-    password = st.text_input("Password", type='password')
+    password = st.text_input("Password", type="password")
     login_btn = st.form_submit_button("Login")
+st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# ===== Validation Logic =====
+# ===== Password validation =====
 if login_btn:
     if len(password) < 7:
         st.error('❌ Password must be at least 7 characters long.')
