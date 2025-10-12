@@ -443,7 +443,7 @@ def daily_tracking_ui():
     if today_key not in challenge['daily_log']:
         challenge['daily_log'][today_key] = {'status': 'Pending', 'rules_completed': 0, 'penalty_paid': 0.0, 'rules_list': {}}
 
-    # --- TOP METRICS ---
+    # --- TOP METRICS (FIXED 4 COLUMNS) ---
     current_stage_data = CHALLENGE_STAGES[challenge['stage']]
     days_in_stage = current_stage_data['duration']
     
@@ -451,17 +451,31 @@ def daily_tracking_ui():
     saved_days_in_stage = sum(1 for log_entry in challenge['daily_log'].values() if log_entry['status'] != 'Pending')
     days_left = days_in_stage - saved_days_in_stage
     
+    # Calculate perfect streak (days without penalty)
+    # NOTE: This calculates the streak within the current stage only.
+    perfect_streak = 0
+    # Iterate through logs in reverse chronological order
+    for log_date_str in sorted(challenge['daily_log'].keys(), reverse=True):
+        log_entry = challenge['daily_log'][log_date_str]
+        if log_entry['status'] == 'Perfect':
+            perfect_streak += 1
+        elif log_entry['status'] != 'Pending':
+            # Streak broken if status is "Saved with Penalty" or "Failed"
+            break
+            
+    
     st.title("📅 Daily Challenge Tracker")
     st.markdown(f"Hello, **{st.session_state.username}**! You are becoming a **{profile['goal']}**.")
 
+    # Four dedicated columns for key metrics
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Current Stage", challenge['stage'])
-    col2.metric("Days Completed", saved_days_in_stage)
-    col3.metric("Days Remaining", days_left)
-    col4.metric("Total Saving", f"PKR {challenge['penalty_amount']:,.2f}")
+    col2.metric("Days Remaining", days_left)
+    col3.metric("Perfect Day Streak", perfect_streak) # <-- This is your "Days Streak"
+    col4.metric("Total Penalty Saving", f"PKR {challenge['penalty_amount']:,.2f}")
     
     st.markdown("---")
-    st.header(f"Today's **{challenge['stage']}** Rules Checklist ({date.today().strftime('%A, %B %d')})")
+    # ... rest of the function remains the same ...
     
     # Check if today has already been logged/saved
     if challenge['daily_log'][today_key]['status'] != 'Pending':
@@ -596,8 +610,7 @@ def daily_tracking_ui():
         st.dataframe(df_log, use_container_width=True, hide_index=True)
     else:
         st.info("No days have been logged yet for this stage.")
-
-
+        
 def check_stage_completion(user_data):
     # This logic is called after a successful day save
     challenge = user_data['challenge']
