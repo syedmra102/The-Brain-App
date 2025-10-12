@@ -9,4 +9,4 @@ if Login_btn:
     if len(Password) > 7 :
         st.error('Your Password is too short !!please make a password at with 7 charactres!!')
     else:
-        st.sucess(f'Welcome {Username} !! , You login sucessfully !!')
+        st.sucsess(f'Welcome {Username} !! , You login sucessfully !!')
