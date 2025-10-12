@@ -1,3 +1,6 @@
+# app.py (Full Code for Streamlit Cloud)
+
+# ===== IMPORTS AND INITIAL SETUP =====
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -6,438 +9,601 @@ from sklearn.model_selection import train_test_split
 from xgboost import XGBRegressor
 import random
 import streamlit as st
-import json
-import os
-import hashlib
-from datetime import datetime, timedelta
+import time
 
-# ===== STREAMLIT PAGE CONFIG =====
+# --- STATE MANAGEMENT INITIALIZATION ---
+# Initialize session state variables required across page reloads
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+if 'username' not in st.session_state:
+    st.session_state.username = None
+if 'user_db' not in st.session_state:
+    # This dictionary will store all user data, including challenge progress
+    st.session_state.user_db = {}
+if 'page' not in st.session_state:
+    st.session_state.page = 'login'
+
+# --- CONSTANTS FOR THE CHALLENGE ---
+CHALLENGE_STAGES = {
+    'Silver': {
+        'duration': 15,
+        'rules': {
+            'Give 2 hours daily in your field': True,
+            'Avoid all distractions': True,
+            'Fill the form daily': True,
+        }
+    },
+    'Platinum': {
+        'duration': 30,
+        'rules': {
+            'Give 4 hours daily in your field': True,
+            'Avoid all distractions': True,
+            'Do 1 hour of exercise daily': True,
+            'Drink 5 liters of water': True,
+            'Fill the form daily': True,
+        }
+    },
+    'Gold': {
+        'duration': 60,
+        'rules': {
+            'Give 6 hours daily in your field': True,
+            'Do 1 hour of exercise': True,
+            'Avoid all distractions': True,
+            'Drink 5 liters of water': True,
+            'Wake up early (4 AM or 5 AM)': True,
+            'Sleep early (8 PM or 9 PM)': True,
+            'Avoid junk food': True,
+            'Avoid sugar': True,
+            'Fill the form daily': True,
+        }
+    }
+}
+
+# --- PAGE CONFIGURATION & CUSTOM CSS (VISIBILITY FIXES APPLIED) ---
 st.set_page_config(
-    page_title="Performance Predictor",
-    page_icon="📊",
-    layout="centered",
+    page_title="Elite Performance Engine",
+    page_icon="👑",
+    layout="wide",
 )
 
-# ===== CUSTOM CSS =====
+# Custom CSS for a professional, clean look (White Mountain Snow Ice concept)
 st.markdown(
     """
     <style>
+    /* White Mountain Snow Ice theme: Light background, cool accents */
     .stApp {
-        background-image: url('https://source.unsplash.com/random/1920x1080/?mountain,snow,ice,white');
-        background-size: cover;
-        color: black;
+        background-color: #F8F8FF; /* Ghost White (Snow/Ice) */
+        color: #333333; /* Default text color set to dark for visibility */
     }
     .stButton>button {
-        background-color: #00FF00; /* Green buttons */
+        background-color: #1E90FF; /* Dodger Blue (Mountain Sky) */
         color: white;
         font-weight: bold;
+        border-radius: 8px;
+        padding: 10px 20px;
     }
-    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4 {
-        color: black;
+    /* Ensure all input labels (select, number, text, checkbox, radio) are dark */
+    .stSelectbox label, .stNumberInput label, .stTextInput label, .stCheckbox label, .stRadio label {
+        color: #000080; /* Navy Blue labels */
+        font-weight: 600;
+    }
+    h1, h2, h3, h4 {
+        color: #000080; /* Navy Blue headings */
+    }
+    .main-header {
+        color: #1E90FF;
+        font-size: 36px;
+        font-weight: 800;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    /* FIX: Ensure sidebar text and headings are dark and visible */
+    [data-testid="stSidebar"] * {
+        color: #333333 !important;
+    }
+    [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+        color: #000080 !important;
+    }
+    .stSuccess {
+        background-color: #E6FFE6;
+        color: #006600;
+        border-radius: 5px;
+        padding: 10px;
+    }
+    .stError {
+        background-color: #FFE6E6;
+        color: #CC0000;
+        border-radius: 5px;
+        padding: 10px;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# ===== DATA FILES =====
-USERS_FILE = 'users.json'
-USER_DATA_FILE = 'user_data.json'
-
-# Load or initialize users
-if os.path.exists(USERS_FILE):
-    with open(USERS_FILE, 'r') as f:
-        users = json.load(f)
-else:
-    users = {}
-    with open(USERS_FILE, 'w') as f:
-        json.dump(users, f)
-
-# Load or initialize user data
-if os.path.exists(USER_DATA_FILE):
-    with open(USER_DATA_FILE, 'r') as f:
-        user_data = json.load(f)
-else:
-    user_data = {}
-    with open(USER_DATA_FILE, 'w') as f:
-        json.dump(user_data, f)
-
-# ===== HELPER FUNCTIONS =====
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
-
-def save_users():
-    with open(USERS_FILE, 'w') as f:
-        json.dump(users, f)
-
-def save_user_data():
-    with open(USER_DATA_FILE, 'w') as f:
-        json.dump(user_data, f)
-
-def get_today():
-    return datetime.now().date().isoformat()
-
-def check_last_submission(username):
-    if 'last_submission' in user_data[username]:
-        last_date = datetime.fromisoformat(user_data[username]['last_submission']).date()
-        return last_date == datetime.now().date()
-    return False
-
-# ===== REAL WORLD DATA COLLECTION =====
-def create_real_world_dataset():
-    N = 500
-    data = []
-    for _ in range(N):
-        hours = np.clip(np.random.normal(loc=5.5, scale=2.5), 0.5, 10.0)
-        distraction_count = int(np.clip(np.random.normal(loc=6, scale=3.5), 0, 15))
-        avoid_sugar = random.choices(['Yes', 'No'], weights=[0.4, 0.6])[0]
-        avoid_junk_food = random.choices(['Yes', 'No'], weights=[0.45, 0.55])[0]
-        drink_5L_water = random.choices(['Yes', 'No'], weights=[0.35, 0.65])[0]
-        exercise_daily = random.choices(['Yes', 'No'], weights=[0.5, 0.5])[0]
-        sleep_early = random.choices(['Yes', 'No'], weights=[0.4, 0.6])[0]
-        wakeup_early = 'Yes' if sleep_early == 'Yes' and random.random() < 0.7 else 'No'
-        score = (hours * 15) - (distraction_count * 7)
-        score += 25 if avoid_sugar == 'Yes' else -10
-        score += 20 if avoid_junk_food == 'Yes' else -5
-        score += 15 if drink_5L_water == 'Yes' else -5
-        score += 30 if sleep_early == 'Yes' else -15
-        score += 15 if exercise_daily == 'Yes' else -5
-        score += 10 if wakeup_early == 'Yes' else 0
-        if score > 150:
-            score_noise = np.random.normal(0, 0.5)
-        else:
-            score_noise = np.random.normal(0, 8)
-        final_score = score + score_noise
-        percentile = np.clip(100 - (final_score / 2.5), 1.0, 99.9)
-        data.append({
-            "hours": round(hours, 1),
-            "avoid_sugar": avoid_sugar,
-            "avoid_junk_food": avoid_junk_food,
-            "drink_5L_water": drink_5L_water,
-            "sleep_early": sleep_early,
-            "exercise_daily": exercise_daily,
-            "wakeup_early": wakeup_early,
-            "distraction_count": distraction_count,
-            "top_percentile": round(percentile, 1)
-        })
-  
-    return pd.DataFrame(data)
-
-# ===== DATASET =====
-df = create_real_world_dataset()
-
-# ===== LABEL ENCODING =====
-encoders = {}
-categorical_columns = ["avoid_sugar", "avoid_junk_food", "drink_5L_water",
-                       "sleep_early", "exercise_daily", "wakeup_early"]
-for col in categorical_columns:
-    le = LabelEncoder()
-    df[col] = le.fit_transform(df[col])
-    encoders[col] = le
-
-# ===== FEATURE SCALING =====
-numeric_columns = ['hours', 'distraction_count']
-scaler = StandardScaler()
-df_scaled = df.copy()
-df_scaled[numeric_columns] = scaler.fit_transform(df[numeric_columns])
-X = df_scaled.drop(columns=['top_percentile'])
-y = df_scaled['top_percentile']
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-# ===== MODEL TRAINING =====
-model = XGBRegressor(
-    n_estimators=1000,
-    learning_rate=0.05,
-    max_depth=5,
-    reg_lambda=1.0,
-    subsample=0.8,
-    colsample_bytree=0.8,
-    random_state=42
-)
-model.fit(X_train, y_train)
-
-# ===== SESSION STATE INITIALIZATION =====
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-if 'username' not in st.session_state:
-    st.session_state.username = None
-if 'page' not in st.session_state:
-    st.session_state.page = 'login'
-
-# ===== LOGIN/REGISTER PAGE =====
-if not st.session_state.logged_in:
-    tab1, tab2 = st.tabs(["Login", "Register"])
+# --- ML MODEL LOADING AND TRAINING (Using st.cache_resource) ---
+@st.cache_resource
+def load_ml_model():
+    """Loads and trains the ML model and preprocessing tools once."""
     
-    with tab1:
-        st.subheader("Login")
-        login_username = st.text_input("Username", key="login_username")
-        login_password = st.text_input("Password", type="password", key="login_password")
+    # 1. DATA GENERATION (Your Original Logic)
+    def create_real_world_dataset():
+        N = 500
+        data = []
+        for _ in range(N):
+            hours = np.clip(np.random.normal(loc=5.5, scale=2.5), 0.5, 10.0)
+            distraction_count = int(np.clip(np.random.normal(loc=6, scale=3.5), 0, 15))
+            avoid_sugar = random.choices(['Yes', 'No'], weights=[0.4, 0.6])[0]
+            avoid_junk_food = random.choices(['Yes', 'No'], weights=[0.45, 0.55])[0]
+            drink_5L_water = random.choices(['Yes', 'No'], weights=[0.35, 0.65])[0]
+            exercise_daily = random.choices(['Yes', 'No'], weights=[0.5, 0.5])[0]
+            sleep_early = random.choices(['Yes', 'No'], weights=[0.4, 0.6])[0]
+            wakeup_early = 'Yes' if sleep_early == 'Yes' and random.random() < 0.7 else 'No'
+            score = (hours * 15) - (distraction_count * 7)
+            score += 25 if avoid_sugar == 'Yes' else -10
+            score += 20 if avoid_junk_food == 'Yes' else -5
+            score += 15 if drink_5L_water == 'Yes' else -5
+            score += 30 if sleep_early == 'Yes' else -15
+            score += 15 if exercise_daily == 'Yes' else -5
+            score += 10 if wakeup_early == 'Yes' else 0
+            if score > 150:
+                score_noise = np.random.normal(0, 0.5)
+            else:
+                score_noise = np.random.normal(0, 8)
+            final_score = score + score_noise
+            percentile = np.clip(100 - (final_score / 2.5), 1.0, 99.9)
+            data.append({
+                "hours": round(hours, 1),
+                "avoid_sugar": avoid_sugar,
+                "avoid_junk_food": avoid_junk_food,
+                "drink_5L_water": drink_5L_water,
+                "sleep_early": sleep_early,
+                "exercise_daily": exercise_daily,
+                "wakeup_early": wakeup_early,
+                "distraction_count": distraction_count,
+                "top_percentile": round(percentile, 1)
+            })
+        return pd.DataFrame(data)
+
+    df = create_real_world_dataset()
+    encoders = {}
+    categorical_columns = ["avoid_sugar", "avoid_junk_food", "drink_5L_water",
+                           "sleep_early", "exercise_daily", "wakeup_early"]
+    for col in categorical_columns:
+        le = LabelEncoder()
+        df[col] = le.fit_transform(df[col])
+        encoders[col] = le
+    numeric_columns = ['hours', 'distraction_count']
+    scaler = StandardScaler()
+    df_scaled = df.copy()
+    df_scaled[numeric_columns] = scaler.fit_transform(df[numeric_columns])
+    X = df_scaled.drop(columns=['top_percentile'])
+    y = df_scaled['top_percentile']
+    X_train, _, y_train, _ = train_split(X, y, test_size=0.2, random_state=42)
+    
+    # 2. MODEL TRAINING (Your Original XGBoost Model)
+    model = XGBRegressor(
+        n_estimators=1000, learning_rate=0.05, max_depth=5, reg_lambda=1.0, 
+        subsample=0.8, colsample_bytree=0.8, random_state=42
+    )
+    model.fit(X_train, y_train)
+    
+    # 3. RETURN COMPONENTS
+    return model, df, encoders, scaler, X.columns, categorical_columns, numeric_columns
+
+# Load model and data components once
+try:
+    model, df, encoders, scaler, X_cols, cat_cols, num_cols = load_ml_model()
+except Exception as e:
+    st.error(f"Error loading ML model components. Ensure all libraries are in requirements.txt. Error: {e}")
+    st.stop()
+
+
+# --- AUTHENTICATION FUNCTIONS ---
+
+def register_user():
+    st.subheader("New User Registration")
+    new_user = st.text_input("Choose Username", key="reg_user")
+    new_pass = st.text_input("Choose Password", type="password", key="reg_pass")
+    
+    if st.button("Register"):
+        if new_user in st.session_state.user_db:
+            st.error("Username already exists.")
+        elif not new_user or not new_pass:
+            st.error("Username and Password cannot be empty.")
+        else:
+            # Initialize user profile with default challenge status
+            st.session_state.user_db[new_user] = {
+                'password': new_pass,
+                'profile': {},
+                'challenge': {'status': 'Pending', 'stage': None, 'day_start': None, 'daily_log': {}, 'penalty_amount': 0.0, 'badges': [], 'stage_days_completed': 0, 'streak_days_penalty': 0}
+            }
+            st.success("Registration successful! Please log in.")
+            st.session_state.page = 'login'
+            st.rerun()
+
+def login_user():
+    st.markdown('<p class="main-header">Elite Performance Engine</p>', unsafe_allow_html=True)
+    st.subheader("User Login")
+    user = st.text_input("Username", key="log_user")
+    password = st.text_input("Password", type="password", key="log_pass")
+    
+    col1, col2 = st.columns(2)
+    with col1:
         if st.button("Login"):
-            if login_username in users and users[login_username] == hash_password(login_password):
+            if user in st.session_state.user_db and st.session_state.user_db[user]['password'] == password:
                 st.session_state.logged_in = True
-                st.session_state.username = login_username
+                st.session_state.username = user
+                st.success(f"Welcome back, {user}!")
                 st.session_state.page = 'dashboard'
-                if login_username not in user_data:
-                    user_data[login_username] = {
-                        'profile': None,
-                        'current_stage': None,
-                        'days_left': 0,
-                        'streak_days': 0,
-                        'savings': 0.0,
-                        'last_submission': None,
-                        'badges': []
-                    }
-                    save_user_data()
                 st.rerun()
             else:
-                st.error("Invalid username or password")
+                st.error("Invalid Username or Password.")
+    with col2:
+        if st.button("Go to Register"):
+            st.session_state.page = 'register'
+            st.rerun()
+
+# --- ML PREDICTION APP LOGIC ---
+
+def predict_performance_ui():
+    st.title("🎯 ML Performance Predictor")
+    st.subheader(f"Hello, {st.session_state.username}!")
+    st.markdown("""
+        <div style="background-color: #000080; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+        <h4 style="color: white; margin: 0;">
+        We are doing a challenge of 105 days! This can make you the Top 1% in your field with simple stages. Do you want to become the Top 1%?
+        </h4>
+        </div>
+        """, unsafe_allow_html=True)
+
+    if st.button("Become Top 1%"):
+        st.session_state.page = 'challenge_intro'
+        st.rerun()
+
+    st.markdown("---")
+    st.header("Current Performance Assessment")
     
-    with tab2:
-        st.subheader("Register")
-        reg_username = st.text_input("Username", key="reg_username")
-        reg_password = st.text_input("Password", type="password", key="reg_password")
-        reg_confirm = st.text_input("Confirm Password", type="password", key="reg_confirm")
-        if st.button("Register"):
-            if reg_password != reg_confirm:
-                st.error("Passwords do not match")
-            elif reg_username in users:
-                st.error("Username already exists")
-            else:
-                users[reg_username] = hash_password(reg_password)
-                save_users()
-                st.success("Registered successfully! Please login.")
-
-else:
-    username = st.session_state.username
-    data = user_data[username]
-
-    # ===== DASHBOARD PAGE =====
-    if st.session_state.page == 'dashboard':
-        st.title(f"📊 Performance Predictor Dashboard - {username}")
-        st.subheader("Enter your details:")
-        hours = st.number_input("Daily Study Hours (0.5 - 12)", min_value=0.5, max_value=12.0, value=5.5)
-        distractions = st.number_input("Number of Distractions (0 - 15)", min_value=0, max_value=15, value=5)
-        habit_inputs = {}
-        for col in categorical_columns:
+    col1, col2 = st.columns(2)
+    with col1:
+        hours = st.number_input("Daily Study Hours (0.5 - 12)", min_value=0.5, max_value=12.0, value=5.5, key="pred_hours")
+        distractions = st.number_input("Number of Distractions (0 - 15)", min_value=0, max_value=15, value=5, key="pred_distractions")
+    
+    habit_inputs = {}
+    with col2:
+        for col in cat_cols:
             friendly_name = col.replace('_', ' ').title()
-            habit_inputs[col] = st.selectbox(f"{friendly_name}", ["Yes", "No"])
-        
-        if st.button("Predict Performance"):
-            input_data = pd.DataFrame([{
-                'hours': hours,
-                'distraction_count': distractions,
-                **{col: encoders[col].transform([val])[0] for col, val in habit_inputs.items()}
-            }])
-            input_data[numeric_columns] = scaler.transform(input_data[numeric_columns])
-            input_data = input_data[X.columns]
-            prediction = model.predict(input_data)[0]
-            prediction = max(1, min(100, prediction))
-            st.success(f"🎯 Your Overall Performance: Top {prediction:.1f}%")
-            
-            # ===== FEATURE BREAKDOWN CHART =====
-            feature_percentiles = {}
-            hours_percentile = (df['hours'] <= hours).mean() * 100
-            feature_percentiles['Study Hours'] = max(1, 100 - hours_percentile)
-            dist_percentile = (df['distraction_count'] >= distractions).mean() * 100
-            feature_percentiles['Distraction Control'] = max(1, 100 - dist_percentile)
-          
-            habit_mapping = {
-                'avoid_sugar': 'Sugar Avoidance',
-                'avoid_junk_food': 'Junk Food Avoidance',
-                'drink_5L_water': 'Water Intake',
-                'sleep_early': 'Sleep Schedule',
-                'exercise_daily': 'Exercise Routine',
-                'wakeup_early': 'Wake-up Time'
-            }
-            for col, friendly_name in habit_mapping.items():
-                val = encoders[col].transform([habit_inputs[col]])[0]
-                if val == 1:
-                    habit_percentile = (df[col] == 1).mean() * 100
-                    feature_percentiles[friendly_name] = max(1, 100 - habit_percentile)
-                else:
-                    habit_percentile = (df[col] == 0).mean() * 100
-                    feature_percentiles[friendly_name] = max(1, habit_percentile)
-            
-            plt.figure(figsize=(12, 8))
-            features = list(feature_percentiles.keys())
-            percentiles = list(feature_percentiles.values())
-            bars = plt.bar(features, percentiles, color='blue', edgecolor='darkblue')
-            plt.bar_label(bars, labels=[f'Top {p:.1f}%' for p in percentiles], label_type='edge', padding=2, fontweight='bold', fontsize=8, color='white')
-            plt.xlabel('Performance Features', fontweight='bold', fontsize=12)
-            plt.title(f'PERFORMANCE BREAKDOWN ANALYSIS (Top {prediction:.1f}%)', fontweight='bold', fontsize=14)
-            plt.ylabel('Performance Percentile', fontweight='bold', fontsize=12)
-            plt.grid(True, alpha=0.3)
-            plt.xticks(rotation=45, ha='right')
-            plt.ylim(0, 100)
-            st.pyplot(plt)
-        
-        st.markdown("We are doing a challenge of 105!! which become u the top 1% in your field with simple three stages did u want to become the top 1% ?")
-        if st.button("become top 1%"):
-            st.session_state.page = 'challenge_intro'
-            st.rerun()
+            habit_inputs[col] = st.selectbox(f"{friendly_name}", ["Yes", "No"], key=f"pred_{col}")
 
-    # ===== CHALLENGE INTRO PAGE =====
-    elif st.session_state.page == 'challenge_intro':
-        st.title("How your life is looking after this challenge")
-        st.markdown("""
-        - **Healthy Diet** - No sugar, no alcohol, no junk food; 5L water daily & deep sleep
-        - **Early Rising** - Wake up naturally at 4 AM full of energy
-        - **Peak Fitness** - 1 hour daily exercise, perfect physique
-        - **Quality Sleep** - Deep, restorative sleep by 9 PM
-        - **Expert Skills** - Deep hands-on knowledge in your chosen field
-        - **Unstoppable Character** - Laziness completely removed
-        - **Laser Focus** - All major distractions controlled/removed
-        - **Wealth Mindset** - Financial intelligence & investment habits
-        - **Emotional Mastery** - High EQ, positive thinking, resilience
-        """)
-        if st.button("show rules"):
-            st.session_state.page = 'rules'
-            st.rerun()
-
-    # ===== RULES PAGE =====
-    elif st.session_state.page == 'rules':
-        st.title("Challenge Rules")
-        st.markdown("""
-        there r here stages
-        1.Silver (Easy)(15 days):
-        1. You have to give just 2 hours daily in ur field !!
-        2. Avoiding your all distractions for just 15 days !!
-        3. filling the form daily at night of your day at this website !!
-           2.Platinium (Medium)(30 days):
-           1. frstly u have to put 4 hours every day on your field !!
-           2. after that u have to avoid your daily distraction !!
-           3. doing 1 hour excersice daily !!
-           4. Drinking 5 liters of water !!
-           5. filling the form daily at night at this website !!
-              3.Gold(hard)(60 days ):
-              1. in this frsly you have to give 6 hours daily at your field !!
-              2. doing 1 hours of excersice
-              3. avoiding distraction
-              4. drinking 5 liters of water
-              5. Wake up early like 4am or 5am!!
-              6. sleeping early like 8pm or 9pm
-              7. avoid junk food !!
-              8. avoid sugar
-                 Listen if you skip any rule at any stage of your day so you have to pay your whole day pocket money or anything you get or earn to your saving and you will just open this saving after 105 days after completing all the stages and u will use that money for making your first prject and idea in your field and help u to utilize that money on your field !!
-        """)
-        st.subheader("Create Your Profile")
-        field = st.text_input("What's your field? (e.g., programming, engineering, Sports)")
-        goal = st.text_input("What do you want to become? (e.g., doctor)")
-        distractions_options = ["masturbation", "friends calls", "late sleep", "laziness", "social media", "gaming", "tv", "others"]
-        selected_distractions = st.multiselect("Select your distractions", distractions_options)
-        stage_options = ["Silver", "Platinum", "Gold"]
-        selected_stage = st.selectbox("Which stage do you want to select?", stage_options)
+    if st.button("Predict Performance", key="run_predict"):
         
-        if st.button("save profile"):
-            data['profile'] = {
+        encoded_habits = {col: encoders[col].transform([val])[0] for col, val in habit_inputs.items()}
+        input_data = pd.DataFrame([{
+            'hours': hours,
+            'distraction_count': distractions,
+            **encoded_habits
+        }])
+        
+        input_data[num_cols] = scaler.transform(input_data[num_cols])
+        input_data = input_data[X_cols]
+        prediction = model.predict(input_data)[0]
+        prediction = max(1, min(100, prediction))
+        
+        st.success(f"🎯 Your Predicted Overall Performance: Top {prediction:.1f}%")
+
+        # Feature Breakdown Chart Logic
+        feature_percentiles = {}
+        hours_percentile = (df['hours'] <= hours).mean() * 100
+        feature_percentiles['Study Hours'] = max(1, 100 - hours_percentile)
+        dist_percentile = (df['distraction_count'] >= distractions).mean() * 100
+        feature_percentiles['Distraction Control'] = max(1, 100 - dist_percentile)
+        
+        habit_mapping = {
+            'avoid_sugar': 'Sugar Avoidance', 'avoid_junk_food': 'Junk Food Avoidance', 
+            'drink_5L_water': 'Water Intake', 'sleep_early': 'Sleep Schedule', 
+            'exercise_daily': 'Exercise Routine', 'wakeup_early': 'Wake-up Time'
+        }
+        for col, friendly_name in habit_mapping.items():
+            val = encoded_habits[col]
+            if val == 1:
+                habit_percentile = (df[col] == 1).mean() * 100
+                feature_percentiles[friendly_name] = max(1, 100 - habit_percentile)
+            else:
+                habit_percentile = (df[col] == 0).mean() * 100
+                feature_percentiles[friendly_name] = max(1, habit_percentile)
+        
+        # Plot Chart
+        plt.style.use('default')
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        features = list(feature_percentiles.keys())
+        percentiles = list(feature_percentiles.values())
+        
+        colors = ['#ADD8E6' if p > 50 else '#1E90FF' for p in percentiles]
+        
+        bars = ax.bar(features, percentiles, color=colors, edgecolor='#000080')
+        
+        ax.bar_label(bars, labels=[f'Top {p:.1f}%' for p in percentiles], 
+                     label_type='edge', padding=2, fontweight='bold', fontsize=8, color='black') 
+        
+        ax.set_xlabel('Performance Features', fontweight='bold', fontsize=10, color='black')
+        ax.set_title(f'PERFORMANCE BREAKDOWN (Predicted: Top {prediction:.1f}%)', fontweight='bold', fontsize=12, color='#000080')
+        ax.set_ylabel('Performance Percentile', fontweight='bold', fontsize=10, color='black')
+        ax.tick_params(axis='x', colors='black') 
+        ax.tick_params(axis='y', colors='black') 
+
+        ax.grid(axis='y', alpha=0.3)
+        plt.xticks(rotation=45, ha='right', fontsize=9)
+        plt.ylim(0, 100)
+        
+        st.pyplot(fig)
+
+# --- CHALLENGE PAGES LOGIC ---
+
+def challenge_intro_ui():
+    st.title('👑 The 105-Day Challenge: Your Path to the Top 1%')
+    
+    st.header("How Your Life Will Look After This Challenge:")
+    
+    goals = [
+        "**Healthy Diet:** No sugar, no alcohol, no junk food; 5L water daily & deep sleep.",
+        "**Early Rising:** Wake up naturally at 4 AM full of energy.",
+        "**Peak Fitness:** 1 hour daily exercise, perfect physique.",
+        "**Quality Sleep:** Deep, restorative sleep by 9 PM.",
+        "**Expert Skills:** Deep hands-on knowledge in your chosen field.",
+        "**Unstoppable Character:** Laziness completely removed.",
+        "**Laser Focus:** All major distractions controlled/removed.",
+        "**Wealth Mindset:** Financial intelligence & investment habits.",
+        "**Emotional Mastery:** High EQ, positive thinking, resilience.",
+    ]
+    
+    for goal in goals:
+        st.markdown(f"✅ {goal}")
+        
+    st.markdown("---")
+    
+    if st.button("Show Rules"):
+        st.session_state.page = 'challenge_rules'
+        st.rerun()
+
+def challenge_rules_ui():
+    st.title("⚖️ Challenge Rules and Stages")
+    st.markdown("To achieve the Top 1% performance, you must successfully complete all three stages over **105 days**.")
+    
+    for stage, data in CHALLENGE_STAGES.items():
+        st.subheader(f"{stage} Stage ({data['duration']} days)")
+        st.markdown("---")
+        for rule in data['rules']:
+            st.markdown(f"➡️ **{rule}**")
+    
+    st.markdown("---")
+    st.header("The Penalty System: The Ultimate Commitment")
+    st.markdown(
+        """
+        Listen: If you skip **any** rule at **any** stage of your day, you must pay the **whole day's pocket money or earnings** into your dedicated **Challenge Saving**.
+        You can only open this saving after **completing all 105 days**. This money must then be used to fund your **first project or idea** in your chosen field, helping you utilize your new skills!
+        """
+    )
+    
+    if st.button("Start Challenge Setup"):
+        st.session_state.page = 'challenge_setup'
+        st.rerun()
+
+def challenge_setup_ui():
+    user_data = st.session_state.user_db[st.session_state.username]
+    st.title("⚙️ Challenge Profile Setup")
+    
+    st.header("1. Define Your Focus")
+    field = st.selectbox("What is your field?", ['Programming', 'Engineering', 'Sports', 'Medicine (Doctor)', 'Art/Design', 'Other'], key='setup_field')
+    goal = st.text_input("What do you want to become? (e.g., AI Engineer, Neurosurgeon, Pro-Athlete)", key='setup_goal')
+    
+    st.header("2. Select Your Distractions")
+    all_distractions = ['Masterbation/Pornography', 'Friends Calls/Socializing', 'Late Sleep', 'Laziness/Procrastination', 'Unhealthy Gaming', 'Endless Social Media Scroll']
+    selected_distractions = st.multiselect("Select ALL your major daily distractions:", all_distractions, key='setup_distractions')
+
+    st.header("3. Choose Your Starting Stage")
+    stage_selection = st.radio("Which stage do you want to select?", list(CHALLENGE_STAGES.keys()), key='setup_stage')
+    
+    st.subheader(f"Rules for the **{stage_selection}** Stage:")
+    st.info("\n".join([f"• {rule}" for rule in CHALLENGE_STAGES[stage_selection]['rules']]))
+    
+    if st.button("Save Profile and Start Challenge"):
+        if not goal or not selected_distractions:
+            st.error("Please fill out your goal and select your distractions.")
+        else:
+            user_data['profile'] = {
                 'field': field,
                 'goal': goal,
-                'distractions': selected_distractions
+                'distractions': selected_distractions,
             }
-            data['current_stage'] = selected_stage
-            if selected_stage == "Silver":
-                data['days_left'] = 15
-            elif selected_stage == "Platinum":
-                data['days_left'] = 30
-            elif selected_stage == "Gold":
-                data['days_left'] = 60
-            data['streak_days'] = 0
-            data['savings'] = 0.0
-            save_user_data()
-            st.session_state.page = 'daily_form'
+            user_data['challenge']['status'] = 'Active'
+            user_data['challenge']['stage'] = stage_selection
+            user_data['challenge']['stage_days_completed'] = 0
+            user_data['challenge']['stage_start_date'] = pd.Timestamp.today().date().strftime('%Y-%m-%d')
+            user_data['challenge']['current_rules'] = CHALLENGE_STAGES[stage_selection]['rules']
+            
+            st.success("Profile saved! Your challenge starts now.")
+            st.session_state.page = 'daily_tracking'
             st.rerun()
 
-    # ===== DAILY FORM PAGE =====
-    elif st.session_state.page == 'daily_form':
-        if data['profile'] is None:
-            st.error("Please create profile first.")
-            st.session_state.page = 'rules'
+def display_user_profile(user_data):
+    st.sidebar.markdown(f"## 👤 **{st.session_state.username}**")
+    profile = user_data['profile']
+    challenge = user_data['challenge']
+    
+    st.sidebar.markdown(f"**Goal:** {profile.get('goal', 'N/A')}")
+    st.sidebar.markdown(f"**Field:** {profile.get('field', 'N/A')}")
+    st.sidebar.markdown("---")
+
+    if challenge['stage']:
+        st.sidebar.markdown(f"### Current Stage: **{challenge['stage']}**")
+        
+        st.sidebar.markdown("**Your Daily Distractions:**")
+        for d in profile.get('distractions', []):
+            st.sidebar.markdown(f"• *{d}*")
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("**Daily Rules:**")
+        for rule in challenge.get('current_rules', {}):
+             st.sidebar.markdown(f"• *{rule}*")
+    else:
+        st.sidebar.info("Challenge not yet started.")
+
+def daily_tracking_ui():
+    user_data = st.session_state.user_db[st.session_state.username]
+    profile = user_data['profile']
+    challenge = user_data['challenge']
+
+    if challenge['status'] != 'Active':
+        st.error("Please start the challenge first in the Setup page.")
+        if st.button("Go to Setup"):
+            st.session_state.page = 'challenge_setup'
             st.rerun()
-        else:
-            st.title("Daily Routine Form")
-            st.subheader(f"Stage: {data['current_stage']}")
-            st.subheader(f"Days Left: {data['days_left']}")
-            st.subheader(f"Streak Days: {data['streak_days']}")
-            st.subheader(f"Savings: ${data['savings']:.2f}")
-            st.subheader(f"Username: {username}")
-            st.subheader(f"Field: {data['profile']['field']}")
-            st.subheader(f"Goal: {data['profile']['goal']}")
-            st.subheader(f"Distractions: {', '.join(data['profile']['distractions'])}")
+        return
+
+    # --- TOP METRICS ---
+    current_stage_data = CHALLENGE_STAGES[challenge['stage']]
+    days_in_stage = current_stage_data['duration']
+    days_left = days_in_stage - challenge['stage_days_completed']
+    
+    st.title("📅 Daily Challenge Tracker")
+    st.markdown(f"Hello, **{st.session_state.username}**! You are becoming a **{profile['goal']}**.")
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Stage", challenge['stage'])
+    col2.metric("Days Left in Stage", days_left)
+    col3.metric("Penalty Streak (Days)", challenge.get('streak_days_penalty', 0))
+    col4.metric("Total Saving", f"PKR {challenge['penalty_amount']:,.2f}")
+    
+    st.markdown("---")
+    st.header(f"Today's **{challenge['stage']}** Rules Checklist")
+    
+    # --- DAILY CHECKLIST ---
+    rules = challenge['current_rules']
+    checklist = {}
+    
+    for rule in rules:
+        if rule != 'Fill the form daily': 
+            checklist[rule] = st.checkbox(f"✅ {rule}", key=f"check_{rule}")
+    
+    st.subheader("Penalty and Pocket Money")
+    penalty_input = st.number_input("If you failed any task, enter your daily pocket money/earning for the penalty (PKR):", min_value=0.0, value=0.0, key='penalty_input')
+
+    if st.button("Save Daily Routine"):
+        
+        # 1. Check Compliance
+        completed_tasks = sum(checklist.values())
+        total_tasks = len(rules) - 1
+        tasks_skipped = total_tasks - completed_tasks
+        
+        # 2. Enforcement Logic
+        if tasks_skipped == 0:
+            st.success("🎉 Day Saved! 100% Compliant! No Penalty!")
+            user_data['challenge']['stage_days_completed'] += 1
+            user_data['challenge']['streak_days_penalty'] = 0 
             
-            if check_last_submission(username):
-                st.info("You have already submitted for today.")
+        elif tasks_skipped > 0 and penalty_input > 0.0:
+            
+            if tasks_skipped > 2:
+                st.error(
+                    "❌ Day NOT Accepted! You skipped more than 2 tasks (only 2 skips allowed with penalty). "
+                    "Focus on improving compliance tomorrow."
+                )
+                return
+            
+            st.warning(f"⚠️ Day Saved with Penalty. You skipped {tasks_skipped} task(s).")
+            user_data['challenge']['stage_days_completed'] += 1
+            user_data['challenge']['streak_days_penalty'] = user_data['challenge'].get('streak_days_penalty', 0) + 1
+            user_data['challenge']['penalty_amount'] += penalty_input
+            
+        else:
+            if tasks_skipped > 0 and penalty_input == 0.0:
+                 st.error(
+                    "❌ ERROR: Day NOT Accepted! You failed one or more tasks and did not pay the penalty. "
+                    "You must pay the full pocket money amount to save the day count."
+                )
             else:
-                stage_rules = {
-                    "Silver": [
-                        "Gave 2 hours in field",
-                        "Avoided all distractions",
-                    ],
-                    "Platinum": [
-                        "Gave 4 hours in field",
-                        "Avoided distractions",
-                        "Did 1 hour exercise",
-                        "Drank 5L water",
-                    ],
-                    "Gold": [
-                        "Gave 6 hours in field",
-                        "Did 1 hour exercise",
-                        "Avoided distractions",
-                        "Drank 5L water",
-                        "Woke up early (4am or 5am)",
-                        "Slept early (8pm or 9pm)",
-                        "Avoided junk food",
-                        "Avoided sugar",
-                    ]
-                }
-                rules = stage_rules[data['current_stage']]
-                checks = {}
-                for rule in rules:
-                    checks[rule] = st.checkbox(rule)
-                
-                if st.button("Submit Day"):
-                    unchecked = sum(1 for v in checks.values() if not v)
-                    if unchecked == 0:
-                        data['days_left'] -= 1
-                        data['last_submission'] = get_today()
-                        save_user_data()
-                        st.success("Your day is saved!")
-                        if data['days_left'] == 0:
-                            data['badges'].append(data['current_stage'])
-                            if data['current_stage'] == "Silver":
-                                data['current_stage'] = "Platinum"
-                                data['days_left'] = 30
-                            elif data['current_stage'] == "Platinum":
-                                data['current_stage'] = "Gold"
-                                data['days_left'] = 60
-                            elif data['current_stage'] == "Gold":
-                                st.success("Congratulations! You completed the 105-day challenge!")
-                            save_user_data()
-                            st.success(f"You completed {data['badges'][-1]} stage! Badge awarded.")
-                        st.info("Your last task is to go to Google find a good motivational page and set as a wallpaper because when I wake up tomorrow so u see ur mobile and remember that u r on a admission and don't distracted")
-                    elif unchecked <= 2:
-                        penalty = st.number_input("Pay penalty amount to save day", min_value=0.0)
-                        if st.button("Pay Penalty"):
-                            if penalty > 0:
-                                data['savings'] += penalty
-                                data['streak_days'] += 1
-                                data['days_left'] -= 1
-                                data['last_submission'] = get_today()
-                                save_user_data()
-                                st.success("Day saved with penalty.")
-                                if data['days_left'] == 0:
-                                    data['badges'].append(data['current_stage'])
-                                    if data['current_stage'] == "Silver":
-                                        data['current_stage'] = "Platinum"
-                                        data['days_left'] = 30
-                                    elif data['current_stage'] == "Platinum":
-                                        data['current_stage'] = "Gold"
-                                        data['days_left'] = 60
-                                    elif data['current_stage'] == "Gold":
-                                        st.success("Congratulations! You completed the 105-day challenge!")
-                                    save_user_data()
-                                    st.success(f"You completed {data['badges'][-1]} stage! Badge awarded.")
-                                st.info("Your last task is to go to Google find a good motivational page and set as a wallpaper because when I wake up tomorrow so u see ur mobile and remember that u r on a admission and don't distracted")
-                            else:
-                                st.error("Penalty must be greater than 0.")
-                    else:
-                        st.error("Too many tasks missed. Day not accepted, even with penalty.")
+                 st.error(
+                    "❌ ERROR: Day NOT Accepted. You must meet the daily challenges or pay the penalty."
+                )
+            return
+            
+        # 3. Last Task & Day Progression
+        st.markdown("---")
+        st.subheader("Your Last Task for the Day:")
+        st.info("Go to Google, find a good motivational image/quote, and **set it as your phone wallpaper**. When you wake up, you will be reminded of your mission!")
+        
+        check_stage_completion(user_data)
+        
+        time.sleep(1) 
+        st.rerun()
+
+def check_stage_completion(user_data):
+    challenge = user_data['challenge']
+    current_stage = challenge['stage']
+    current_stage_data = CHALLENGE_STAGES[current_stage]
+    
+    if challenge['stage_days_completed'] >= current_stage_data['duration']:
+        
+        user_data['challenge']['badges'].append(current_stage)
+        st.balloons()
+        st.success(f"🌟 CONGRATULATIONS! You have completed the **{current_stage}** stage! You earned the {current_stage} Badge!")
+        
+        stages_order = list(CHALLENGE_STAGES.keys())
+        current_index = stages_order.index(current_stage)
+        
+        if current_index < len(stages_order) - 1:
+            next_stage = stages_order[current_index + 1]
+            st.info(f"Do you want to upgrade to the **{next_stage}** stage?")
+            
+            if st.button(f"Yes, Upgrade to {next_stage}"):
+                challenge['stage'] = next_stage
+                challenge['stage_days_completed'] = 0
+                challenge['stage_start_date'] = pd.Timestamp.today().date().strftime('%Y-%m-%d')
+                challenge['current_rules'] = CHALLENGE_STAGES[next_stage]['rules']
+                st.session_state.page = 'daily_tracking'
+                st.rerun()
+        else:
+            challenge['status'] = 'Completed'
+            st.header("🏆 105-DAY CHALLENGE COMPLETE! 🏆")
+            st.balloons()
+            st.success(f"You have finished all stages! Open your saving of **PKR {challenge['penalty_amount']:,.2f}** to fund your project!")
+            st.session_state.page = 'dashboard'
+            st.rerun()
+
+# --- MAIN PAGE ROUTER ---
+
+def main_app():
+    if st.session_state.logged_in:
+        display_user_profile(st.session_state.user_db[st.session_state.username])
+        
+        if st.session_state.page == 'dashboard':
+            predict_performance_ui()
+        elif st.session_state.page == 'challenge_intro':
+            challenge_intro_ui()
+        elif st.session_state.page == 'challenge_rules':
+            challenge_rules_ui()
+        elif st.session_state.page == 'challenge_setup':
+            challenge_setup_ui()
+        elif st.session_state.page == 'daily_tracking':
+            daily_tracking_ui()
+        
+        # Sidebar Navigation
+        st.sidebar.markdown("---")
+        if st.sidebar.button("Go to Dashboard"):
+            st.session_state.page = 'dashboard'
+            st.rerun()
+        st.sidebar.markdown(f"**Badges Earned:** {', '.join(st.session_state.user_db[st.session_state.username]['challenge']['badges']) or 'None'}")
+        st.sidebar.markdown("---")
+        if st.sidebar.button("Logout"):
+            st.session_state.logged_in = False
+            st.session_state.username = None
+            st.session_state.page = 'login'
+            st.rerun()
+    else:
+        if st.session_state.page == 'register':
+            register_user()
+        else:
+            login_user()
+
+if __name__ == "__main__":
+    main_app()
