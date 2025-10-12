@@ -1,6 +1,7 @@
 [theme]
-primaryColor = "#00FFAA"                # Button / accent color (neon green)
-backgroundColor = "#001A33"             # Main background (dark navy blue)
-secondaryBackgroundColor = "#002B55"    # Boxes, sidebar background (medium blue)
-textColor = "#FFFFFF"                   # White text for contrast
-font = "sans serif"
+# Base Theme
+primaryColor = "#00AEEF"            # Accent (Electric Blue)
+backgroundColor = "#0A0E1A"         # Main Background (Dark Navy)
+secondaryBackgroundColor = "#111827" # Card / Panel Background
+textColor = "#FFFFFF"               # White Text (Readable, Clean)
+font = "Poppins"                    # Modern, clean sans-serif
