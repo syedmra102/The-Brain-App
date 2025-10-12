@@ -1,13 +1,12 @@
-import streamlit as st
+import streamlit as st 
+st.title('The Brain App')
+with st.form("Login"):
+    Username=st.text_input('Username')
+    Password=st.text_inout('Password',type='password')
+    Login_btn=st.button('Login')
 
-# Make a form
-with st.form("my_form"):
-    name = st.text_input("Enter your name:")
-    email = st.text_input("Enter your email:")
-    age = st.number_input("Enter your age:", min_value=1, max_value=100)
-    
-    submitted = st.form_submit_button("Submit")
-
-# When user clicks "Submit"
-if submitted:
-    st.success(f"Hello {name}! Your form is submitted ✅")
+if Login_btn:
+    if len(Password) > 7 :
+        st.error('Your Password is too short !!please make a password at with 7 charactres!!')
+    else:
+        st.sucess(f'Welcome {Username} !! , You login sucessfully !!')
