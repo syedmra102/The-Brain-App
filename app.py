@@ -13,17 +13,28 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ===== PROFESSIONAL CSS WITH BLACK TEXT =====
+# ===== PROFESSIONAL CSS WITH PROPER CONTRAST =====
 st.markdown("""
 <style>
+    /* MAIN BACKGROUND */
+    .stApp {
+        background-color: white;
+    }
+    
+    /* HEADERS - WHITE TEXT ON BLUE BACKGROUND */
     .main-header {
         background: linear-gradient(135deg, #1E90FF 0%, #0066CC 100%);
-        color: white;
+        color: white !important;
         padding: 2rem;
         border-radius: 15px;
         text-align: center;
         margin-bottom: 2rem;
     }
+    .main-header h1, .main-header p {
+        color: white !important;
+    }
+    
+    /* STAT BOXES - DARK TEXT ON WHITE BACKGROUND */
     .stat-box {
         background: white;
         padding: 1rem;
@@ -42,9 +53,31 @@ st.markdown("""
         margin: 0.3rem 0 0 0;
         font-size: 1.4rem;
     }
-    .success-box { background: #4CAF50; color: white; padding: 1rem; border-radius: 10px; margin: 1rem 0; }
-    .warning-box { background: #FF9800; color: white; padding: 1rem; border-radius: 10px; margin: 1rem 0; }
-    .error-box { background: #f44336; color: white; padding: 1rem; border-radius: 10px; margin: 1rem 0; }
+    
+    /* STATUS BOXES - WHITE TEXT ON COLORED BACKGROUNDS */
+    .success-box { 
+        background: #4CAF50; 
+        color: white !important; 
+        padding: 1rem; 
+        border-radius: 10px; 
+        margin: 1rem 0; 
+    }
+    .warning-box { 
+        background: #FF9800; 
+        color: white !important; 
+        padding: 1rem; 
+        border-radius: 10px; 
+        margin: 1rem 0; 
+    }
+    .error-box { 
+        background: #f44336; 
+        color: white !important; 
+        padding: 1rem; 
+        border-radius: 10px; 
+        margin: 1rem 0; 
+    }
+    
+    /* DATA RECORDS - DARK TEXT ON LIGHT BACKGROUND */
     .data-record {
         background: #f8f9fa;
         padding: 0.8rem;
@@ -52,33 +85,56 @@ st.markdown("""
         border-left: 4px solid #1E90FF;
         margin: 0.3rem 0;
         font-size: 0.9rem;
+        color: black !important;
     }
     
-    /* FIX CHECKBOX TEXT COLOR */
+    /* CHECKBOXES - BLACK TEXT ON WHITE BACKGROUND */
     .stCheckbox > label {
         color: black !important;
         font-weight: 500;
     }
-    .stCheckbox > label > div {
-        color: black !important;
-    }
     
-    /* FIX ALL TEXT COLORS */
+    /* ALL REGULAR TEXT - BLACK ON WHITE */
     .stApp {
         color: black !important;
     }
-    p, div, span {
+    
+    /* FORM LABELS AND TEXT */
+    .stTextInput > label, .stSelectbox > label, .stNumberInput > label, .stMultiselect > label {
         color: black !important;
+        font-weight: 500;
     }
     
-    /* FIX FORM TEXT */
-    .stForm {
-        color: black !important;
-    }
-    
-    /* FIX SIDEBAR TEXT */
+    /* SIDEBAR TEXT */
     .css-1d391kg {
         color: black !important;
+    }
+    
+    /* TABS AND BUTTONS */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2px;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        white-space: pre-wrap;
+        background-color: #f0f2f6;
+        border-radius: 5px 5px 0px 0px;
+        gap: 1px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background-color: #1E90FF;
+        color: white !important;
+    }
+    
+    /* INPUT FIELDS */
+    .stTextInput input, .stNumberInput input, .stSelectbox select {
+        background-color: white;
+        color: black !important;
+        border: 1px solid #ccc;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -193,11 +249,12 @@ DISTRACTIONS = ["Social Media", "Procrastination", "Video Games", "TV/Netflix", 
 
 # ===== PAGES =====
 def login_page():
-    st.markdown('<div class="main-header"><h1>🚀 Performance Predictor</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header"><h1>🚀 Performance Predictor</h1><p>Become the Top 1% in Your Field</p></div>', unsafe_allow_html=True)
     
     tab1, tab2 = st.tabs(["🔐 Login", "📝 Register"])
     
     with tab1:
+        st.subheader("Login to Your Account")
         username = st.text_input("👤 Username")
         password = st.text_input("🔒 Password", type="password")
         if st.button("🚀 Login", use_container_width=True):
@@ -215,36 +272,40 @@ def login_page():
                 st.error("❌ Invalid credentials")
     
     with tab2:
-        new_user = st.text_input("👤 New Username")
-        new_pwd = st.text_input("🔒 New Password", type="password")
+        st.subheader("Create New Account")
+        new_user = st.text_input("👤 Choose Username")
+        new_pwd = st.text_input("🔒 Choose Password", type="password")
+        confirm_pwd = st.text_input("🔒 Confirm Password", type="password")
         if st.button("📝 Register", use_container_width=True):
             if new_user in st.session_state.users_db:
                 st.error("❌ User exists")
             elif len(new_pwd) < 4:
                 st.error("❌ Password too short")
+            elif new_pwd != confirm_pwd:
+                st.error("❌ Passwords don't match")
             else:
                 st.session_state.users_db[new_user] = hash_password(new_pwd)
                 st.success("✅ Registered! Please login")
 
 def dashboard():
-    st.markdown(f'<div class="main-header"><h1>👋 Welcome, {st.session_state.user}!</h1></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="main-header"><h1>👋 Welcome, {st.session_state.user}!</h1><p>Track your performance and achieve excellence</p></div>', unsafe_allow_html=True)
     
     # Performance Prediction
     st.subheader("📊 Performance Prediction Analysis")
     
     col1, col2 = st.columns(2)
     with col1:
-        hours = st.slider("Study Hours", 0.5, 12.0, 5.5)
-        distractions = st.slider("Distractions", 0, 15, 5)
+        hours = st.slider("🕒 Study Hours", 0.5, 12.0, 5.5)
+        distractions = st.slider("📵 Distractions", 0, 15, 5)
     
     with col2:
         habits = {
-            'avoid_sugar': st.selectbox("Avoid Sugar", ["Yes", "No"]),
-            'avoid_junk_food': st.selectbox("Avoid Junk Food", ["Yes", "No"]),
-            'drink_5L_water': st.selectbox("Drink 5L Water", ["Yes", "No"]),
-            'sleep_early': st.selectbox("Sleep Early", ["Yes", "No"]),
-            'exercise_daily': st.selectbox("Exercise Daily", ["Yes", "No"]),
-            'wakeup_early': st.selectbox("Wakeup Early", ["Yes", "No"])
+            'avoid_sugar': st.selectbox("🍭 Avoid Sugar", ["Yes", "No"]),
+            'avoid_junk_food': st.selectbox("🍔 Avoid Junk Food", ["Yes", "No"]),
+            'drink_5L_water': st.selectbox("💧 Drink 5L Water", ["Yes", "No"]),
+            'sleep_early': st.selectbox("😴 Sleep Early", ["Yes", "No"]),
+            'exercise_daily': st.selectbox("💪 Exercise Daily", ["Yes", "No"]),
+            'wakeup_early': st.selectbox("🌅 Wakeup Early", ["Yes", "No"])
         }
 
     if st.button("🎯 Predict My Performance", use_container_width=True):
@@ -268,7 +329,7 @@ def dashboard():
         st.rerun()
 
 def challenge_preview():
-    st.markdown('<div class="main-header"><h1>🌟 Your Future Self</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header"><h1>🌟 Your Future Self</h1><p>After completing the 105-day challenge</p></div>', unsafe_allow_html=True)
     
     benefits = [
         "**Healthy Diet** - No sugar, no junk food, 5L water daily",
@@ -294,33 +355,34 @@ def challenge_preview():
             st.rerun()
 
 def challenge_rules():
-    st.markdown('<div class="main-header"><h1>📋 Challenge Stages</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header"><h1>📋 Challenge Stages</h1><p>Three stages to excellence</p></div>', unsafe_allow_html=True)
     
     for stage, info in CHALLENGE_STAGES.items():
         with st.expander(f"{info['badge']} {stage} Stage ({info['duration']} days)"):
+            st.write("**Daily Requirements:**")
             for rule in info['rules']:
                 st.write(f"• {rule}")
-            st.write(f"**Penalty:** Skip any rule → Pay daily savings")
+            st.write("**Penalty:** Skip any rule → Pay daily savings")
     
     if st.button("🎯 Start My Journey", use_container_width=True):
         st.session_state.page = "profile_setup"
         st.rerun()
 
 def profile_setup():
-    st.markdown('<div class="main-header"><h1>👤 Setup Profile</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header"><h1>👤 Setup Profile</h1><p>Personalize your challenge journey</p></div>', unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     with col1:
-        field = st.selectbox("Your Field", FIELDS)
-        goal = st.text_input("Your Goal")
+        field = st.selectbox("🎯 Your Field", FIELDS)
+        goal = st.text_input("🎓 Your Goal", placeholder="e.g., Software Engineer, Doctor")
     with col2:
-        stage = st.selectbox("Challenge Stage", list(CHALLENGE_STAGES.keys()))
-        distractions = st.multiselect("Your Distractions", DISTRACTIONS)
+        stage = st.selectbox("📊 Challenge Stage", list(CHALLENGE_STAGES.keys()))
+        distractions = st.multiselect("📵 Your Distractions", DISTRACTIONS)
     
     # Show stage info
     if stage:
         info = CHALLENGE_STAGES[stage]
-        st.info(f"**{stage} Stage**: {info['duration']} days - {info['badge']}")
+        st.info(f"**{stage} Stage Selected** - {info['duration']} days - {info['badge']}")
     
     if st.button("💾 Save Profile", use_container_width=True):
         st.session_state.profiles_db[st.session_state.user] = {
@@ -336,7 +398,7 @@ def daily_tracking():
     profile = st.session_state.profiles_db.get(user, {})
     progress = st.session_state.progress_db.get(user, {})
     
-    st.markdown('<div class="main-header"><h1>📝 Daily Progress Tracking</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header"><h1>📝 Daily Progress Tracking</h1><p>Stay consistent, achieve greatness</p></div>', unsafe_allow_html=True)
     
     # 4 Stats Header
     stage = profile.get('stage', 'Not set')
