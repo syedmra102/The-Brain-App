@@ -10,10 +10,10 @@ st.markdown("<h1 style='text-align: center;'> The Brain App</h1>", unsafe_allow_
 col1, col2, col3 = st.columns([1, 3, 1])
 
 with col2:
-st.markdown("Sign In")
+   st.markdown("Sign In")
 
-    with st.container():
-        with st.form("login_form"):
+       with st.container():
+            with st.form("login_form"):
             username = st.text_input("Username")
             password = st.text_input("Password", type="password")
             st.caption(" Password must contain at least 7 characters, one uppercase, one lowercase, and one number.")
