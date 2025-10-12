@@ -3,7 +3,6 @@ import re
 
 st.set_page_config(page_title="The Brain App", page_icon="🧠", layout="centered")
 
-# ===== CSS Styling =====
 st.markdown("""
 <style>
 /* Background */
