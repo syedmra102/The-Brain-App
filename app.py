@@ -15,7 +15,7 @@ col1, col2, col3 = st.columns([1, 3, 1])  # middle column narrower
 
 with col2:
 
-    st.markdown("### Login")
+    st.markdown("<h1 style='text-align: center; color: white;'>𝓣𝓱𝓮 𝓑𝓻𝓪𝓲𝓷 𝓐𝓹𝓹</h1>", unsafe_allow_html=True)
 
     with st.container():
 
