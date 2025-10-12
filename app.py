@@ -32,4 +32,8 @@ if login_btn:
     elif not re.search(r"[0-9]", password):
         st.error("❌ Password must include at least one number.")
     else:
-        st.success("<h1 style='text-align: center;'> Welocme !! You login successfully!! </h1>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([2, 1, 2])
+        with col2:
+             st.success("🔐 The Brain App")
+    # your login form here
+
