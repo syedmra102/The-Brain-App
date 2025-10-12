@@ -2,10 +2,10 @@ import streamlit as st
 
 st.set_page_config(page_title="Login", layout="centered")
 
-st.title("🔐 The Brain App")
+st.title("🔐 The Brain App",layout="centered")
 
 # Center the form in the page
-col1, col2, col3 = st.columns([2, 1, 2])  # middle column narrower
+col1, col2, col3 = st.columns([1, 2, 1])  # middle column narrower
 with col2:
     st.write("### Login")  # form title
     with st.form("login_form"):
