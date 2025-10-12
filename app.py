@@ -1,169 +1,154 @@
 import streamlit as st
 import hashlib
 import re
+from datetime import datetime
 
+# Password hashing
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
-def check_password_strength(password):
-    """Check password strength and return detailed report"""
+# Password validation
+def validate_password(password):
     if len(password) < 6:
-        return {
-            'strong': False,
-            'score': 0,
-            'message': 'Password too short (min 6 characters)',
-            'details': {
-                'length': False,
-                'capital': False,
-                'small': False, 
-                'digit': False
-            }
-        }
+        return False, "Password must be at least 6 characters"
     
-    # Count requirements
     capital_count = len(re.findall(r'[A-Z]', password))
     small_count = len(re.findall(r'[a-z]', password))
     digit_count = len(re.findall(r'[0-9]', password))
     
-    # Calculate score
-    score = 0
-    details = {
-        'length': len(password) >= 6,
-        'capital': capital_count >= 1,
-        'small': small_count >= 3,
-        'digit': digit_count >= 1
-    }
+    errors = []
+    if capital_count < 1:
+        errors.append("1 capital letter")
+    if small_count < 3:
+        errors.append("3 small letters")
+    if digit_count < 1:
+        errors.append("1 digit")
     
-    if details['length']: score += 1
-    if details['capital']: score += 1  
-    if details['small']: score += 1
-    if details['digit']: score += 1
+    if errors:
+        return False, "Missing: " + ", ".join(errors)
     
-    # Generate message
-    messages = []
-    if not details['capital']:
-        messages.append("1 capital letter (A-Z)")
-    if not details['small']:
-        messages.append("3 small letters (a-z)")
-    if not details['digit']:
-        messages.append("1 digit (0-9)")
-    
-    if messages:
-        message = "Missing: " + ", ".join(messages)
-        strong = False
-    else:
-        message = "✅ Strong password!"
-        strong = True
-    
-    return {
-        'strong': strong,
-        'score': score,
-        'message': message,
-        'details': details
-    }
+    return True, "Strong password!"
 
-def show_password_strength_meter(password):
-    """Show visual password strength meter"""
-    if not password:
-        return
+# Main app
+def main():
+    st.set_page_config(page_title="Secure App", layout="centered")
     
-    result = check_password_strength(password)
-    
-    # Strength meter
-    st.write("**Password Strength:**")
-    
-    # Visual progress bar
-    progress = result['score'] / 4  # 4 total requirements
-    st.progress(progress)
-    
-    # Color coded message
-    if result['strong']:
-        st.success(result['message'])
-    else:
-        st.error(result['message'])
-    
-    # Detailed requirements
-    st.write("**Requirements:**")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.write(f"📏 Length (6+): {'✅' if result['details']['length'] else '❌'}")
-        st.write(f"🔠 Capital letter: {'✅' if result['details']['capital'] else '❌'}")
-    
-    with col2:
-        st.write(f"🔡 3 Small letters: {'✅' if result['details']['small'] else '❌'}")
-        st.write(f"🔢 1 Digit: {'✅' if result['details']['digit'] else '❌'}")
-
-def register_page():
+    # Simple blue background
     st.markdown("""
-    <div style='background:#1E90FF; padding:2rem; border-radius:10px; text-align:center; color:white; margin-bottom:2rem;'>
-        <h1>📝 Create Your Account</h1>
-        <p>Secure password required</p>
-    </div>
+    <style>
+    .stApp {
+        background-color: blue;
+        color: white;
+    }
+    </style>
     """, unsafe_allow_html=True)
     
-    with st.form("register_form"):
-        st.subheader("Account Details")
+    # Initialize session state
+    if 'users' not in st.session_state:
+        st.session_state.users = {}
+    if 'current_user' not in st.session_state:
+        st.session_state.current_user = None
+    if 'page' not in st.session_state:
+        st.session_state.page = 'login'
+    
+    # Login Page
+    def login_page():
+        st.title("🔐 Login")
         
-        new_user = st.text_input("👤 Username")
-        email = st.text_input("📧 Email")
-        
-        st.subheader("Password Requirements")
-        st.write("Your password must contain:")
-        st.write("• **1 CAPITAL letter** (A-Z)")
-        st.write("• **3 small letters** (a-z)") 
-        st.write("• **1 digit** (0-9)")
-        st.write("• **Minimum 6 characters**")
-        
-        new_pass = st.text_input("🔒 Create Password", type="password", 
-                               key="new_pass", help="Follow the requirements above")
-        
-        # Show password strength in real-time
-        if new_pass:
-            show_password_strength_meter(new_pass)
-        
-        confirm_pass = st.text_input("🔒 Confirm Password", type="password", key="confirm_pass")
-        
-        agree_terms = st.checkbox("I agree to Terms and Conditions")
-        
-        register_btn = st.form_submit_button("🚀 Create Account", use_container_width=True)
-        
-        if register_btn:
-            # Validate all fields
-            if not all([new_user, email, new_pass, confirm_pass]):
-                st.error("❌ Please fill all fields")
+        # Login Form
+        with st.form("login_form"):
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            login_btn = st.form_submit_button("Login")
             
-            elif new_user in st.session_state.users:
-                st.error("❌ Username already exists!")
-            
-            elif new_pass != confirm_pass:
-                st.error("❌ Passwords don't match!")
-            
-            elif not agree_terms:
-                st.error("❌ Please agree to terms and conditions")
-            
-            else:
-                strength_result = check_password_strength(new_pass)
-                
-                if strength_result['strong']:
-                    # Save user
-                    st.session_state.users[new_user] = {
-                        'password': hash_password(new_pass),
-                        'email': email,
-                        'created_at': str(st.datetime.now())
-                    }
-                    st.success("✅ Account created successfully!")
-                    st.balloons()
-                    st.session_state.current_page = 'login'
-                    st.rerun()
+            if login_btn:
+                if username in st.session_state.users:
+                    if st.session_state.users[username]['password'] == hash_password(password):
+                        st.session_state.current_user = username
+                        st.session_state.page = 'dashboard'
+                        st.success("Login successful!")
+                        st.rerun()
+                    else:
+                        st.error("Wrong password!")
                 else:
-                    st.error(f"❌ {strength_result['message']}")
+                    st.error("You don't exist! First make an account.")
+        
+        # Sign up section below login form
+        st.write("---")
+        st.write("If you don't have an account please make an account")
+        
+        if st.button("Sign Up"):
+            st.session_state.page = 'signup'
+            st.rerun()
+    
+    # Sign Up Page
+    def signup_page():
+        st.title("📝 Create Account")
+        
+        with st.form("signup_form"):
+            new_user = st.text_input("Choose Username")
+            new_pass = st.text_input("Create Password", type="password")
+            confirm_pass = st.text_input("Confirm Password", type="password")
+            
+            signup_btn = st.form_submit_button("Create Account")
+            
+            if signup_btn:
+                if new_user in st.session_state.users:
+                    st.error("Username already exists!")
+                elif new_pass != confirm_pass:
+                    st.error("Passwords don't match!")
+                else:
+                    is_valid, message = validate_password(new_pass)
+                    if is_valid:
+                        st.session_state.users[new_user] = {
+                            'password': hash_password(new_pass),
+                            'created_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        }
+                        st.success("Account created! Going to login page...")
+                        st.session_state.page = 'login'
+                        st.rerun()
+                    else:
+                        st.error(message)
+        
+        # Back to login button
+        st.write("---")
+        if st.button("← Back to Login"):
+            st.session_state.page = 'login'
+            st.rerun()
+    
+    # Dashboard Page - Dark Blue Background
+    def dashboard_page():
+        # Dark blue background for dashboard
+        st.markdown("""
+        <style>
+        .dashboard {
+            background-color: darkblue;
+            color: white;
+            padding: 2rem;
+            border-radius: 10px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        st.markdown('<div class="dashboard">', unsafe_allow_html=True)
+        st.title(f"🎉 Welcome, {st.session_state.current_user}!")
+        st.write("You are successfully logged in to your dashboard!")
+        
+        # Green logout button
+        if st.button("🚪 Logout", type="primary"):
+            st.session_state.current_user = None
+            st.session_state.page = 'login'
+            st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Show current page
+    if st.session_state.page == 'login':
+        login_page()
+    elif st.session_state.page == 'signup':
+        signup_page()
+    elif st.session_state.page == 'dashboard':
+        dashboard_page()
 
-# Initialize
-if 'users' not in st.session_state:
-    st.session_state.users = {}
-if 'current_page' not in st.session_state:
-    st.session_state.current_page = 'register'
-
-# Run register page
-register_page()
+if __name__ == "__main__":
+    main()
