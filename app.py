@@ -94,6 +94,13 @@ st.markdown("""
         background: linear-gradient(135deg, #0066CC 0%, #004499 100%);
         color: white;
     }
+    .data-record {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 10px;
+        border-left: 4px solid #1E90FF;
+        margin: 0.5rem 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -109,61 +116,60 @@ def init_session():
         st.session_state.progress_db = {}
     if 'page' not in st.session_state:
         st.session_state.page = "login"
+    if 'daily_records' not in st.session_state:
+        st.session_state.daily_records = {}
 
 def hash_password(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
 
-# ===== YOUR EXACT ML MODEL =====
+# ===== PRE-GENERATED ML MODEL DATA =====
 @st.cache_resource
 def initialize_ml_model():
-    # Your exact dataset creation function
-    def create_real_world_dataset():
-        N = 500
-        data = []
-        for _ in range(N):
-            hours = np.clip(np.random.normal(loc=5.5, scale=2.5), 0.5, 10.0)
-            distraction_count = int(np.clip(np.random.normal(loc=6, scale=3.5), 0, 15))
-            avoid_sugar = random.choices(['Yes', 'No'], weights=[0.4, 0.6])[0]
-            avoid_junk_food = random.choices(['Yes', 'No'], weights=[0.45, 0.55])[0]
-            drink_5L_water = random.choices(['Yes', 'No'], weights=[0.35, 0.65])[0]
-            exercise_daily = random.choices(['Yes', 'No'], weights=[0.5, 0.5])[0]
-            sleep_early = random.choices(['Yes', 'No'], weights=[0.4, 0.6])[0]
-            wakeup_early = 'Yes' if sleep_early == 'Yes' and random.random() < 0.7 else 'No'
-            
-            score = (hours * 15) - (distraction_count * 7)
-            score += 25 if avoid_sugar == 'Yes' else -10
-            score += 20 if avoid_junk_food == 'Yes' else -5
-            score += 15 if drink_5L_water == 'Yes' else -5
-            score += 30 if sleep_early == 'Yes' else -15
-            score += 15 if exercise_daily == 'Yes' else -5
-            score += 10 if wakeup_early == 'Yes' else 0
-            
-            if score > 150:
-                score_noise = np.random.normal(0, 0.5)
-            else:
-                score_noise = np.random.normal(0, 8)
-                
-            final_score = score + score_noise
-            percentile = np.clip(100 - (final_score / 2.5), 1.0, 99.9)
-            
-            data.append({
-                "hours": round(hours, 1),
-                "avoid_sugar": avoid_sugar,
-                "avoid_junk_food": avoid_junk_food,
-                "drink_5L_water": drink_5L_water,
-                "sleep_early": sleep_early,
-                "exercise_daily": exercise_daily,
-                "wakeup_early": wakeup_early,
-                "distraction_count": distraction_count,
-                "top_percentile": round(percentile, 1)
-            })
+    # Pre-generate a fixed dataset for fast loading
+    np.random.seed(42)
+    N = 500
+    data = []
+    for _ in range(N):
+        hours = np.clip(np.random.normal(loc=5.5, scale=2.5), 0.5, 10.0)
+        distraction_count = int(np.clip(np.random.normal(loc=6, scale=3.5), 0, 15))
+        avoid_sugar = random.choices(['Yes', 'No'], weights=[0.4, 0.6])[0]
+        avoid_junk_food = random.choices(['Yes', 'No'], weights=[0.45, 0.55])[0]
+        drink_5L_water = random.choices(['Yes', 'No'], weights=[0.35, 0.65])[0]
+        exercise_daily = random.choices(['Yes', 'No'], weights=[0.5, 0.5])[0]
+        sleep_early = random.choices(['Yes', 'No'], weights=[0.4, 0.6])[0]
+        wakeup_early = 'Yes' if sleep_early == 'Yes' and random.random() < 0.7 else 'No'
         
-        return pd.DataFrame(data)
-
-    # Create dataset
-    df = create_real_world_dataset()
+        score = (hours * 15) - (distraction_count * 7)
+        score += 25 if avoid_sugar == 'Yes' else -10
+        score += 20 if avoid_junk_food == 'Yes' else -5
+        score += 15 if drink_5L_water == 'Yes' else -5
+        score += 30 if sleep_early == 'Yes' else -15
+        score += 15 if exercise_daily == 'Yes' else -5
+        score += 10 if wakeup_early == 'Yes' else 0
+        
+        if score > 150:
+            score_noise = np.random.normal(0, 0.5)
+        else:
+            score_noise = np.random.normal(0, 8)
+            
+        final_score = score + score_noise
+        percentile = np.clip(100 - (final_score / 2.5), 1.0, 99.9)
+        
+        data.append({
+            "hours": round(hours, 1),
+            "avoid_sugar": avoid_sugar,
+            "avoid_junk_food": avoid_junk_food,
+            "drink_5L_water": drink_5L_water,
+            "sleep_early": sleep_early,
+            "exercise_daily": exercise_daily,
+            "wakeup_early": wakeup_early,
+            "distraction_count": distraction_count,
+            "top_percentile": round(percentile, 1)
+        })
     
-    # Your exact preprocessing
+    df = pd.DataFrame(data)
+    
+    # Preprocessing
     encoders = {}
     categorical_columns = ["avoid_sugar", "avoid_junk_food", "drink_5L_water",
                            "sleep_early", "exercise_daily", "wakeup_early"]
@@ -182,7 +188,7 @@ def initialize_ml_model():
     y = df_scaled['top_percentile']
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    # Your exact model
+    # Train model
     model = XGBRegressor(
         n_estimators=1000,
         learning_rate=0.05,
@@ -194,10 +200,20 @@ def initialize_ml_model():
     )
     model.fit(X_train, y_train)
     
-    return model, encoders, scaler, categorical_columns, numeric_columns, X.columns
+    return model, encoders, scaler, categorical_columns, numeric_columns, X.columns, df
 
-# Initialize ML model once
-model, encoders, scaler, categorical_columns, numeric_columns, feature_columns = initialize_ml_model()
+# Initialize ML model once at startup
+if 'ml_initialized' not in st.session_state:
+    with st.spinner("🚀 Initializing Performance Engine..."):
+        model, encoders, scaler, categorical_columns, numeric_columns, feature_columns, original_df = initialize_ml_model()
+        st.session_state.ml_model = model
+        st.session_state.ml_encoders = encoders
+        st.session_state.ml_scaler = scaler
+        st.session_state.categorical_columns = categorical_columns
+        st.session_state.numeric_columns = numeric_columns
+        st.session_state.feature_columns = feature_columns
+        st.session_state.original_df = original_df
+        st.session_state.ml_initialized = True
 
 # ===== APP DATA =====
 CHALLENGE_STAGES = {
@@ -265,6 +281,8 @@ def login_page():
                                 'total_savings': 0,
                                 'start_date': None
                             }
+                        if username not in st.session_state.daily_records:
+                            st.session_state.daily_records[username] = []
                         st.session_state.page = "dashboard"
                         st.rerun()
                     else:
@@ -290,7 +308,7 @@ def login_page():
 def dashboard():
     st.markdown(f'<div class="main-header"><h1>👋 Welcome, {st.session_state.user}!</h1><p>Track your performance and achieve excellence</p></div>', unsafe_allow_html=True)
     
-    # Your exact ML prediction interface
+    # ML prediction interface
     st.subheader("📊 Performance Prediction Analysis")
     
     col1, col2 = st.columns(2)
@@ -301,68 +319,71 @@ def dashboard():
     
     with col2:
         habit_inputs = {}
-        for col in categorical_columns:
+        for col in st.session_state.categorical_columns:
             friendly_name = col.replace('_', ' ').title()
             habit_inputs[col] = st.selectbox(f"{friendly_name}", ["Yes", "No"])
 
     if st.button("🎯 Predict My Performance", use_container_width=True):
-        # Your exact prediction code
-        input_data = pd.DataFrame([{
-            'hours': hours,
-            'distraction_count': distractions,
-            **{col: encoders[col].transform([val])[0] for col, val in habit_inputs.items()}
-        }])
-        
-        input_data[numeric_columns] = scaler.transform(input_data[numeric_columns])
-        input_data = input_data[feature_columns]
-        
-        prediction = model.predict(input_data)[0]
-        prediction = max(1, min(100, prediction))
-        
-        st.success(f"🎯 Your Overall Performance: Top **{prediction:.1f}%**")
-        
-        # Your exact feature breakdown chart
-        feature_percentiles = {}
-        df_temp = create_real_world_dataset()  # Create temp dataset for percentiles
-        
-        hours_percentile = (df_temp['hours'] <= hours).mean() * 100
-        feature_percentiles['Study Hours'] = max(1, 100 - hours_percentile)
-        
-        dist_percentile = (df_temp['distraction_count'] >= distractions).mean() * 100
-        feature_percentiles['Distraction Control'] = max(1, 100 - dist_percentile)
-        
-        habit_mapping = {
-            'avoid_sugar': 'Sugar Avoidance',
-            'avoid_junk_food': 'Junk Food Avoidance', 
-            'drink_5L_water': 'Water Intake',
-            'sleep_early': 'Sleep Schedule',
-            'exercise_daily': 'Exercise Routine',
-            'wakeup_early': 'Wake-up Time'
-        }
-        
-        for col, friendly_name in habit_mapping.items():
-            val = encoders[col].transform([habit_inputs[col]])[0]
-            df_temp[col] = encoders[col].transform(df_temp[col])
-            if val == 1:
-                habit_percentile = (df_temp[col] == 1).mean() * 100
-                feature_percentiles[friendly_name] = max(1, 100 - habit_percentile)
-            else:
-                habit_percentile = (df_temp[col] == 0).mean() * 100
-                feature_percentiles[friendly_name] = max(1, habit_percentile)
+        with st.spinner("Analyzing your performance..."):
+            # ML Prediction
+            input_data = pd.DataFrame([{
+                'hours': hours,
+                'distraction_count': distractions,
+                **{col: st.session_state.ml_encoders[col].transform([val])[0] for col, val in habit_inputs.items()}
+            }])
+            
+            input_data[st.session_state.numeric_columns] = st.session_state.ml_scaler.transform(input_data[st.session_state.numeric_columns])
+            input_data = input_data[st.session_state.feature_columns]
+            
+            prediction = st.session_state.ml_model.predict(input_data)[0]
+            prediction = max(1, min(100, prediction))
+            
+            st.success(f"🎯 Your Overall Performance: Top **{prediction:.1f}%**")
+            
+            # Feature breakdown chart - FIXED VERSION
+            feature_percentiles = {}
+            
+            # Use the original dataset for percentiles
+            hours_percentile = (st.session_state.original_df['hours'] <= hours).mean() * 100
+            feature_percentiles['Study Hours'] = max(1, 100 - hours_percentile)
+            
+            dist_percentile = (st.session_state.original_df['distraction_count'] >= distractions).mean() * 100
+            feature_percentiles['Distraction Control'] = max(1, 100 - dist_percentile)
+            
+            habit_mapping = {
+                'avoid_sugar': 'Sugar Avoidance',
+                'avoid_junk_food': 'Junk Food Avoidance', 
+                'drink_5L_water': 'Water Intake',
+                'sleep_early': 'Sleep Schedule',
+                'exercise_daily': 'Exercise Routine',
+                'wakeup_early': 'Wake-up Time'
+            }
+            
+            for col, friendly_name in habit_mapping.items():
+                val = st.session_state.ml_encoders[col].transform([habit_inputs[col]])[0]
+                if val == 1:  # "Yes"
+                    habit_percentile = (st.session_state.original_df[col] == 1).mean() * 100
+                    feature_percentiles[friendly_name] = max(1, 100 - habit_percentile)
+                else:  # "No"
+                    habit_percentile = (st.session_state.original_df[col] == 0).mean() * 100
+                    feature_percentiles[friendly_name] = max(1, habit_percentile)
 
-        # Your exact blue chart
-        plt.figure(figsize=(12, 8))
-        features = list(feature_percentiles.keys())
-        percentiles = list(feature_percentiles.values())
-        bars = plt.bar(features, percentiles, color='#1E90FF', edgecolor='darkblue', alpha=0.8)
-        plt.bar_label(bars, labels=[f'Top {p:.1f}%' for p in percentiles], label_type='edge', padding=2, fontweight='bold', fontsize=9, color='#1a237e')
-        plt.xlabel('Performance Features', fontweight='bold', fontsize=12, color='#1a237e')
-        plt.ylabel('Performance Percentile', fontweight='bold', fontsize=12, color='#1a237e')
-        plt.title(f'PERFORMANCE BREAKDOWN ANALYSIS (Top {prediction:.1f}%)', fontweight='bold', fontsize=14, color='#1a237e')
-        plt.grid(True, alpha=0.3)
-        plt.xticks(rotation=45, ha='right')
-        plt.ylim(0, 100)
-        st.pyplot(plt)
+            # Create and display the bar chart
+            fig, ax = plt.subplots(figsize=(12, 8))
+            features = list(feature_percentiles.keys())
+            percentiles = list(feature_percentiles.values())
+            
+            bars = ax.bar(features, percentiles, color='#1E90FF', edgecolor='darkblue', alpha=0.8)
+            ax.bar_label(bars, labels=[f'Top {p:.1f}%' for p in percentiles], label_type='edge', padding=2, fontweight='bold', fontsize=9, color='#1a237e')
+            ax.set_xlabel('Performance Features', fontweight='bold', fontsize=12, color='#1a237e')
+            ax.set_ylabel('Performance Percentile', fontweight='bold', fontsize=12, color='#1a237e')
+            ax.set_title(f'PERFORMANCE BREAKDOWN ANALYSIS (Top {prediction:.1f}%)', fontweight='bold', fontsize=14, color='#1a237e')
+            ax.grid(True, alpha=0.3)
+            ax.set_xticklabels(features, rotation=45, ha='right')
+            ax.set_ylim(0, 100)
+            
+            plt.tight_layout()
+            st.pyplot(fig)
 
     # Challenge Section
     st.markdown("---")
@@ -431,7 +452,7 @@ def profile_setup():
             selected_stage = st.selectbox("📊 Challenge Stage", list(CHALLENGE_STAGES.keys()))
             distractions = st.multiselect("📵 Your Distractions", DISTRACTIONS)
         
-        # Show selected stage info with proper colors
+        # Show selected stage info
         if selected_stage:
             stage_info = CHALLENGE_STAGES[selected_stage]
             st.markdown(f'<div class="stage-info-box">'
@@ -464,7 +485,7 @@ def daily_tracking():
     
     st.markdown(f'<div class="main-header"><h1>📝 Daily Progress Tracking</h1><p>Stay consistent, achieve greatness</p></div>', unsafe_allow_html=True)
     
-    # 4 Stats Header with proper colors
+    # 4 Stats Header
     current_stage = profile.get('stage', 'Not Set')
     stage_info = CHALLENGE_STAGES.get(current_stage, {'duration': 0})
     days_completed = progress.get('days_completed', 0)
@@ -499,16 +520,31 @@ def daily_tracking():
                    f'</div>', unsafe_allow_html=True)
     
     st.markdown("---")
+    
+    # Show previous records
+    if user in st.session_state.daily_records and st.session_state.daily_records[user]:
+        st.subheader("📋 Your Previous Records")
+        for i, record in enumerate(reversed(st.session_state.daily_records[user][-5:]), 1):
+            status = "✅ Perfect Day" if record['perfect_day'] else f"⚠️ Penalty: ${record['penalty_paid']}"
+            st.markdown(f"""
+            <div class="data-record">
+                <strong>Day {record['day_number']}</strong> | {record['date']} | {status}<br>
+                <small>Completed: {record['completed_tasks']}/{record['total_tasks']} tasks</small>
+            </div>
+            """, unsafe_allow_html=True)
+    
     st.subheader("✅ Today's Challenge Checklist")
     
     with st.form("daily_checklist"):
         tasks_completed = []
         current_stage = profile.get('stage')
+        task_names = []
         
         if current_stage == 'Silver':
             tasks_completed.append(st.checkbox("✅ Gave 2 hours in my field today"))
             tasks_completed.append(st.checkbox("✅ Avoided all distractions today"))
             tasks_completed.append(st.checkbox("✅ Filling this form at night"))
+            task_names = ["2 hours in field", "Avoid distractions", "Fill form"]
         
         elif current_stage == 'Platinum':
             tasks_completed.append(st.checkbox("✅ Gave 4 hours in my field today"))
@@ -516,6 +552,7 @@ def daily_tracking():
             tasks_completed.append(st.checkbox("✅ Completed 1 hour exercise"))
             tasks_completed.append(st.checkbox("✅ Drank 5L water today"))
             tasks_completed.append(st.checkbox("✅ Filling this form at night"))
+            task_names = ["4 hours in field", "Avoid distractions", "1 hour exercise", "5L water", "Fill form"]
         
         elif current_stage == 'Gold':
             tasks_completed.append(st.checkbox("✅ Gave 6 hours in my field today"))
@@ -526,14 +563,33 @@ def daily_tracking():
             tasks_completed.append(st.checkbox("✅ Will sleep early (8pm/9pm)"))
             tasks_completed.append(st.checkbox("✅ Avoided junk food today"))
             tasks_completed.append(st.checkbox("✅ Avoided sugar today"))
+            task_names = ["6 hours in field", "Avoid distractions", "1 hour exercise", "5L water", "Wake up early", "Sleep early", "No junk food", "No sugar"]
         
         penalty_amount = st.number_input("💰 Penalty Amount (if you skipped any task)", min_value=0.0, value=0.0, step=1.0, format="%.2f")
         
-        if st.form_submit_button("📅 Submit Today's Progress", use_container_width=True):
+        submitted = st.form_submit_button("📅 Submit Today's Progress", use_container_width=True)
+        
+        if submitted:
             completed_count = sum(tasks_completed)
             total_tasks = len(tasks_completed)
+            perfect_day = completed_count == total_tasks
             
-            if completed_count == total_tasks:
+            # Record the data
+            record = {
+                'date': datetime.now().strftime("%Y-%m-%d %H:%M"),
+                'day_number': progress.get('days_completed', 0) + 1,
+                'completed_tasks': completed_count,
+                'total_tasks': total_tasks,
+                'penalty_paid': penalty_amount,
+                'perfect_day': perfect_day,
+                'tasks_detail': dict(zip(task_names, tasks_completed))
+            }
+            
+            if user not in st.session_state.daily_records:
+                st.session_state.daily_records[user] = []
+            st.session_state.daily_records[user].append(record)
+            
+            if perfect_day:
                 # Perfect day
                 progress['days_completed'] += 1
                 progress['streak_days'] += 1
@@ -558,6 +614,14 @@ def daily_tracking():
             else:
                 # Day not accepted
                 st.markdown('<div class="error-box"><h3>❌ Day Not Accepted</h3><p>You missed too many tasks. Please try again tomorrow!</p></div>', unsafe_allow_html=True)
+            
+            st.rerun()
+    
+    # Add refill form button
+    st.markdown("---")
+    if st.button("🔄 Fill Form Again for Today", use_container_width=True):
+        st.info("Form reset! You can submit your progress again.")
+        st.rerun()
     
     if st.button("← Back to Dashboard", use_container_width=True):
         st.session_state.page = "dashboard"
