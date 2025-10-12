@@ -8,12 +8,13 @@ st.markdown("<h1 style='text-align: center;'> The Brain App</h1>", unsafe_allow_
 # Center the form in the page
 col1, col2, col3 = st.columns([1, 3, 1])  # middle column narrower
 with col2:
-    st.write("### Login")  # form title
-    with st.form("login_form"):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        st.caption("Password must contain at least 7 characters, one uppercase, one lowercase, and one number.")
-        login_btn = st.form_submit_button("Login")
+    st.markdown("### Login")
+    with st.container():
+        with st.form("login_form"):
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            st.caption("Password must contain at least 7 characters, one uppercase, one lowercase, and one number.")
+            login_btn = st.form_submit_button("Login")
 
 
 
