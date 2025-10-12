@@ -18,11 +18,6 @@ with col2:
 
 
 
-
-
-# Add space below form (for height control)
-st.markdown("<br><br>", unsafe_allow_html=True)
-
 if login_btn:
     if len(password) < 7:
         st.error('❌ Password must be at least 7 characters long.')
