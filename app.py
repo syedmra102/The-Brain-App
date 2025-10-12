@@ -14,10 +14,10 @@ with col2:
 
    with st.container():
        with st.form("login_form"):
-       username = st.text_input("Username")
-       password = st.text_input("Password", type="password")
-       st.caption(" Password must contain at least 7 characters, one uppercase, one lowercase, and one number.")
-       login_btn = st.form_submit_button("Login")
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            st.caption(" Password must contain at least 7 characters, one uppercase, one lowercase, and one number.")
+            login_btn = st.form_submit_button("Login")
 
 # Form validation
 if 'login_btn' in locals() and login_btn:
