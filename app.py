@@ -11,6 +11,7 @@ with col2:
     st.write("### Login")  # form title
     with st.form("login_form"):
         username = st.text_input("Username")
+        st.write=('Please confirm your password must have one capial letter and one small letter and one number and must 7 chacters!!')
         password = st.text_input("Password", type="password")
         login_btn = st.form_submit_button("Login")
 
