@@ -1,45 +1,56 @@
 import streamlit as st
 
-# Page setup
-st.set_page_config(page_title="Simple App", layout="centered")
-
-# Session state for navigation
-if 'page' not in st.session_state:
-    st.session_state.page = 'main'
-
-# Main page
-def main_page():
-    st.title("Main Dashboard")
+def login_page():
+    st.title("🔐 Login")
     
-    # Two columns for buttons
-    col1, col2 = st.columns(2)
+    # Login Form
+    with st.form("login_form"):
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        login_button = st.form_submit_button("Login")
+        
+        if login_button:
+            if username == "admin" and password == "password":  # Temporary check
+                st.success("Login successful!")
+            else:
+                st.error("Invalid username or password")
     
-    with col1:
-        if st.button("📊 View Analytics", use_container_width=True):
-            st.session_state.page = 'analytics'
-            
-    with col2:
-        if st.button("⚙️ Settings", use_container_width=True):
-            st.session_state.page = 'settings'
-
-# Analytics page  
-def analytics_page():
-    st.title("Analytics Page")
+    # Sign up section below login form
+    st.markdown("---")
+    st.write("Don't have an account?")
     
-    if st.button("← Back to Main"):
-        st.session_state.page = 'main'
+    if st.button("Sign Up"):
+        st.session_state.current_page = 'register'  # Register page pe switch karo
+        st.rerun()
 
-# Settings page
-def settings_page():
-    st.title("Settings Page")
+def register_page():
+    st.title("📝 Create Account")
     
-    if st.button("← Back to Main"):
-        st.session_state.page = 'main'
+    with st.form("register_form"):
+        new_username = st.text_input("Choose Username")
+        new_password = st.text_input("Choose Password", type="password")
+        confirm_password = st.text_input("Confirm Password", type="password")
+        register_button = st.form_submit_button("Create Account")
+        
+        if register_button:
+            if new_password == confirm_password:
+                st.success("Account created successfully!")
+                # Yaha aap user ko save kar sakte hain
+                st.session_state.current_page = 'login'  # Wapas login pe
+                st.rerun()
+            else:
+                st.error("Passwords don't match!")
+    
+    # Back to login button
+    if st.button("← Back to Login"):
+        st.session_state.current_page = 'login'
+        st.rerun()
 
-# Run the app
-if st.session_state.page == 'main':
-    main_page()
-elif st.session_state.page == 'analytics':
-    analytics_page()
-elif st.session_state.page == 'settings':
-    settings_page()
+# Main app
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'login'
+
+if st.session_state.current_page == 'login':
+    login_page()
+else:
+    register_page()
