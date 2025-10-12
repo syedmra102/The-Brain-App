@@ -1,15 +1,16 @@
-# app.py (Full Code for Streamlit Cloud - FIX Applied)
+# app.py (Full Code for Streamlit Cloud - FIXES APPLIED)
 
 # ===== IMPORTS AND INITIAL SETUP =====
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.model_selection import train_test_split # <--- CORRECT IMPORT
+from sklearn.model_selection import train_test_split
 from xgboost import XGBRegressor
 import random
 import streamlit as st
 import time
+from datetime import date, timedelta
 
 # --- STATE MANAGEMENT INITIALIZATION ---
 if 'logged_in' not in st.session_state:
@@ -70,23 +71,22 @@ st.markdown(
     <style>
     /* White Mountain Snow Ice theme: Light background, cool accents */
     .stApp {
-        background-color: #F8F8FF; /* Ghost White (Snow/Ice) */
-        color: #333333; /* Default text color set to dark for visibility */
+        background-color: #F8F8FF;
+        color: #333333;
     }
     .stButton>button {
-        background-color: #1E90FF; /* Dodger Blue (Mountain Sky) */
+        background-color: #1E90FF;
         color: white;
         font-weight: bold;
         border-radius: 8px;
         padding: 10px 20px;
     }
-    /* Ensure all input labels (select, number, text, checkbox, radio) are dark */
     .stSelectbox label, .stNumberInput label, .stTextInput label, .stCheckbox label, .stRadio label {
-        color: #000080; /* Navy Blue labels */
+        color: #000080;
         font-weight: 600;
     }
     h1, h2, h3, h4 {
-        color: #000080; /* Navy Blue headings */
+        color: #000080;
     }
     .main-header {
         color: #1E90FF;
@@ -178,7 +178,7 @@ def load_ml_model():
     X = df_scaled.drop(columns=['top_percentile'])
     y = df_scaled['top_percentile']
     
-    # --- FIX APPLIED HERE ---
+    # --- FIX APPLIED HERE: Corrected function name ---
     X_train, _, y_train, _ = train_test_split(X, y, test_size=0.2, random_state=42)
     
     # 2. MODEL TRAINING
@@ -195,7 +195,6 @@ def load_ml_model():
 try:
     model, df, encoders, scaler, X_cols, cat_cols, num_cols = load_ml_model()
 except Exception as e:
-    # If this still fails, it's a library or environment issue, but not a code error.
     st.error(f"Error loading ML model components. Ensure all libraries are in requirements.txt. Error: {e}")
     st.stop()
 
@@ -216,7 +215,16 @@ def register_user():
             st.session_state.user_db[new_user] = {
                 'password': new_pass,
                 'profile': {},
-                'challenge': {'status': 'Pending', 'stage': None, 'day_start': None, 'daily_log': {}, 'penalty_amount': 0.0, 'badges': [], 'stage_days_completed': 0, 'streak_days_penalty': 0}
+                'challenge': {
+                    'status': 'Pending', 
+                    'stage': None, 
+                    'daily_log': {}, 
+                    'penalty_amount': 0.0, 
+                    'badges': [], 
+                    'stage_days_completed': 0, 
+                    'streak_days_penalty': 0,
+                    'last_task_message': False # Flag to show the last task
+                }
             }
             st.success("Registration successful! Please log in.")
             st.session_state.page = 'login'
@@ -338,7 +346,9 @@ def predict_performance_ui():
         
         st.pyplot(fig)
 
-# --- CHALLENGE PAGES LOGIC (UNCHANGED) ---
+# --- CHALLENGE PAGES LOGIC (FIXED CHECKLIST PERSISTENCE) ---
+
+# ... challenge_intro_ui and challenge_rules_ui remain unchanged ...
 
 def challenge_intro_ui():
     st.title('👑 The 105-Day Challenge: Your Path to the Top 1%')
@@ -419,7 +429,9 @@ def challenge_setup_ui():
             user_data['challenge']['status'] = 'Active'
             user_data['challenge']['stage'] = stage_selection
             user_data['challenge']['stage_days_completed'] = 0
-            user_data['challenge']['stage_start_date'] = pd.Timestamp.today().date().strftime('%Y-%m-%d')
+            # Initialize daily log for the first day key
+            current_date_key = date.today().strftime('%Y-%m-%d')
+            user_data['challenge']['daily_log'][current_date_key] = {'status': 'Pending', 'rules_completed': 0, 'penalty_paid': 0.0, 'rules_list': {}}
             user_data['challenge']['current_rules'] = CHALLENGE_STAGES[stage_selection]['rules']
             
             st.success("Profile saved! Your challenge starts now.")
@@ -427,6 +439,7 @@ def challenge_setup_ui():
             st.rerun()
 
 def display_user_profile(user_data):
+    # Sidebar display logic remains the same (text color fix already applied)
     st.sidebar.markdown(f"## 👤 **{st.session_state.username}**")
     profile = user_data['profile']
     challenge = user_data['challenge']
@@ -448,10 +461,14 @@ def display_user_profile(user_data):
     else:
         st.sidebar.info("Challenge not yet started.")
 
+
 def daily_tracking_ui():
     user_data = st.session_state.user_db[st.session_state.username]
     profile = user_data['profile']
     challenge = user_data['challenge']
+    
+    # Get today's date key for logging
+    today_key = date.today().strftime('%Y-%m-%d')
 
     if challenge['status'] != 'Active':
         st.error("Please start the challenge first in the Setup page.")
@@ -460,89 +477,176 @@ def daily_tracking_ui():
             st.rerun()
         return
 
-    # --- TOP METRICS ---
+    # Initialize today's log if it doesn't exist (e.g., first log today)
+    if today_key not in challenge['daily_log']:
+        challenge['daily_log'][today_key] = {'status': 'Pending', 'rules_completed': 0, 'penalty_paid': 0.0, 'rules_list': {}}
+
+    # --- TOP METRICS (FIXED) ---
     current_stage_data = CHALLENGE_STAGES[challenge['stage']]
     days_in_stage = current_stage_data['duration']
-    days_left = days_in_stage - challenge['stage_days_completed']
+    
+    # Calculate days completed *by counting saved entries in daily_log* for the current stage
+    saved_days_in_stage = sum(1 for log_entry in challenge['daily_log'].values() if log_entry['status'] != 'Pending')
+    days_left = days_in_stage - saved_days_in_stage
     
     st.title("📅 Daily Challenge Tracker")
     st.markdown(f"Hello, **{st.session_state.username}**! You are becoming a **{profile['goal']}**.")
 
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Stage", challenge['stage'])
-    col2.metric("Days Left in Stage", days_left)
-    col3.metric("Penalty Streak (Days)", challenge.get('streak_days_penalty', 0))
+    col1.metric("Current Stage", challenge['stage'])
+    col2.metric("Days Completed", saved_days_in_stage) # FIX: Show saved days
+    col3.metric("Days Remaining", days_left) # FIX: Show days left
     col4.metric("Total Saving", f"PKR {challenge['penalty_amount']:,.2f}")
     
     st.markdown("---")
-    st.header(f"Today's **{challenge['stage']}** Rules Checklist")
+    st.header(f"Today's **{challenge['stage']}** Rules Checklist ({date.today().strftime('%A, %B %d')})")
     
-    # --- DAILY CHECKLIST ---
-    rules = challenge['current_rules']
-    checklist = {}
-    
-    for rule in rules:
-        if rule != 'Fill the form daily': 
-            checklist[rule] = st.checkbox(f"✅ {rule}", key=f"check_{rule}")
-    
-    st.subheader("Penalty and Pocket Money")
-    penalty_input = st.number_input("If you failed any task, enter your daily pocket money/earning for the penalty (PKR):", min_value=0.0, value=0.0, key='penalty_input')
-
-    if st.button("Save Daily Routine"):
+    # Check if today has already been logged/saved
+    if challenge['daily_log'][today_key]['status'] != 'Pending':
+        st.success(f"🎉 **Day Saved!** Status: {challenge['daily_log'][today_key]['status']} | Penalty Paid: PKR {challenge['daily_log'][today_key]['penalty_paid']:.2f}")
         
-        # 1. Check Compliance
-        completed_tasks = sum(checklist.values())
-        total_tasks = len(rules) - 1
-        tasks_skipped = total_tasks - completed_tasks
+        # Display saved checklist state
+        st.markdown("**Today's Compliance:**")
+        for rule, status in challenge['daily_log'][today_key]['rules_list'].items():
+            icon = "✅" if status else "❌"
+            st.markdown(f"{icon} {rule}")
         
-        # 2. Enforcement Logic
-        if tasks_skipped == 0:
-            st.success("🎉 Day Saved! 100% Compliant! No Penalty!")
-            user_data['challenge']['stage_days_completed'] += 1
-            user_data['challenge']['streak_days_penalty'] = 0 
-            
-        elif tasks_skipped > 0 and penalty_input > 0.0:
-            
-            if tasks_skipped > 2:
-                st.error(
-                    "❌ Day NOT Accepted! You skipped more than 2 tasks (only 2 skips allowed with penalty). "
-                    "Focus on improving compliance tomorrow."
-                )
-                return
-            
-            st.warning(f"⚠️ Day Saved with Penalty. You skipped {tasks_skipped} task(s).")
-            user_data['challenge']['stage_days_completed'] += 1
-            user_data['challenge']['streak_days_penalty'] = user_data['challenge'].get('streak_days_penalty', 0) + 1
-            user_data['challenge']['penalty_amount'] += penalty_input
-            
-        else:
-            if tasks_skipped > 0 and penalty_input == 0.0:
-                 st.error(
-                    "❌ ERROR: Day NOT Accepted! You failed one or more tasks and did not pay the penalty. "
-                    "You must pay the full pocket money amount to save the day count."
-                )
-            else:
-                 st.error(
-                    "❌ ERROR: Day NOT Accepted. You must meet the daily challenges or pay the penalty."
-                )
-            return
-            
-        # 3. Last Task & Day Progression
+        # FIX: Display Last Task message if flagged
+        if challenge.get('last_task_message', False):
+             st.markdown("---")
+             st.subheader("Your Last Task for the Day:")
+             st.info("Go to Google, find a good motivational image/quote, and **set it as your phone wallpaper**. When you wake up, you will be reminded of your mission!")
+             
+        # Option to move to the next day's form 
         st.markdown("---")
-        st.subheader("Your Last Task for the Day:")
-        st.info("Go to Google, find a good motivational image/quote, and **set it as your phone wallpaper**. When you wake up, you will be reminded of your mission!")
+        st.warning("To start tracking tomorrow, you must click 'Start Next Day' to reset the form.")
+        if st.button("Start Next Day (Reset Form)"):
+            challenge['last_task_message'] = False # Clear flag
+            st.rerun() # This reloads the page with a clean form for the new date
         
-        check_stage_completion(user_data)
+        # Do not show the form if the day is already saved
+        show_form = False
+    else:
+        show_form = True
+
+    # --- DAILY CHECKLIST INPUT (Only shown if day is 'Pending') ---
+    if show_form:
+        rules = challenge['current_rules']
+        checklist = {}
         
-        time.sleep(1) 
-        st.rerun()
+        # Display the checklist. Use the existing key/default to prevent warnings.
+        for rule in rules:
+            if rule != 'Fill the form daily': 
+                # FIX: Checkbox values are temporary, need to be saved upon button click
+                checklist[rule] = st.checkbox(f"✅ {rule}", key=f"check_{rule}_{today_key}")
+        
+        st.subheader("Penalty and Pocket Money")
+        penalty_input = st.number_input("If you failed any task, enter your daily pocket money/earning for the penalty (PKR):", min_value=0.0, value=0.0, key=f'penalty_input_{today_key}')
+
+        if st.button("Save Daily Routine"):
+            
+            # 1. Check Compliance
+            completed_tasks = sum(checklist.values())
+            total_tasks = len(rules) - 1
+            tasks_skipped = total_tasks - completed_tasks
+            
+            log_status = "Pending" # Default to pending until accepted
+            penalty_status = 0.0
+            
+            # 2. Enforcement Logic
+            if tasks_skipped == 0:
+                log_status = "Perfect"
+                
+            elif tasks_skipped > 0 and penalty_input > 0.0 and tasks_skipped <= 2:
+                log_status = "Saved with Penalty"
+                penalty_status = penalty_input
+                
+            else:
+                # Day NOT Accepted (Skipped > 2 OR Skipped > 0 but no penalty)
+                if tasks_skipped > 2:
+                    st.error("❌ Day NOT Accepted! You skipped more than 2 tasks (only 2 skips allowed with penalty).")
+                elif tasks_skipped > 0 and penalty_input == 0.0:
+                    st.error("❌ Day NOT Accepted! You failed tasks and did not pay the penalty.")
+                return # Stop execution if day is not accepted
+                
+            # 3. Save Data and Update Stats
+            
+            # Save compliance for today's log entry
+            rule_list_status = {rule: checklist[rule] for rule in checklist.keys()}
+            
+            # Update the daily log with final status
+            challenge['daily_log'][today_key].update({
+                'status': log_status,
+                'rules_completed': completed_tasks,
+                'penalty_paid': penalty_status,
+                'rules_list': rule_list_status
+            })
+            
+            # Update challenge totals (only if accepted)
+            user_data['challenge']['stage_days_completed'] = saved_days_in_stage + 1 # Use the updated count
+            user_data['challenge']['penalty_amount'] += penalty_status
+            user_data['challenge']['streak_days_penalty'] = user_data['challenge'].get('streak_days_penalty', 0) + 1 if log_status == "Saved with Penalty" else 0
+            user_data['challenge']['last_task_message'] = True # Set flag to show last task
+            
+            # Show success message and check for stage completion
+            if log_status == "Perfect":
+                st.success("🎉 Day Saved! 100% Compliant! No Penalty!")
+            else:
+                 st.warning(f"⚠️ Day Saved with Penalty. PKR {penalty_status:,.2f} added to saving.")
+
+            check_stage_completion(user_data)
+            
+            # Rerun to show the saved state and the Last Task message
+            time.sleep(1) 
+            st.rerun()
+
+    # --- HISTORICAL VIEW (NEW SECTION) ---
+    st.markdown("---")
+    st.header("Stage Progress Log")
+    
+    log_data = []
+    # Sort the log keys to display days in order
+    sorted_log_keys = sorted(challenge['daily_log'].keys())
+    
+    for log_date_str in sorted_log_keys:
+        log_entry = challenge['daily_log'][log_date_str]
+        
+        # Only show saved days (status != Pending)
+        if log_entry['status'] != 'Pending' or log_date_str == today_key: 
+            
+            if log_entry['status'] == 'Perfect':
+                status_icon = "🟢 Perfect"
+            elif log_entry['status'] == 'Saved with Penalty':
+                status_icon = "🟡 Penalty"
+            else:
+                status_icon = "⚪ Pending"
+
+            log_data.append({
+                "Date": log_date_str,
+                "Status": status_icon,
+                "Rules Completed": log_entry['rules_completed'],
+                "Penalty": f"PKR {log_entry['penalty_paid']:,.2f}"
+            })
+
+    if log_data:
+        df_log = pd.DataFrame(log_data)
+        
+        # Display data grid for easy viewing
+        st.dataframe(df_log, use_container_width=True, hide_index=True)
+    else:
+        st.info("No days have been logged yet for this stage.")
+
 
 def check_stage_completion(user_data):
+    # This logic is called after a successful day save
     challenge = user_data['challenge']
     current_stage = challenge['stage']
     current_stage_data = CHALLENGE_STAGES[current_stage]
     
-    if challenge['stage_days_completed'] >= current_stage_data['duration']:
+    # Recalculate days completed based on log entries
+    saved_days_in_stage = sum(1 for log_entry in challenge['daily_log'].values() if log_entry['status'] != 'Pending')
+
+    if saved_days_in_stage >= current_stage_data['duration']:
         
         user_data['challenge']['badges'].append(current_stage)
         st.balloons()
@@ -555,11 +659,15 @@ def check_stage_completion(user_data):
             next_stage = stages_order[current_index + 1]
             st.info(f"Do you want to upgrade to the **{next_stage}** stage?")
             
-            if st.button(f"Yes, Upgrade to {next_stage}"):
+            if st.button(f"Yes, Upgrade to {next_stage}", key="upgrade_button"):
+                # Reset log for the new stage starting today
                 challenge['stage'] = next_stage
                 challenge['stage_days_completed'] = 0
-                challenge['stage_start_date'] = pd.Timestamp.today().date().strftime('%Y-%m-%d')
+                challenge['daily_log'] = {} # Clear old log
+                current_date_key = date.today().strftime('%Y-%m-%d')
+                challenge['daily_log'][current_date_key] = {'status': 'Pending', 'rules_completed': 0, 'penalty_paid': 0.0, 'rules_list': {}}
                 challenge['current_rules'] = CHALLENGE_STAGES[next_stage]['rules']
+                challenge['last_task_message'] = False
                 st.session_state.page = 'daily_tracking'
                 st.rerun()
         else:
