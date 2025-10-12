@@ -3,7 +3,7 @@ import re
 
 st.set_page_config(page_title="The Brain App", page_icon="🧠", layout="centered")
 
-st.markdown("<style>...</style>")
+
 # ===== App Title =====
 st.markdown("<h1>🧠 The Brain App</h1>", unsafe_allow_html=True)
 
