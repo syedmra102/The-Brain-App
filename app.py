@@ -24,19 +24,19 @@ if 'login_btn' in locals() and login_btn:
     if len(password) < 7:
         col1, col2, col3 = st.columns([1, 3, 1])
         with col2:
-        st.error(' Password must be at least 7 characters long.')
+            st.error(' Password must be at least 7 characters long.')
     elif not re.search(r"[A-Z]", password):
         col1, col2, col3 = st.columns([1, 3, 1])
         with col2:
-        st.error(" Password must include at least one uppercase letter.")
+            st.error(" Password must include at least one uppercase letter.")
     elif not re.search(r"[a-z]", password):
         col1, col2, col3 = st.columns([1, 3, 1])
         with col2:
-        st.error(" Password must include at least one lowercase letter.")
+            st.error(" Password must include at least one lowercase letter.")
     elif not re.search(r"[0-9]", password):
         col1, col2, col3 = st.columns([1, 3, 1])
         with col2:
-        st.error(" Password must include at least one number.")
+             st.error(" Password must include at least one number.")
     else:
         col1, col2, col3 = st.columns([1, 3, 1])
         with col2:
