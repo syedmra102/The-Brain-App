@@ -1,4 +1,4 @@
-# app.py (Authentication Focus with Clean Design, Centered Forms, and Strict Colors)
+# app.py (Final Authentication Focus with Clean Design, New Dark Theme, and Visible Password Rules)
 
 # ===== IMPORTS AND INITIAL SETUP =====
 import streamlit as st
@@ -24,7 +24,7 @@ CHALLENGE_STAGES = {
     'Gold': {'duration': 60, 'rules': {'Give 6 hours daily in your field': True, 'Do 1 hour of exercise': True, 'Avoid all distractions': True, 'Drink 5 liters of water': True, 'Wake up early (4 AM or 5 AM)': True, 'Sleep early (8 PM or 9 PM)': True, 'Avoid junk food': True, 'Avoid sugar': True, 'Fill the form daily': True}}
 }
 
-# --- PAGE CONFIGURATION & CUSTOM CSS (STRICT COLOR PALETTE) ---
+# --- PAGE CONFIGURATION & CUSTOM CSS (NEW CLEAN DARK THEME) ---
 st.set_page_config(
     page_title="Elite Performance Engine",
     page_icon="👑",
@@ -34,11 +34,11 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* User-Requested Color Theme: Blue BG, White Text, Green Buttons */
+    /* New, Softer Dark Theme */
     
-    /* General Background - Blue */
+    /* General Background - Dark Gray */
     .stApp { 
-        background-color: #003366; /* Dark Royal Blue */
+        background-color: #1D2B3F; /* Soft Dark Gray/Blue */
         color: white; 
     } 
     /* Global Text Color - White */
@@ -48,8 +48,8 @@ st.markdown(
     
     /* Headings - Light Blue for contrast */
     h1, h2, h3, h4, .main-header { 
-        color: #ADD8E6 !important; /* Light Blue */
-        font-weight: 800; 
+        color: #74b9ff !important; /* Soft Light Blue */
+        font-weight: 700; 
     }
     
     /* Input field label color */
@@ -58,9 +58,9 @@ st.markdown(
         font-weight: 600; 
     }
     
-    /* Dashboard Block Background - Dark Blue */
+    /* Dashboard Block Background - Dark Slate Blue */
     [data-testid="stVerticalBlock"] {
-        background-color: #1A3B5D; /* Dark Steel Blue for contrast */
+        background-color: #2E475E; /* Darker background for dashboard/main content */
         padding: 25px;
         border-radius: 12px;
         margin-bottom: 20px;
@@ -81,23 +81,28 @@ st.markdown(
         background-color: #45A049 !important; /* Slightly darker green on hover */
     }
     
-    /* Specific Green Logout Button Class (redundant but kept for robustness) */
-    .green-button button {
-        background-color: #4CAF50 !important; 
-    }
-
-    /* Input text field styling */
+    /* Input field styling for contrast and border */
     div[data-testid="stForm"] input[type="text"], 
     div[data-testid="stForm"] input[type="password"] {
         color: #FFFFFF !important;
-        background-color: #003366; /* Match App BG */
-        border: 1px solid #ADD8E6;
+        background-color: #1D2B3F; /* Match App BG */
+        border: 1px solid #74b9ff; /* Light blue border */
         border-radius: 5px;
     }
 
     /* Error and Success boxes must have good contrast */
     .stSuccess { background-color: #1B5E20; color: #E8F5E9; }
     .stError { background-color: #D32F2F; color: #FFEBEE; }
+
+    /* Custom class to center and limit the size of the auth forms */
+    .centered-form-container {
+        max-width: 400px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #2E475E; /* Match dashboard background for the form container */
+        border-radius: 12px;
+        border: 2px solid #74b9ff;
+    }
 
     </style>
     """,
@@ -139,84 +144,102 @@ def register_user():
     st.markdown('<h1 class="main-header" style="text-align: center;">Elite Performance Engine</h1>', unsafe_allow_html=True)
     st.subheader("New Account Registration")
     
-    # --- Centering the Form (Making it shorter) ---
-    col1, col2, col3 = st.columns([1, 2, 1]) 
+    # --- Centering and shortening the form ---
+    st.markdown('<div class="centered-form-container">', unsafe_allow_html=True)
     
-    with col2: # Form placed in the middle column
-        with st.form("register_form"):
-            new_user = st.text_input("Choose Username", key="reg_user")
-            new_pass = st.text_input("Choose Password", type="password", key="reg_pass")
+    # --- Display Password Requirements ---
+    st.markdown(
+        """
+        <div style='background-color: #1D2B3F; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #74b9ff;'>
+            <p style='color: white; font-weight: bold; margin-bottom: 5px;'>Password Requirements:</p>
+            <ul style='list-style-type: none; padding-left: 0; margin: 0;'>
+                <li>- Must have 1 Capital character (A-Z)</li>
+                <li>- Must have 3 Small characters (a-z)</li>
+                <li>- Must have 1 Digit (0-9)</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True
+    )
+    
+    with st.form("register_form", clear_on_submit=False):
+        new_user = st.text_input("Choose Username", key="reg_user")
+        new_pass = st.text_input("Choose Password", type="password", key="reg_pass")
+        
+        submitted = st.form_submit_button("Sign Up Now")
+
+        if submitted:
+            if new_user in st.session_state.user_db:
+                st.error("Username already exists. Please log in or choose another name.")
+                st.markdown('</div>', unsafe_allow_html=True)
+                return
             
-            submitted = st.form_submit_button("Sign Up Now")
+            validation_errors = validate_password(new_pass)
+            if validation_errors:
+                st.error("❌ Password failed validation. Please meet all requirements listed above.")
+                st.markdown('</div>', unsafe_allow_html=True)
+                return
 
-            if submitted:
-                if new_user in st.session_state.user_db:
-                    st.error("Username already exists. Please log in or choose another name.")
-                    return
+            if not new_user or not new_pass:
+                st.error("Username and Password cannot be empty.")
+            else:
+                st.session_state.user_db[new_user] = {
+                    'password_hash': hash_password(new_pass),
+                    'profile': {},
+                    'challenge': {'status': 'Pending', 'stage': None, 'daily_log': {}, 'penalty_amount': 0.0, 'badges': [], 'stage_days_completed': 0, 'streak_days_penalty': 0, 'last_task_message': False }
+                }
+                st.success("Registration successful! Redirecting to Login...")
+                time.sleep(1)
+                st.session_state.page = 'login'
+                st.rerun()
                 
-                # --- Password Validation ---
-                validation_errors = validate_password(new_pass)
-                if validation_errors:
-                    st.error("❌ Password failed validation.")
-                    st.markdown(
-                        f"**Password must contain:**"
-                        f"<ul>"
-                        f"<li>Must have {validation_errors[0]}</li>"
-                        f"<li>Must have {validation_errors[1]}</li>"
-                        f"<li>Must have {validation_errors[2]}</li>"
-                        f"</ul>", unsafe_allow_html=True
-                    )
-                    return
+    st.markdown('</div>', unsafe_allow_html=True) # End centered form container
+    
+    # Button to go back to login
+    st.markdown("<div style='text-align: center; margin-top: 20px;'>", unsafe_allow_html=True)
+    if st.button("Go back to Login"):
+        st.session_state.page = 'login'
+        st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
-                if not new_user or not new_pass:
-                    st.error("Username and Password cannot be empty.")
-                else:
-                    st.session_state.user_db[new_user] = {
-                        'password_hash': hash_password(new_pass),
-                        'profile': {},
-                        'challenge': {'status': 'Pending', 'stage': None, 'daily_log': {}, 'penalty_amount': 0.0, 'badges': [], 'stage_days_completed': 0, 'streak_days_penalty': 0, 'last_task_message': False }
-                    }
-                    st.success("Registration successful! Redirecting to Login...")
-                    time.sleep(1)
-                    st.session_state.page = 'login'
-                    st.rerun()
 
 def login_user():
     st.markdown('<h1 class="main-header" style="text-align: center;">Elite Performance Engine</h1>', unsafe_allow_html=True)
     st.subheader("User Login")
     
-    # --- Centering the Form (Making it shorter) ---
-    col1, col2, col3 = st.columns([1, 2, 1]) 
+    # --- Centering and shortening the form ---
+    st.markdown('<div class="centered-form-container">', unsafe_allow_html=True)
     
-    with col2: # Form placed in the middle column
-        with st.form("login_form"):
-            user = st.text_input("Username", key="log_user")
-            password = st.text_input("Password", type="password", key="log_pass")
-            
-            # The Login button is the only element initially visible for existing users
-            submitted = st.form_submit_button("Login")
-
-            if submitted:
-                if user not in st.session_state.user_db:
-                    # User does not exist flow
-                    st.error("User does not exist. Please sign up for a new account.")
-                elif st.session_state.user_db[user]['password_hash'] == hash_password(password):
-                    # Successful login flow
-                    st.session_state.logged_in = True
-                    st.session_state.username = user
-                    st.success(f"Welcome back, {user}!")
-                    st.session_state.page = 'dashboard'
-                    st.rerun()
-                else:
-                    # Incorrect password flow
-                    st.error("Invalid Password.")
+    with st.form("login_form", clear_on_submit=False):
+        user = st.text_input("Username", key="log_user")
+        password = st.text_input("Password", type="password", key="log_pass")
         
-        # Sign Up section below the form
-        st.markdown("---")
-        st.write("If you don't have an account, please make an account.")
-        if st.button("Sign Up"):
-            st.session_state.page = 'register'
-            st.rerun()
+        # The Login button is the only element initially visible for existing users
+        submitted = st.form_submit_button("Login")
+
+        if submitted:
+            if user not in st.session_state.user_db:
+                # User does not exist flow (Exactly as requested)
+                st.error("User does not exist. Please sign up for a new account.")
+            elif st.session_state.user_db[user]['password_hash'] == hash_password(password):
+                # Successful login flow
+                st.session_state.logged_in = True
+                st.session_state.username = user
+                st.success(f"Welcome back, {user}!")
+                st.session_state.page = 'dashboard'
+                st.rerun()
+            else:
+                # Incorrect password flow
+                st.error("Invalid Password.")
+    
+    st.markdown('</div>', unsafe_allow_html=True) # End centered form container
+    
+    # Sign Up section below the form
+    st.markdown("<div style='text-align: center; margin-top: 20px;'>", unsafe_allow_html=True)
+    st.write("If you don't have an account, please make an account.")
+    if st.button("Sign Up"):
+        st.session_state.page = 'register'
+        st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # --- DASHBOARD UI (SIMPLIFIED FOR TESTING) ---
 
@@ -225,19 +248,16 @@ def dashboard_ui():
     st.markdown("---")
     
     # Green Logout Button (prominent at the top)
-    st.markdown('<div class="green-button">', unsafe_allow_html=True)
     if st.button("Logout"):
         st.session_state.logged_in = False
         st.session_state.username = None
         st.session_state.page = 'login'
         st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown("---")
     st.subheader("Your Progress Tracker")
     
-    # Placeholder for the next stage of the application
-    st.info("You are successfully logged in! Use the navigation to start your performance challenge.")
+    st.info("You are successfully logged in! The background color is the dark blue you requested.")
     
     if st.button("Start 105-Day Challenge"):
         st.session_state.page = 'challenge_setup'
@@ -247,8 +267,7 @@ def dashboard_ui():
 
 def main_app():
     if st.session_state.logged_in:
-        # No sidebar used here for clean full-width dashboard
-        
+        # The background for the dashboard is controlled by the CSS for [data-testid="stVerticalBlock"]
         if st.session_state.page == 'dashboard':
              dashboard_ui()
         elif st.session_state.page == 'challenge_setup':
