@@ -1,186 +1,214 @@
-# app.py - Aesthetic and Professional Streamlit Login Page
-
 import streamlit as st
 import re
-import time
-import hashlib
 
-# --- CONFIGURATION AND CUSTOM AESTHETIC CSS ---
-
+# Page configuration
 st.set_page_config(
-    page_title="The Brain App Login", 
-    page_icon="🧠", 
-    layout="centered"
+    page_title="The Brain App",
+    page_icon="🧠",
+    layout="centered",
+    initial_sidebar_state="collapsed"
 )
 
-# Custom CSS for a professional, classy dark theme
-st.markdown(
-    """
-    <style>
-    /* 1. Global Aesthetic Theme */
+# Custom CSS for professional aesthetic look
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
     .stApp {
-        background-color: #1E1E1E; /* Dark Charcoal Background */
-        color: #FFFFFF; /* White Text */
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         font-family: 'Inter', sans-serif;
     }
-    .stApp * {
-        color: #FFFFFF; /* Ensure all text is white */
-    }
-
-    /* 2. Classy Title Box Styling */
-    .brain-app-title {
+    
+    .main-title {
+        font-family: 'Inter', sans-serif;
+        font-weight: 700;
+        font-size: 3.5rem;
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
         text-align: center;
-        padding: 20px;
-        margin-bottom: 30px;
-        background-color: #2C3E50; /* Deep Slate Blue */
+        margin-bottom: 2rem;
+        text-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .login-container {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 3rem;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+    
+    .form-title {
+        font-family: 'Inter', sans-serif;
+        font-weight: 600;
+        font-size: 1.8rem;
+        color: #2d3748;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    .stTextInput>div>div>input {
         border-radius: 12px;
-        border-left: 5px solid #4FC3F7; /* Light Blue Accent */
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); /* Subtle Shadow */
+        border: 2px solid #e2e8f0;
+        padding: 12px 16px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
     }
-    .brain-app-title h1 {
-        font-size: 2.5em;
-        font-weight: 800;
-        color: #4FC3F7 !important; /* Title Accent Color */
-        letter-spacing: 2px;
+    
+    .stTextInput>div>div>input:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
-
-    /* 3. Form Container and Inputs */
-    .stContainer {
-        background-color: #2C3E50; /* Same Deep Slate Blue for Form Area */
-        padding: 30px;
+    
+    .stButton>button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 14px 28px;
         border-radius: 12px;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        font-weight: 600;
+        font-size: 1rem;
+        width: 100%;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
     }
-    .stTextInput label {
-        color: #B0BEC5 !important; /* Light Gray label text */
+    
+    .stButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+    }
+    
+    .success-message {
+        background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        text-align: center;
+        font-weight: 500;
+        box-shadow: 0 8px 25px rgba(72, 187, 120, 0.3);
+    }
+    
+    .error-message {
+        background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        text-align: center;
+        font-weight: 500;
+        margin: 1rem 0;
+    }
+    
+    .password-caption {
+        color: #718096;
+        font-size: 0.9rem;
+        text-align: center;
+        margin: 1rem 0;
+        line-height: 1.5;
+    }
+    
+    .gradient-text {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
         font-weight: 600;
     }
-    .stTextInput input {
-        background-color: #1E1E1E; /* Input fields are darker */
-        border: 1px solid #4FC3F7; /* Light Blue Border */
-        border-radius: 6px;
-        color: white;
-    }
+</style>
+""", unsafe_allow_html=True)
 
-    /* 4. Professional Green Login Button */
-    .stButton > button {
-        background-color: #4CAF50 !important; /* Vibrant Green */
-        color: white !important;
-        font-weight: bold;
-        border-radius: 8px;
-        padding: 10px 20px;
-        border: none;
-        transition: background-color 0.3s;
-    }
-    .stButton > button:hover {
-        background-color: #45A049 !important; /* Darker green on hover */
-    }
-    
-    /* 5. Classy Output Messages (Aesthetic E-Signs) */
-    .stAlert {
-        border-radius: 8px;
-        font-weight: 500;
-        padding: 15px;
-        margin-top: 15px;
-    }
-    .stAlert.success {
-        background-color: #1B5E20; /* Darker Green Success BG */
-        color: #E8F5E9;
-    }
-    .stAlert.error {
-        background-color: #B71C1C; /* Darker Red Error BG */
-        color: #FFEBEE;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+# Main title with gradient effect
+st.markdown('<div class="main-title">🧠 The Brain App</div>', unsafe_allow_html=True)
 
-# --- APP TITLE ---
-# Place the title inside the styled box
-st.markdown('<div class="brain-app-title"><h1>The Brain App</h1></div>', unsafe_allow_html=True)
-
-# --- LOGIN FORM LOGIC ---
-
-# Center the form in the page using columns
-col1, col2, col3 = st.columns([1, 3, 1]) 
+# Center the login form
+col1, col2, col3 = st.columns([1, 2, 1])
 
 with col2:
-    # Use a clean header for the form section
-    st.markdown("<h3>Login</h3>", unsafe_allow_html=True)
-    
-    # Use st.container to apply the dark blue background to the form area
     with st.container():
+        st.markdown('<div class="login-container">', unsafe_allow_html=True)
         
-        # NOTE: Using a simple form without persistent state for this aesthetic demo.
-        with st.form("login_form", clear_on_submit=False):
-            username = st.text_input("Username")
-            password = st.text_input("Password", type="password")
+        # Form title
+        st.markdown('<div class="form-title">Access Your Account</div>', unsafe_allow_html=True)
+        
+        # Login form
+        with st.form("login_form"):
+            username = st.text_input(
+                "👤 Username",
+                placeholder="Enter your username"
+            )
             
-            # The password requirement caption is styled by the general CSS
-            st.caption("🔒 Password must contain at least 7 characters, one uppercase, one lowercase, and one number.")
+            password = st.text_input(
+                "🔒 Password", 
+                type="password",
+                placeholder="Enter your password"
+            )
             
-            login_btn = st.form_submit_button("Login")
+            # Password requirements
+            st.markdown("""
+            <div class="password-caption">
+                <strong>Password Requirements:</strong><br>
+                • Minimum 7 characters<br>
+                • At least one uppercase letter (A-Z)<br>
+                • At least one lowercase letter (a-z)<br>
+                • At least one number (0-9)
+            </div>
+            """, unsafe_allow_html=True)
+            
+            login_btn = st.form_submit_button("🚀 Sign In")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 
-# --- AUTHENTICATION AND FEEDBACK ---
-
+# Handle form submission
 if login_btn:
-    
-    # --- Client-Side Validation (Matching user's request) ---
-    is_valid = True
-    error_message = ""
-    
-    if len(password) < 7:
-        is_valid = False
-        error_message = '❌ Password must be at least 7 characters long.'
-    elif not re.search(r"[A-Z]", password):
-        is_valid = False
-        error_message = "❌ Password must include at least one uppercase letter."
-    elif not re.search(r"[a-z]", password):
-        is_valid = False
-        error_message = "❌ Password must include at least one lowercase letter."
-    elif not re.search(r"[0-9]", password):
-        is_valid = False
-        error_message = "❌ Password must include at least one number."
-    
-    
-    # --- Display Classy Output ---
-    
-    # We use the same central column for the output message
-    with col2:
-        if is_valid:
-            # Aesthetic Success Output
-            st.markdown(
-                f"""
-                <div class="stAlert success">
-                    <span style='font-size: 1.5em;'>✅</span> 
-                    <span style='font-size: 1.1em; font-weight: 700;'>ACCESS GRANTED:</span> 
-                    Welcome, {username}. You have successfully logged in!
-                </div>
-                """, 
-                unsafe_allow_html=True
-            )
-            
-            # Placeholder for the Dashboard (Shows the professional aesthetic continues)
-            st.markdown("---")
-            st.markdown(
-                """
-                <div style='background-color: #2E475E; padding: 20px; border-radius: 8px; margin-top: 15px;'>
-                    <h3 style='color: #4FC3F7 !important;'>🧠 Dashboard Preview</h3>
-                    <p style='color: #B0BEC5;'>Your professional dashboard starts here. All content uses the same clean dark theme and typography.</p>
-                </div>
-                """, unsafe_allow_html=True
-            )
-            
+    if not username or not password:
+        st.markdown("""
+        <div class="error-message">
+            ⚠️ Please fill in both username and password
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        # Password validation
+        if len(password) < 7:
+            st.markdown("""
+            <div class="error-message">
+                ⚠️ Password must be at least 7 characters long
+            </div>
+            """, unsafe_allow_html=True)
+        elif not re.search(r"[A-Z]", password):
+            st.markdown("""
+            <div class="error-message">
+                ⚠️ Password must include at least one uppercase letter
+            </div>
+            """, unsafe_allow_html=True)
+        elif not re.search(r"[a-z]", password):
+            st.markdown("""
+            <div class="error-message">
+                ⚠️ Password must include at least one lowercase letter
+            </div>
+            """, unsafe_allow_html=True)
+        elif not re.search(r"[0-9]", password):
+            st.markdown("""
+            <div class="error-message">
+                ⚠️ Password must include at least one number
+            </div>
+            """, unsafe_allow_html=True)
         else:
-            # Aesthetic Error Output
-            st.markdown(
-                f"""
-                <div class="stAlert error">
-                    <span style='font-size: 1.5em;'>🛑</span> 
-                    <span style='font-size: 1.1em; font-weight: 700;'>VALIDATION ERROR:</span> 
-                    {error_message}
+            # Success message
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                st.markdown(f"""
+                <div class="success-message">
+                    🎉 Welcome <span class="gradient-text">{username}</span>!<br>
+                    You have successfully logged in to The Brain App!
                 </div>
-                """, 
-                unsafe_allow_html=True
-            )
+                """, unsafe_allow_html=True)
+
+# Additional aesthetic elements
+st.markdown("""
+<br><br>
+<div style='text-align: center; color: rgba(255,255,255,0.7); font-size: 0.9rem;'>
+    Secure • Professional • Aesthetic
+</div>
+""", unsafe_allow_html=True)
