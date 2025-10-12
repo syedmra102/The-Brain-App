@@ -1,16 +1,17 @@
-# app.py (Full Code for Streamlit Cloud - FIXES APPLIED)
+# app.py (Full Code with FAST ML LOADING)
 
 # ===== IMPORTS AND INITIAL SETUP =====
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.model_selection import train_test_split
+# Note: We still need the Scikit-learn classes for type hints and Scaler/Encoder usage
+from sklearn.preprocessing import LabelEncoder, StandardScaler 
+from sklearn.model_selection import train_test_split # Not used for training, but kept for full import context
 from xgboost import XGBRegressor
 import random
 import streamlit as st
 import time
 from datetime import date, timedelta
+import pickle # <-- NEW: Used for loading pre-trained components
 
 # --- STATE MANAGEMENT INITIALIZATION ---
 if 'logged_in' not in st.session_state:
@@ -58,145 +59,73 @@ CHALLENGE_STAGES = {
     }
 }
 
-# --- PAGE CONFIGURATION & CUSTOM CSS ---
+# --- PAGE CONFIGURATION & CUSTOM CSS (UNCHANGED) ---
 st.set_page_config(
     page_title="Elite Performance Engine",
     page_icon="👑",
     layout="wide",
 )
 
-# Custom CSS for theme and visibility fixes
 st.markdown(
     """
     <style>
     /* White Mountain Snow Ice theme: Light background, cool accents */
-    .stApp {
-        background-color: #F8F8FF;
-        color: #333333;
-    }
-    .stButton>button {
-        background-color: #1E90FF;
-        color: white;
-        font-weight: bold;
-        border-radius: 8px;
-        padding: 10px 20px;
-    }
-    .stSelectbox label, .stNumberInput label, .stTextInput label, .stCheckbox label, .stRadio label {
-        color: #000080;
-        font-weight: 600;
-    }
-    h1, h2, h3, h4 {
-        color: #000080;
-    }
-    .main-header {
-        color: #1E90FF;
-        font-size: 36px;
-        font-weight: 800;
-        text-align: center;
-        margin-bottom: 20px;
-    }
+    .stApp { background-color: #F8F8FF; color: #333333; }
+    .stButton>button { background-color: #1E90FF; color: white; font-weight: bold; border-radius: 8px; padding: 10px 20px; }
+    .stSelectbox label, .stNumberInput label, .stTextInput label, .stCheckbox label, .stRadio label { color: #000080; font-weight: 600; }
+    h1, h2, h3, h4 { color: #000080; }
+    .main-header { color: #1E90FF; font-size: 36px; font-weight: 800; text-align: center; margin-bottom: 20px; }
     /* FIX: Ensure sidebar text and headings are dark and visible */
-    [data-testid="stSidebar"] * {
-        color: #333333 !important;
-    }
-    [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-        color: #000080 !important;
-    }
-    .stSuccess {
-        background-color: #E6FFE6;
-        color: #006600;
-        border-radius: 5px;
-        padding: 10px;
-    }
-    .stError {
-        background-color: #FFE6E6;
-        color: #CC0000;
-        border-radius: 5px;
-        padding: 10px;
-    }
+    [data-testid="stSidebar"] * { color: #333333 !important; }
+    [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #000080 !important; }
+    .stSuccess { background-color: #E6FFE6; color: #006600; border-radius: 5px; padding: 10px; }
+    .stError { background-color: #FFE6E6; color: #CC0000; border-radius: 5px; padding: 10px; }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# --- ML MODEL LOADING AND TRAINING (Using st.cache_resource) ---
+# --- ML MODEL LOADING (NEW: Loads pre-trained components) ---
 @st.cache_resource
 def load_ml_model():
-    """Loads and trains the ML model and preprocessing tools once."""
-    
-    # 1. DATA GENERATION
-    def create_real_world_dataset():
-        N = 500
-        data = []
-        for _ in range(N):
-            hours = np.clip(np.random.normal(loc=5.5, scale=2.5), 0.5, 10.0)
-            distraction_count = int(np.clip(np.random.normal(loc=6, scale=3.5), 0, 15))
-            avoid_sugar = random.choices(['Yes', 'No'], weights=[0.4, 0.6])[0]
-            avoid_junk_food = random.choices(['Yes', 'No'], weights=[0.45, 0.55])[0]
-            drink_5L_water = random.choices(['Yes', 'No'], weights=[0.35, 0.65])[0]
-            exercise_daily = random.choices(['Yes', 'No'], weights=[0.5, 0.5])[0]
-            sleep_early = random.choices(['Yes', 'No'], weights=[0.4, 0.6])[0]
-            wakeup_early = 'Yes' if sleep_early == 'Yes' and random.random() < 0.7 else 'No'
-            score = (hours * 15) - (distraction_count * 7)
-            score += 25 if avoid_sugar == 'Yes' else -10
-            score += 20 if avoid_junk_food == 'Yes' else -5
-            score += 15 if drink_5L_water == 'Yes' else -5
-            score += 30 if sleep_early == 'Yes' else -15
-            score += 15 if exercise_daily == 'Yes' else -5
-            score += 10 if wakeup_early == 'Yes' else 0
-            if score > 150:
-                score_noise = np.random.normal(0, 0.5)
-            else:
-                score_noise = np.random.normal(0, 8)
-            final_score = score + score_noise
-            percentile = np.clip(100 - (final_score / 2.5), 1.0, 99.9)
-            data.append({
-                "hours": round(hours, 1),
-                "avoid_sugar": avoid_sugar,
-                "avoid_junk_food": avoid_junk_food,
-                "drink_5L_water": drink_5L_water,
-                "sleep_early": sleep_early,
-                "exercise_daily": exercise_daily,
-                "wakeup_early": wakeup_early,
-                "distraction_count": distraction_count,
-                "top_percentile": round(percentile, 1)
-            })
-        return pd.DataFrame(data)
+    """Loads pre-trained ML model and preprocessing tools from pickle files."""
+    try:
+        with open('xgb_model.pkl', 'rb') as f:
+            model = pickle.load(f)
+        with open('scaler.pkl', 'rb') as f:
+            scaler = pickle.load(f)
+        with open('encoders.pkl', 'rb') as f:
+            encoders = pickle.load(f)
+        with open('metadata.pkl', 'rb') as f:
+            metadata = pickle.load(f)
 
-    df = create_real_world_dataset()
-    encoders = {}
-    categorical_columns = ["avoid_sugar", "avoid_junk_food", "drink_5L_water",
-                           "sleep_early", "exercise_daily", "wakeup_early"]
-    for col in categorical_columns:
-        le = LabelEncoder()
-        df[col] = le.fit_transform(df[col])
-        encoders[col] = le
-    numeric_columns = ['hours', 'distraction_count']
-    scaler = StandardScaler()
-    df_scaled = df.copy()
-    df_scaled[numeric_columns] = scaler.fit_transform(df[numeric_columns])
-    X = df_scaled.drop(columns=['top_percentile'])
-    y = df_scaled['top_percentile']
-    
-    # --- FIX APPLIED HERE: Corrected function name ---
-    X_train, _, y_train, _ = train_test_split(X, y, test_size=0.2, random_state=42)
-    
-    # 2. MODEL TRAINING
-    model = XGBRegressor(
-        n_estimators=1000, learning_rate=0.05, max_depth=5, reg_lambda=1.0, 
-        subsample=0.8, colsample_bytree=0.8, random_state=42
-    )
-    model.fit(X_train, y_train)
-    
-    # 3. RETURN COMPONENTS
-    return model, df, encoders, scaler, X.columns, categorical_columns, numeric_columns
+        return (
+            model, 
+            metadata['df'], 
+            encoders, 
+            scaler, 
+            metadata['X_cols'], 
+            metadata['cat_cols'], 
+            metadata['num_cols']
+        )
+    except FileNotFoundError:
+        st.error(
+            "ERROR: ML model files not found. Please run 'train_and_save.py' locally "
+            "and ensure 'xgb_model.pkl', 'scaler.pkl', 'encoders.pkl', and 'metadata.pkl' "
+            "are uploaded to your Streamlit Cloud repository."
+        )
+        st.stop()
+    except Exception as e:
+        st.error(f"Error loading ML components. Ensure all libraries are in requirements.txt. Error: {e}")
+        st.stop()
+
 
 # Load model and data components once
 try:
     model, df, encoders, scaler, X_cols, cat_cols, num_cols = load_ml_model()
-except Exception as e:
-    st.error(f"Error loading ML model components. Ensure all libraries are in requirements.txt. Error: {e}")
-    st.stop()
+except Exception:
+    # Stop is already called in load_ml_model on error
+    pass
 
 
 # --- AUTHENTICATION FUNCTIONS (UNCHANGED) ---
@@ -223,7 +152,7 @@ def register_user():
                     'badges': [], 
                     'stage_days_completed': 0, 
                     'streak_days_penalty': 0,
-                    'last_task_message': False # Flag to show the last task
+                    'last_task_message': False 
                 }
             }
             st.success("Registration successful! Please log in.")
@@ -346,9 +275,7 @@ def predict_performance_ui():
         
         st.pyplot(fig)
 
-# --- CHALLENGE PAGES LOGIC (FIXED CHECKLIST PERSISTENCE) ---
-
-# ... challenge_intro_ui and challenge_rules_ui remain unchanged ...
+# --- CHALLENGE PAGES LOGIC (UNCHANGED) ---
 
 def challenge_intro_ui():
     st.title('👑 The 105-Day Challenge: Your Path to the Top 1%')
@@ -439,7 +366,6 @@ def challenge_setup_ui():
             st.rerun()
 
 def display_user_profile(user_data):
-    # Sidebar display logic remains the same (text color fix already applied)
     st.sidebar.markdown(f"## 👤 **{st.session_state.username}**")
     profile = user_data['profile']
     challenge = user_data['challenge']
@@ -460,7 +386,6 @@ def display_user_profile(user_data):
              st.sidebar.markdown(f"• *{rule}*")
     else:
         st.sidebar.info("Challenge not yet started.")
-
 
 def daily_tracking_ui():
     user_data = st.session_state.user_db[st.session_state.username]
@@ -600,7 +525,7 @@ def daily_tracking_ui():
             time.sleep(1) 
             st.rerun()
 
-    # --- HISTORICAL VIEW (NEW SECTION) ---
+    # --- HISTORICAL VIEW (FIXED) ---
     st.markdown("---")
     st.header("Stage Progress Log")
     
@@ -612,14 +537,14 @@ def daily_tracking_ui():
         log_entry = challenge['daily_log'][log_date_str]
         
         # Only show saved days (status != Pending)
-        if log_entry['status'] != 'Pending' or log_date_str == today_key: 
+        if log_entry['status'] != 'Pending': 
             
             if log_entry['status'] == 'Perfect':
                 status_icon = "🟢 Perfect"
             elif log_entry['status'] == 'Saved with Penalty':
                 status_icon = "🟡 Penalty"
             else:
-                status_icon = "⚪ Pending"
+                status_icon = "❌ Failed" # Should not happen based on save logic, but safe to include
 
             log_data.append({
                 "Date": log_date_str,
