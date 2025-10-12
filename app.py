@@ -54,8 +54,7 @@ st.markdown("""
 # --- APP TITLE ---
 st.markdown("<h1 class='title'>🧠 The Brain App</h1>", unsafe_allow_html=True)
 
-# --- LOGIN FORM ---
-st.markdown("<div class='form-box'>", unsafe_allow_html=True)
+
 
 with st.form("Login"):
     username = st.text_input("Username")
