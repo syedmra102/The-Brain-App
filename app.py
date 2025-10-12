@@ -5,12 +5,7 @@ st.markdown("""
     <h1>🧠 The BrainApp</h1>
     <h2>Login to Your Account</h2>
     
-    <div style="text-align: center; margin-bottom: 2rem;">
-        <div style="color: #CBD5E0; font-size: 1.1rem;">
-            Intelligent Learning Platform
-        </div>
-    </div>
-</div>
+   
 """, unsafe_allow_html=True)
 
 with st.container():
