@@ -6,8 +6,34 @@ st.set_page_config(page_title="Login", layout="centered")
 
 
 
-st.markdown("<h1 style='text-align: center; color: white;'>The Brain App</h1>", unsafe_allow_html=True)
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@700&display=swap');
 
+h1 {
+    text-align: center;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    font-size: 52px;
+    color: #00E0FF;
+    text-shadow: 0 0 10px rgba(0, 224, 255, 0.8), 0 0 20px rgba(0, 224, 255, 0.5);
+    margin-bottom: 10px;
+}
+
+h2 {
+    text-align: center;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    color: #00FFB3;
+    font-size: 32px;
+    text-shadow: 0 0 10px rgba(0, 255, 179, 0.7);
+    margin-top: -10px;
+}
+</style>
+
+<h1>🧠 The Brain App</h1>
+<h2>👉 Login</h2>
+""", unsafe_allow_html=True)
 
 # Center the form in the page
 
