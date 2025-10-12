@@ -6,18 +6,7 @@ st.set_page_config(page_title="Login", layout="centered")
 
 
 
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,600&display=swap');
-h1 {
-    text-align: center;
-    font-family: 'Playfair Display', serif;
-    font-style: italic;
-    color: #FFFFFF;
-}
-</style>
-<h1>🧠 The Brain App</h1>
-""", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: white;'>𝓣𝓱𝓮 𝓑𝓻𝓪𝓲𝓷 𝓐𝓹𝓹</h1>", unsafe_allow_html=True)
 
 # Center the form in the page
 
