@@ -48,4 +48,4 @@ if 'login_btn' in locals() and login_btn:
 st.write('Dont have andd account so please Sign up !!')
 signup_btn=st.button('Sign up')
 
-hey anytime I have to align my text in center , is there any way from which I do this !!
+
