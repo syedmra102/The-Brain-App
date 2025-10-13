@@ -475,13 +475,19 @@ def challenge_rules_page():
         st.success("Your 105-day transformation journey begins now!")
         st.info("You will receive daily tracking forms and progress monitoring starting tomorrow.")
 
-# Main app routing with session persistence
+# Session persistence function
+def persist_session():
+    """Maintain session state across refreshes"""
+    # If user was logged in but page got reset, redirect to ML dashboard
+    if "user" in st.session_state and st.session_state.page == "signin":
+        st.session_state.page = "ml_dashboard"
+
+# Call session persistence
+persist_session()
+
+# Main app routing
 if "page" not in st.session_state:
     st.session_state.page = "signin"
-
-# Check if user is logged in but page got reset
-if "user" in st.session_state and st.session_state.page == "signin":
-    st.session_state.page = "ml_dashboard"
 
 if st.session_state.page == "signin":
     sign_in_page()
