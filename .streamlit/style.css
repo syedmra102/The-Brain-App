@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
 * {
-    font-family: 'Poppins', sans-serif !important;
+    font-family: 'Poppins';
 }
 
 .stApp {
@@ -15,14 +15,14 @@
 }
 
 h1, h2, h3, h4, h5, h6 {
-    font-family: 'Poppins', sans-serif !important;
+    font-family: 'Poppins';
     font-weight: 600 !important;
 }
 
 .stTextInput>div>div>input {
-    font-family: 'Poppins', sans-serif !important;
+    font-family: 'Poppins';
 }
 
 .stButton>button {
-    font-family: 'Poppins', sans-serif !important;
+    font-family: 'Poppins';
 }
