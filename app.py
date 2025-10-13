@@ -13,13 +13,18 @@ st.set_page_config(page_title="The Brain App", page_icon="🧠", layout="centere
 st.markdown("""
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-    html, body, [class*="css"], .stButton>button, .stTextInput>div>input, .stTextArea>div>textarea, 
-    .stSelectbox>div>div>div, .stNumberInput>div>input {
+    html, body, [class*="css"], .stButton>button, .stTextInput>div>input, 
+    .stTextArea>div>textarea, .stSelectbox>div>div>div, 
+    .stNumberInput>div>input, .stForm>div {
+        font-family: 'Poppins', sans-serif !important;
+    }
+    /* Center all messages and buttons */
+    .stAlert, .stSuccess, .stError, .stWarning, .stInfo {
+        text-align: center !important;
         font-family: 'Poppins', sans-serif !important;
     }
     </style>
 """, unsafe_allow_html=True)
-
 
 # -------------------- Firebase Initialization --------------------
 firebase_secrets = st.secrets["firebase"]
