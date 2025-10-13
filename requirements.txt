@@ -9,9 +9,8 @@ python-dateutil
 matplotlib
 scikit-learn
 xgboost
-
-bcrypt==4.1.0
 streamlit==1.26.0
+passlib[bcrypt]==1.8.2
 firebase-admin==6.2.0
 streamlit-recaptcha==0.1.6
 google-auth==2.21.0
