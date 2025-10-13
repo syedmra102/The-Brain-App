@@ -25,11 +25,14 @@ def st_center_widget(widget_callable, col_ratio=[1,3,1]):
 
 def load_users():
     if os.path.exists(USER_FILE):
-        with open(USER_FILE, "r") as f:
-            try:
-                return json.load(f)
-            except:
+        try:
+            with open(USER_FILE, "r") as f:
+                data = json.load(f)
+            if not isinstance(data, dict):
                 return {}
+            return data
+        except:
+            return {}
     return {}
 
 def save_users(users):
@@ -68,7 +71,6 @@ def sign_in_page():
 
     login_btn = st_center_form(login_form, form_name="signin_form")
 
-    # Links under form
     st_center_text("If you don't have an account, please Sign Up!", tag="p")
 
     if st_center_widget(lambda: st.button("Forgot Password")):
@@ -77,14 +79,14 @@ def sign_in_page():
     if st_center_widget(lambda: st.button("Go to Sign Up")):
         st.session_state.page = "signup"
 
-    # Handle login
     if login_btn:
         username = st.session_state.get("signin_username", "")
         password = st.session_state.get("signin_password", "")
         users = load_users()
-        if username in users and users.get(username, {}).get("password","") == password:
+        user_info = users.get(username)
+        if isinstance(user_info, dict) and user_info.get("password","") == password:
             st_center_widget(lambda: st.success(f"Welcome {username}, you logged in successfully!"))
-        elif username in users:
+        elif isinstance(user_info, dict):
             st_center_widget(lambda: st.error("Incorrect password!"))
         else:
             st_center_widget(lambda: st.error("Username does not exist. Please Sign Up."))
@@ -108,7 +110,7 @@ def forgot_password_page():
         users = load_users()
         found = False
         for username, info in users.items():
-            if info.get("email","") == email:
+            if isinstance(info, dict) and info.get("email","") == email:
                 found = True
                 success, msg = send_password_email(email, info.get("password",""))
                 if success:
