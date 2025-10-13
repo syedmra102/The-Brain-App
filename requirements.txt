@@ -1,14 +1,3 @@
-plotly
-streamlit
-pandas
-numpy
-scikit-learn
-firebase-admin
-textblob
-python-dateutil
-matplotlib
-scikit-learn
-xgboost
 streamlit==1.26.0
 passlib[bcrypt]==1.8.2
 firebase-admin==6.2.0
