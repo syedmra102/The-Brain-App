@@ -1,10 +1,11 @@
-[theme]
-primaryColor = "#7C3AED"
-backgroundColor = "#0F0F23"
-secondaryBackgroundColor = "#1E1E3F"
-textColor = "#FFFFFF"
-font = "Poppins"
 
-[server]
-headless = true
-port = 8501
+
+
+
+[theme]
+# Base Theme
+primaryColor = "#00AEEF"            # Accent (Electric Blue)
+backgroundColor = "#0A0E1A"         # Main Background (Dark Navy)
+secondaryBackgroundColor = "#111827" # Card / Panel Background
+textColor = "#FFFFFF"               # White Text (Readable, Clean)
+font = "Poppins"                    # Modern, clean sans-serif
