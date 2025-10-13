@@ -202,4 +202,11 @@ def data_export_page():
 if "page" not in st.session_state:
     st.session_state.page = "signin"
 
-if st.session_state.page=="signin
+if st.session_state.page=="signin":
+    sign_in_page()
+elif st.session_state.page=="signup":
+    sign_up_page()
+elif st.session_state.page=="forgot_password":
+    forgot_password_page()
+elif st.session_state.page=="export_data":
+    data_export_page()
