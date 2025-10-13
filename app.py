@@ -117,9 +117,8 @@ def sign_in_page():
                 if not username or not password:
                     st.error("Please fill in all fields")
                 else:
-                    # Show loading
                     with st.spinner("Signing in..."):
-                        time.sleep(1)  # Simulate processing
+                        time.sleep(1)
                         
                         username_clean = sanitize_input(username)
                         password_clean = sanitize_input(password)
@@ -135,9 +134,6 @@ def sign_in_page():
                                         "role": user_info.get("role", "student")
                                     }
                                     st.success("Login successful")
-                                    # Don't store plain password
-                                    if "plain_password" in user_info:
-                                        del user_info["plain_password"]
                                 else:
                                     st.error("Invalid username or password")
                             else:
@@ -149,7 +145,7 @@ def sign_in_page():
         with col1:
             st.button("Forgot Password", use_container_width=True, on_click=lambda: st.session_state.update({"page":"forgot_password"}))
         with col2:
-            st.button("Create Account", use_container_width=True, on_allow_html=True, on_click=lambda: st.session_state.update({"page":"signup"}))
+            st.button("Create Account", use_container_width=True, on_click=lambda: st.session_state.update({"page":"signup"}))
 
 def forgot_password_page():
     st.markdown("<h2 style='text-align: center;'>Forgot Password</h2>", unsafe_allow_html=True)
@@ -198,7 +194,6 @@ def sign_up_page():
             signup_btn = st.form_submit_button("Create Account")
             
             if signup_btn:
-                # Only show ONE error message
                 if not all([username, email, password, password2]):
                     st.error("Please fill in all fields")
                 elif password != password2:
