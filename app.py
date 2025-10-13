@@ -11,9 +11,16 @@ from email.message import EmailMessage
 st.set_page_config(page_title="The Brain App", page_icon="🧠", layout="centered")
 
 # Firebase setup (replace with your Firebase credentials)
+import json
+import firebase_admin
+from firebase_admin import credentials
+
 if not firebase_admin._apps:
-    cred = credentials.Certificate("path/to/your-firebase-adminsdk.json")
+    # Load JSON from Streamlit secrets
+    firebase_config = json.loads(st.secrets["FIREBASE"])
+    cred = credentials.Certificate(firebase_config)
     firebase_admin.initialize_app(cred)
+
 db = firestore.client()
 
 # Email setup
