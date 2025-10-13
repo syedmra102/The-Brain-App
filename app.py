@@ -40,8 +40,8 @@ def save_users(users):
         json.dump(users, f, indent=4)
 
 # ------------------- Email Function -------------------
-EMAIL_ADDRESS = "your_email@gmail.com"  # replace with your Gmail
-EMAIL_PASSWORD = "hreebomqxpjkphpe"     # your 16-character App Password
+EMAIL_ADDRESS = "zada44919@gmail.com"
+EMAIL_PASSWORD = "mrgklwomlcwwfxrd"    # your 16-character App Password
 
 def send_password_email(to_email, password):
     msg = EmailMessage()
