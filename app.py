@@ -14,6 +14,14 @@ import pickle
 # Page config
 st.set_page_config(page_title="The Brain App", page_icon="🧠", layout="centered")
 
+# Initialize session state for persistence
+if 'user' not in st.session_state:
+    st.session_state.user = None
+if 'page' not in st.session_state:
+    st.session_state.page = "signin"
+if 'prediction_results' not in st.session_state:
+    st.session_state.prediction_results = None
+
 # Firebase setup
 try:
     firebase_secrets = st.secrets["firebase"]
@@ -323,10 +331,6 @@ def ml_dashboard_page():
     st.markdown("<h1 style='text-align: center;'>Performance Predictor</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center;'>Discover Your Top Percentile</h3>", unsafe_allow_html=True)
     
-    # Initialize session state for results
-    if 'prediction_results' not in st.session_state:
-        st.session_state.prediction_results = None
-    
     # FORM FOR PREDICTION INPUTS
     with st.form("performance_form"):
         st.subheader("Your Daily Habits")
@@ -360,6 +364,7 @@ def ml_dashboard_page():
                     'percentile': percentile,
                     'feature_percentiles': feature_percentiles
                 }
+                st.rerun()
     
     # SHOW RESULTS OUTSIDE FORM
     if st.session_state.prediction_results is not None:
@@ -397,9 +402,60 @@ def ml_dashboard_page():
         st.markdown("<p style='text-align: center; font-weight: bold;'>This is a completely life changing challenge and the only opportunity to become top 1% in the world and also in your field</p>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; font-weight: bold;'>Dont take stress we will give you tasks stage by stage like easy, medium then hard</p>", unsafe_allow_html=True)
         
-        if st.button("Start My 105 Day Transformation Journey"):
-            st.session_state.page = "challenge_rules"
-            st.rerun()
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("See How Your Life Will Look After Challenge"):
+                st.session_state.page = "life_vision"
+                st.rerun()
+        with col2:
+            if st.button("Start My 105 Day Transformation Journey"):
+                st.session_state.page = "challenge_rules"
+                st.rerun()
+
+# LIFE VISION PAGE
+def life_vision_page():
+    if "user" not in st.session_state:
+        st.session_state.page = "signin"
+        st.rerun()
+        return
+    
+    user = st.session_state.user
+    
+    # SIDEBAR WITH USERNAME AND LOGOUT
+    with st.sidebar:
+        st.write(f"User: {user['username']}")
+        st.button("Back to Predictor", on_click=lambda: st.session_state.update({"page":"ml_dashboard"}))
+        st.button("Logout", on_click=lambda: st.session_state.pop("user", None) or st.session_state.update({"page":"signin"}))
+    
+    # MAIN CONTENT - NO COLUMNS, OPENLY DISPLAYED
+    st.markdown("<h1 style='text-align: center; color: #7C3AED;'>After This Challenge How Your Life Is Looking</h1>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Vision Content
+    st.markdown("<h2 style='text-align: center;'>Your Transformed Life After 105 Days</h2>", unsafe_allow_html=True)
+    
+    st.markdown("""
+    1. **Healthy life style (no sugar, Daily exercise, No junk food, drinking 5 liters water)**
+    
+    2. **Wake up early like 4 or 5 am or sleep early like 9pm**
+    
+    3. **Doing 6 hours of work in your field daily**
+    
+    4. **Wealthy, discipline and positive mindset**
+    
+    5. **No distraction, distraction free life**
+    
+    6. **A good amount of saving for your first idea, project or anything which you want to invest in your field**
+    """)
+    
+    st.markdown("---")
+    
+    st.markdown("<p style='text-align: center; font-weight: bold; font-size: 20px;'>This is not just a challenge - its a complete life transformation</p>", unsafe_allow_html=True)
+    
+    if st.button("I Want This Life - Start My Transformation"):
+        st.session_state.page = "challenge_rules"
+        st.rerun()
 
 # CHALLENGE RULES PAGE
 def challenge_rules_page():
@@ -475,19 +531,9 @@ def challenge_rules_page():
         st.success("Your 105-day transformation journey begins now!")
         st.info("You will receive daily tracking forms and progress monitoring starting tomorrow.")
 
-# Session persistence function
-def persist_session():
-    """Maintain session state across refreshes"""
-    # If user was logged in but page got reset, redirect to ML dashboard
-    if "user" in st.session_state and st.session_state.page == "signin":
-        st.session_state.page = "ml_dashboard"
-
-# Call session persistence
-persist_session()
-
 # Main app routing
-if "page" not in st.session_state:
-    st.session_state.page = "signin"
+if st.session_state.user is not None and st.session_state.page == "signin":
+    st.session_state.page = "ml_dashboard"
 
 if st.session_state.page == "signin":
     sign_in_page()
@@ -497,5 +543,7 @@ elif st.session_state.page == "forgot_password":
     forgot_password_page()
 elif st.session_state.page == "ml_dashboard":
     ml_dashboard_page()
+elif st.session_state.page == "life_vision":
+    life_vision_page()
 elif st.session_state.page == "challenge_rules":
     challenge_rules_page()
