@@ -34,6 +34,7 @@ def save_users(users):
         json.dump(users, f, indent=4)
 
 def send_password_email(to_email, password):
+    """Send password via email"""
     EMAIL_ADDRESS = "your_email@gmail.com"
     EMAIL_PASSWORD = "your_app_password"
 
@@ -47,9 +48,9 @@ def send_password_email(to_email, password):
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
             smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
             smtp.send_message(msg)
-        st.success("Password sent to your email!")
+        return True, "Password sent to your email!"
     except Exception as e:
-        st.error(f"Failed to send email: {e}")
+        return False, str(e)
 
 # ------------------- Pages -------------------
 def sign_in_page():
@@ -64,12 +65,12 @@ def sign_in_page():
 
     login_btn = st_center_form(login_form, form_name="signin_form")
 
-    # Links under the form
+    # Links under form
     st_center_text("If you don't have an account, please Sign Up!", tag="p")
 
-    # Forgot password button
+    # Go to Forgot Password Page
     if st_center_widget(lambda: st.button("Forgot Password")):
-        forgot_password()
+        st.session_state.page = "forgot_password"
 
     # Go to Sign Up
     if st_center_widget(lambda: st.button("Go to Sign Up")):
@@ -81,20 +82,38 @@ def sign_in_page():
         password = st.session_state.get("signin_password", "")
         users = load_users()
         if username in users and users[username]["password"] == password:
-            st_center_text(f"Welcome {username}, you logged in successfully!", tag="h3")
+            st_center_widget(lambda: st.success(f"Welcome {username}, you logged in successfully!"))
         elif username in users:
-            st_center_text("Incorrect password!", tag="h3")
+            st_center_widget(lambda: st.error("Incorrect password!"))
         else:
-            st_center_text("Username does not exist. Please Sign Up.", tag="h3")
+            st_center_widget(lambda: st.error("Username does not exist. Please Sign Up."))
 
-def forgot_password():
-    users = load_users()
-    username = st.session_state.get("signin_username", "")
-    if username in users:
-        email = users[username]["email"]
-        send_password_email(email, users[username]["password"])
-    else:
-        st_center_text("Username not found!", tag="h3")
+def forgot_password_page():
+    st_center_text("Forgot Password", tag="h2")
+
+    def email_form():
+        st.text_input("Enter your email", key="forgot_email")
+        return st.form_submit_button("Send Password")
+
+    submit_btn = st_center_form(email_form, form_name="forgot_form")
+
+    st_center_widget(lambda: st.button("Back to Sign In", on_click=lambda: st.session_state.update({"page":"signin"})))
+
+    if submit_btn:
+        email = st.session_state.get("forgot_email", "")
+        users = load_users()
+        found = False
+        for username, info in users.items():
+            if info["email"] == email:
+                found = True
+                success, msg = send_password_email(email, info["password"])
+                if success:
+                    st_center_widget(lambda: st.success("Password sent successfully to your email!"))
+                else:
+                    st_center_widget(lambda: st.error(f"Failed to send email: {msg}"))
+                break
+        if not found:
+            st_center_widget(lambda: st.error("Email not found!"))
 
 def sign_up_page():
     st_center_text("The Brain App", tag="h1")
@@ -110,14 +129,10 @@ def sign_up_page():
 
     signup_btn = st_center_form(signup_form, form_name="signup_form")
 
-    # Links under the form
+    # Links under form
     st_center_text("If you already have an account, please Sign In!", tag="p")
+    st_center_widget(lambda: st.button("Go to Sign In", on_click=lambda: st.session_state.update({"page":"signin"})))
 
-    # Go to Sign In
-    if st_center_widget(lambda: st.button("Go to Sign In")):
-        st.session_state.page = "signin"
-
-    # Handle signup
     if signup_btn:
         username = st.session_state.get("signup_username", "")
         email = st.session_state.get("signup_email", "")
@@ -126,16 +141,15 @@ def sign_up_page():
         users = load_users()
 
         if username in users:
-            st_center_text("Username already exists. Try logging in!", tag="h3")
-            send_password_email(users[username]["email"], users[username]["password"])
+            st_center_widget(lambda: st.error("Username already exists. Try logging in!"))
         elif password != password2:
-            st_center_text("Passwords do not match!", tag="h3")
+            st_center_widget(lambda: st.error("Passwords do not match!"))
         elif len(password) < 7 or not re.search(r"[A-Z]", password) or not re.search(r"[a-z]", password) or not re.search(r"[0-9]", password):
-            st_center_text("Password must be at least 7 characters long, include uppercase, lowercase, and number.", tag="h3")
+            st_center_widget(lambda: st.error("Password must be at least 7 characters long, include uppercase, lowercase, and number."))
         else:
             users[username] = {"email": email, "password": password}
             save_users(users)
-            st_center_text("Sign up successful! You can now Sign In.", tag="h3")
+            st_center_widget(lambda: st.success("Sign up successful! You can now Sign In."))
 
 # ------------------- Main -------------------
 if "page" not in st.session_state:
@@ -145,3 +159,5 @@ if st.session_state.page == "signin":
     sign_in_page()
 elif st.session_state.page == "signup":
     sign_up_page()
+elif st.session_state.page == "forgot_password":
+    forgot_password_page()
