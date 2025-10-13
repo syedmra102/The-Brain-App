@@ -212,8 +212,8 @@ def sign_in_page():
                                     st.error("Invalid username or password")
                             else:
                                 st.error("Invalid username or password")
-                        except:
-                            st.error("System error. Please try again.")
+                        except Exception as e:
+                            st.error("Login failed. Please try again.")
 
         col1, col2 = st.columns(2)
         with col1:
@@ -301,12 +301,12 @@ def sign_up_page():
                                     st.success("Account created successfully")
                                     st.session_state.page = "signin"
                                     st.rerun()
-                        except:
-                            st.error("System error. Please try again.")
+                        except Exception as e:
+                            st.error("Registration failed. Please try again.")
 
         st.button("Back to Sign In", use_container_width=True, on_click=lambda: st.session_state.update({"page":"signin"}))
 
-# ML PAGE - EXACTLY AS YOU WANTED, NO CHANGES
+# ML PAGE
 def ml_dashboard_page():
     if "user" not in st.session_state:
         st.session_state.page = "signin"
@@ -403,12 +403,87 @@ def ml_dashboard_page():
         """, unsafe_allow_html=True)
         
         if st.button("I Want to Become Top 1%!"):
-            st.session_state.challenge_accepted = True
-            st.success("Welcome to the 105-Day Challenge! Your transformation journey starts now!")
+            st.session_state.page = "challenge_vision"
+            st.rerun()
 
-# Main app routing
+# CHALLENGE VISION PAGE
+def challenge_vision_page():
+    if "user" not in st.session_state:
+        st.session_state.page = "signin"
+        st.rerun()
+        return
+    
+    user = st.session_state.user
+    
+    # SIDEBAR WITH USERNAME AND LOGOUT
+    with st.sidebar:
+        st.write(f"**User:** {user['username']}")
+        st.button("Back to Predictor", on_click=lambda: st.session_state.update({"page":"ml_dashboard"}))
+        st.button("Logout", on_click=lambda: st.session_state.pop("user", None) or st.session_state.update({"page":"signin"}))
+    
+    # MAIN CONTENT - NO COLUMNS, OPENLY DISPLAYED
+    st.markdown("<h1 style='text-align: center; color: #7C3AED;'>After 105 Days Challenge - Your Transformed Life</h1>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Vision Content
+    st.markdown("""
+    ## 🎯 Your Life After Completing the 105-Day Challenge:
+    
+    ### 1. **Healthy Lifestyle Mastery**
+    - ✅ **No Sugar** - Completely sugar-free lifestyle
+    - ✅ **Daily Exercise** - Consistent workout routine
+    - ✅ **No Junk Food** - Only nutritious, whole foods
+    - ✅ **5 Liters Water Daily** - Optimal hydration
+    
+    ### 2. **Perfect Sleep & Wake-up Routine**
+    - ✅ **Wake up at 4-5 AM** or **Sleep by 9 PM**
+    - ✅ Consistent sleep schedule
+    - ✅ High energy throughout the day
+    
+    ### 3. **Productivity Excellence**
+    - ✅ **6+ Hours Daily** of focused work in your field
+    - ✅ Maximum productivity and output
+    - ✅ Consistent skill development
+    
+    ### 4. **Mindset Transformation**
+    - ✅ **Wealthy Mindset** - Thinking like a successful person
+    - ✅ **Discipline** - Unbreakable self-control
+    - ✅ **Positive Mindset** - Optimistic and growth-oriented
+    
+    ### 5. **Distraction-Free Life**
+    - ✅ **Zero Distractions** - Complete focus
+    - ✅ Eliminated time-wasting activities
+    - ✅ Maximum concentration capacity
+    
+    ### 6. **Financial Readiness**
+    - ✅ **Substantial Savings** for your first big project
+    - ✅ Money to invest in your field
+    - ✅ Financial freedom to pursue your dreams
+    """)
+    
+    st.markdown("---")
+    
+    st.markdown("""
+    <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 15px; color: white; text-align: center;'>
+        <h2>🚀 Ready to Transform Your Life?</h2>
+        <p style='font-size: 18px;'>This is not just a challenge - it's a complete life transformation that will make you among the top 1% of performers worldwide.</p>
+        <p style='font-size: 20px; font-weight: bold;'>Your future self is waiting!</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("Start My 105-Day Transformation Journey!", use_container_width=True):
+        st.balloons()
+        st.success("🎉 Congratulations! Your transformation journey begins NOW!")
+        st.info("Check your email for the detailed 105-day challenge plan and daily tasks.")
+
+# Main app routing with session persistence
 if "page" not in st.session_state:
     st.session_state.page = "signin"
+
+# Check if user is logged in but page got reset
+if "user" in st.session_state and st.session_state.page == "signin":
+    st.session_state.page = "ml_dashboard"
 
 if st.session_state.page == "signin":
     sign_in_page()
@@ -418,3 +493,5 @@ elif st.session_state.page == "forgot_password":
     forgot_password_page()
 elif st.session_state.page == "ml_dashboard":
     ml_dashboard_page()
+elif st.session_state.page == "challenge_vision":
+    challenge_vision_page()
