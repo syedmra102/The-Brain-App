@@ -340,13 +340,18 @@ def ml_dashboard_page():
             st.write(f"Field: {st.session_state.user_profile.get('field', 'Not set')}")
             st.write(f"Goal: {st.session_state.user_profile.get('goal', 'Not set')}")
             st.write(f"Stage: {st.session_state.user_profile.get('stage', 'Not set')}")
-            st.write(f"Distractions: {', '.join(st.session_state.user_profile.get('distractions', []))}")
+            distractions = st.session_state.user_profile.get('distractions', [])
+            if distractions:
+                st.write(f"Distractions: {', '.join(distractions)}")
+            else:
+                st.write("Distractions: None selected")
         
         st.markdown("---")
         st.button("Life Vision", on_click=lambda: st.session_state.update({"page":"life_vision"}))
         st.button("Challenge Rules", on_click=lambda: st.session_state.update({"page":"challenge_rules"}))
-        st.button("Setup Profile", on_click=lambda: st.session_state.update({"page":"setup_profile"}))
-        st.button("Logout", on_click=lambda: st.session_state.pop("user", None) or st.session_state.update({"page":"signin"}))
+        if not st.session_state.user_profile:
+            st.button("Setup Profile", on_click=lambda: st.session_state.update({"page":"setup_profile"}))
+        st.button("Logout", on_click=lambda: st.session_state.pop("user", None) or st.session_state.pop("user_profile", None) or st.session_state.update({"page":"signin"}))
     
     # MAIN CONTENT - NO COLUMNS, OPENLY DISPLAYED
     st.markdown("<h1 style='text-align: center;'>Performance Predictor</h1>", unsafe_allow_html=True)
@@ -422,9 +427,12 @@ def ml_dashboard_page():
         st.markdown("<h2 style='text-align: center;'>105 Days to Top 1% Challenge</h2>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; font-weight: bold;'>This is a completely life changing challenge and the only opportunity to become top 1% in the world and also in your field</p>", unsafe_allow_html=True)
         
-        if st.button("See How My Life Will Look After This Challenge"):
-            st.session_state.page = "life_vision"
-            st.rerun()
+        # CENTERED SINGLE BUTTON
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("See How My Life Will Look After This Challenge", use_container_width=True):
+                st.session_state.page = "life_vision"
+                st.rerun()
 
 # LIFE VISION PAGE
 def life_vision_page():
@@ -440,7 +448,7 @@ def life_vision_page():
         st.write(f"User: {user['username']}")
         st.button("Back to Predictor", on_click=lambda: st.session_state.update({"page":"ml_dashboard"}))
         st.button("View Challenge Rules", on_click=lambda: st.session_state.update({"page":"challenge_rules"}))
-        st.button("Logout", on_click=lambda: st.session_state.pop("user", None) or st.session_state.update({"page":"signin"}))
+        st.button("Logout", on_click=lambda: st.session_state.pop("user", None) or st.session_state.pop("user_profile", None) or st.session_state.update({"page":"signin"}))
     
     # MAIN CONTENT
     st.markdown("<h1 style='text-align: center; color: #7C3AED;'>After This Challenge How Your Life Is Looking</h1>", unsafe_allow_html=True)
@@ -448,7 +456,7 @@ def life_vision_page():
     st.markdown("---")
     
     # Detailed Vision Content
-    st.markdown("<h2 style='text-align: center;'>Your Life After Completing 105-Day Challenge</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #7C3AED;'>Your Life After Completing 105-Day Challenge</h2>", unsafe_allow_html=True)
     
     st.markdown("""
     ### **Grade: ELITE PERFORMER - Top 1% Worldwide**
@@ -494,9 +502,12 @@ def life_vision_page():
     
     st.markdown("<p style='text-align: center; font-weight: bold; font-size: 20px;'>This transformation will make you unrecognizable to your current self</p>", unsafe_allow_html=True)
     
-    if st.button("I Want This Transformation - Show Me The Rules"):
-        st.session_state.page = "challenge_rules"
-        st.rerun()
+    # CENTERED SINGLE BUTTON
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("I Want This Transformation - Show Me The Rules", use_container_width=True):
+            st.session_state.page = "challenge_rules"
+            st.rerun()
 
 # CHALLENGE RULES PAGE
 def challenge_rules_page():
@@ -512,7 +523,7 @@ def challenge_rules_page():
         st.write(f"User: {user['username']}")
         st.button("Back to Predictor", on_click=lambda: st.session_state.update({"page":"ml_dashboard"}))
         st.button("View Life Vision", on_click=lambda: st.session_state.update({"page":"life_vision"}))
-        st.button("Logout", on_click=lambda: st.session_state.pop("user", None) or st.session_state.update({"page":"signin"}))
+        st.button("Logout", on_click=lambda: st.session_state.pop("user", None) or st.session_state.pop("user_profile", None) or st.session_state.update({"page":"signin"}))
     
     # MAIN CONTENT
     st.markdown("<h1 style='text-align: center; color: #7C3AED;'>105 Days Transformation Challenge Rules</h1>", unsafe_allow_html=True)
@@ -520,7 +531,7 @@ def challenge_rules_page():
     st.markdown("---")
     
     # Challenge Rules Content
-    st.markdown("<h2 style='text-align: center;'>Silver Stage (15 Days - Easy)</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #7C3AED;'>Silver Stage (15 Days - Easy)</h2>", unsafe_allow_html=True)
     st.markdown("""
     1. Do 2 hours of work in your field daily
     2. Dont do any distraction for just 15 days
@@ -529,7 +540,7 @@ def challenge_rules_page():
     
     st.markdown("---")
     
-    st.markdown("<h2 style='text-align: center;'>Platinum Stage (30 Days - Medium)</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #7C3AED;'>Platinum Stage (30 Days - Medium)</h2>", unsafe_allow_html=True)
     st.markdown("""
     1. Do 4 hours of work in your field daily
     2. Dont do any distraction for just 30 days
@@ -541,7 +552,7 @@ def challenge_rules_page():
     
     st.markdown("---")
     
-    st.markdown("<h2 style='text-align: center;'>Gold Stage (60 Days - Hard but Last)</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #7C3AED;'>Gold Stage (60 Days - Hard but Last)</h2>", unsafe_allow_html=True)
     st.markdown("""
     1. Do 6 hours of work in your field daily
     2. Dont do any distraction for just 60 days
@@ -556,7 +567,7 @@ def challenge_rules_page():
     
     st.markdown("---")
     
-    st.markdown("<h2 style='text-align: center;'>Penalty Rules</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #7C3AED;'>Penalty Rules</h2>", unsafe_allow_html=True)
     st.markdown("""
     If you miss one rule any day at any stage you have to pay that day whole pocket money or any money that you earn that day and put on savings.
 
@@ -569,9 +580,12 @@ def challenge_rules_page():
     
     st.markdown("<p style='text-align: center; font-weight: bold; font-size: 20px;'>This is your only opportunity to transform your life and become top 1%</p>", unsafe_allow_html=True)
     
-    if st.button("I Am Ready To Start The Challenge"):
-        st.session_state.page = "setup_profile"
-        st.rerun()
+    # CENTERED SINGLE BUTTON
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("I Am Ready To Start The Challenge", use_container_width=True):
+            st.session_state.page = "setup_profile"
+            st.rerun()
 
 # SETUP PROFILE PAGE
 def setup_profile_page():
@@ -586,7 +600,7 @@ def setup_profile_page():
     with st.sidebar:
         st.write(f"User: {user['username']}")
         st.button("Back to Rules", on_click=lambda: st.session_state.update({"page":"challenge_rules"}))
-        st.button("Logout", on_click=lambda: st.session_state.pop("user", None) or st.session_state.update({"page":"signin"}))
+        st.button("Logout", on_click=lambda: st.session_state.pop("user", None) or st.session_state.pop("user_profile", None) or st.session_state.update({"page":"signin"}))
     
     # MAIN CONTENT
     st.markdown("<h1 style='text-align: center; color: #7C3AED;'>Setup Your Challenge Profile</h1>", unsafe_allow_html=True)
@@ -654,14 +668,18 @@ def setup_profile_page():
                     try:
                         db.collection('user_profiles').document(user['username']).set(profile_data)
                         st.success("Profile saved successfully!")
-                        st.info("Your challenge begins now! Check the sidebar for your profile details.")
+                        st.info("Your profile is now visible in the sidebar. Your challenge begins now!")
+                        time.sleep(2)
+                        st.session_state.page = "ml_dashboard"
+                        st.rerun()
                     except Exception as e:
                         st.error("Failed to save profile. Please try again.")
 
-# Main app routing
+# Session persistence - Check if user should stay logged in
 if st.session_state.user is not None and st.session_state.page == "signin":
     st.session_state.page = "ml_dashboard"
 
+# Main app routing
 if st.session_state.page == "signin":
     sign_in_page()
 elif st.session_state.page == "signup":
