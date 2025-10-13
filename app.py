@@ -9,19 +9,15 @@ from email.message import EmailMessage
 # -------------------- Page Config --------------------
 st.set_page_config(page_title="The Brain App", page_icon="🧠", layout="centered")
 
-# -------------------- Google Fonts: Poppins --------------------
+# -------------------- Load Poppins Font --------------------
 st.markdown("""
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-    html, body, [class*="css"], .stButton>button, .stTextInput>div>input, 
-    .stTextArea>div>textarea, .stSelectbox>div>div>div, 
-    .stNumberInput>div>input, .stForm>div {
-        font-family: 'Poppins', sans-serif !important;
+    @import url('https://fonts.googleapis.com/css2?family=Poppins&display=swap');
+    html, body, [class*="css"]  {
+        font-family: 'Poppins', sans-serif;
     }
-    /* Center all messages and buttons */
-    .stAlert, .stSuccess, .stError, .stWarning, .stInfo {
-        text-align: center !important;
-        font-family: 'Poppins', sans-serif !important;
+    .center-text {
+        text-align: center;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -52,7 +48,7 @@ EMAIL_PASSWORD = "mrgklwomlcwwfxrd"
 
 # -------------------- Helper Functions --------------------
 def st_center_text(text, tag="p"):
-    st.markdown(f"<{tag} style='text-align:center;'>{text}</{tag}>", unsafe_allow_html=True)
+    st.markdown(f"<{tag} class='center-text'>{text}</{tag}>", unsafe_allow_html=True)
 
 def st_center_form(form_callable, col_ratio=[1,3,1], form_name="form"):
     col1, col2, col3 = st.columns(col_ratio)
@@ -64,11 +60,6 @@ def st_center_widget(widget_callable, col_ratio=[1,3,1]):
     col1, col2, col3 = st.columns(col_ratio)
     with col2:
         return widget_callable()
-
-def st_center_message(func, message):
-    col1, col2, col3 = st.columns([1,3,1])
-    with col2:
-        func(message)
 
 def hash_password(password):
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -108,11 +99,8 @@ def sign_in_page():
 
     login_btn = st_center_form(login_form, form_name="signin_form")
 
-    if st_center_widget(lambda: st.button("Forgot Password")):
-        st.session_state.page = "forgot_password"
-
-    if st_center_widget(lambda: st.button("Go to Sign Up")):
-        st.session_state.page = "signup"
+    st_center_widget(lambda: st.button("Forgot Password", on_click=lambda: st.session_state.update({"page":"forgot_password"})))
+    st_center_widget(lambda: st.button("Go to Sign Up", on_click=lambda: st.session_state.update({"page":"signup"})))
 
     if login_btn:
         username = st.session_state.get("signin_username", "")
@@ -121,13 +109,12 @@ def sign_in_page():
         if user_doc.exists:
             user_info = user_doc.to_dict()
             if check_password(password, user_info.get("password","")):
-                st.session_state.user = {"username": username, "role": user_info.get("role","student")}
-                st_center_message(st.success, f"Welcome {username}, logged in successfully!")
-                st_center_message(st.write, f"Role: {st.session_state.user['role']}")
+                st_center_text(f"Welcome {username}, logged in successfully!", tag="p")
+                st_center_text(f"Role: {user_info.get('role','student')}", tag="p")
             else:
-                st_center_message(st.error, "Incorrect password!")
+                st_center_text("Incorrect password!", tag="p")
         else:
-            st_center_message(st.error, "Username does not exist.")
+            st_center_text("Username does not exist.", tag="p")
 
 def forgot_password_page():
     st_center_text("Forgot Password", tag="h2")
@@ -147,14 +134,11 @@ def forgot_password_page():
             user_info = user_doc.to_dict()
             if user_info.get("email","") == email:
                 success, msg = send_password_email(email, user_info.get("plain_password",""))
-                if success:
-                    st_center_message(st.success, msg)
-                else:
-                    st_center_message(st.error, msg)
+                st_center_text(msg, tag="p")
                 found = True
                 break
         if not found:
-            st_center_message(st.success, "If this email exists, a password reset email would be sent!")
+            st_center_text("If this email exists, a password reset email would be sent!", tag="p")
 
 def sign_up_page():
     st_center_text("The Brain App", tag="h1")
@@ -179,11 +163,11 @@ def sign_up_page():
         password2 = st.session_state.get("signup_password2","")
 
         if username in [doc.id for doc in db.collection('users').get()]:
-            st_center_message(st.error, "Username already exists!")
+            st_center_text("Username already exists!", tag="p")
         elif password != password2:
-            st_center_message(st.error, "Passwords do not match!")
+            st_center_text("Passwords do not match!", tag="p")
         elif len(password)<7 or not re.search(r"[A-Z]",password) or not re.search(r"[a-z]",password) or not re.search(r"[0-9]",password):
-            st_center_message(st.error, "Password must be at least 7 characters and contain uppercase, lowercase, and number.")
+            st_center_text("Password must be at least 7 characters and contain uppercase, lowercase, and number.", tag="p")
         else:
             hashed_password = hash_password(password)
             db.collection('users').document(username).set({
@@ -193,10 +177,7 @@ def sign_up_page():
                 "role": role.lower()
             })
             success, msg = send_password_email(email, password)
-            if success:
-                st_center_message(st.success, f"Sign up successful! {msg}")
-            else:
-                st_center_message(st.error, f"Sign up successful, but {msg}")
+            st_center_text(f"Sign up successful! {msg}" if success else f"Sign up successful, but {msg}", tag="p")
 
 def data_export_page():
     if "user" not in st.session_state:
@@ -207,9 +188,9 @@ def data_export_page():
         user_data = export_user_data(st.session_state.user["username"])
         if user_data:
             st.json(user_data)
-            st_center_message(st.success, "Data exported successfully!")
+            st_center_text("Data exported successfully!", tag="p")
         else:
-            st_center_message(st.error, "No data found.")
+            st_center_text("No data found.", tag="p")
 
 # -------------------- Main --------------------
 if "page" not in st.session_state:
