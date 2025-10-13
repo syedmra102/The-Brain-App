@@ -3,7 +3,7 @@ primaryColor = "#7C3AED"
 backgroundColor = "#0F0F23"
 secondaryBackgroundColor = "#1E1E3F"
 textColor = "#FFFFFF"
-font = "Poppins"
+font = "sans serif"
 
 [server]
 headless = true
@@ -13,7 +13,3 @@ enableXsrfProtection = true
 
 [browser]
 gatherUsageStats = false
-
-# Custom CSS Injection
-[client]
-customTheme = true
