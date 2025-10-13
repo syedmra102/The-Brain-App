@@ -272,6 +272,7 @@ def sign_in_page():
                                         "role": user_info.get("role", "student")
                                     }
                                     st.success("Login successful")
+                                    # FIX: Add this line to redirect
                                     st.session_state.page = "dashboard"
                                     st.rerun()
                                 else:
@@ -286,7 +287,6 @@ def sign_in_page():
             st.button("Forgot Password", use_container_width=True, on_click=lambda: st.session_state.update({"page":"forgot_password"}))
         with col2:
             st.button("Create Account", use_container_width=True, on_click=lambda: st.session_state.update({"page":"signup"}))
-
 def forgot_password_page():
     st.markdown("<h2 style='text-align: center;'>Forgot Password</h2>", unsafe_allow_html=True)
 
