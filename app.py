@@ -5,6 +5,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import smtplib
 from email.message import EmailMessage
+import time
 
 # Page config
 st.set_page_config(page_title="The Brain App", page_icon="🧠", layout="centered")
@@ -31,7 +32,7 @@ try:
     db = firestore.client()
     
 except Exception as e:
-    st.error("Database connection error")
+    st.error("System temporarily unavailable")
     st.stop()
 
 # Email setup
@@ -51,33 +52,51 @@ def send_password_email(to_email, username, password):
         msg['Subject'] = 'Your Brain App Password'
         msg['From'] = EMAIL_ADDRESS
         msg['To'] = to_email
-        msg.set_content(f"Your password is: {password}")
+        msg.set_content(f"""
+        Hello {username}
+
+        Your Brain App Account Details:
+
+        Username: {username}
+        Password: {password}
+
+        Please keep this information secure.
+
+        Best regards,
+        The Brain App Team
+        """)
         
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
             smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
             smtp.send_message(msg)
-        return True, "Password sent to email"
-    except:
-        return False, "Failed to send email"
+        return True, "Password sent to your email"
+    except Exception as e:
+        return False, "Email service temporarily unavailable"
 
 def validate_password(password):
     if len(password) < 7:
-        return False
+        return False, "Password must be at least 7 characters long"
     if not re.search(r"[A-Z]", password):
-        return False
+        return False, "Password must contain at least one uppercase letter"
     if not re.search(r"[a-z]", password):
-        return False
+        return False, "Password must contain at least one lowercase letter"
     if not re.search(r"[0-9]", password):
-        return False
-    return True
+        return False, "Password must contain at least one number"
+    return True, "Password is valid"
 
 def get_user_by_email(email):
-    users_ref = db.collection('users')
-    query = users_ref.where('email', '==', email).limit(1).get()
-    if query:
-        for doc in query:
-            return doc.id, doc.to_dict()
-    return None, None
+    try:
+        users_ref = db.collection('users')
+        query = users_ref.where('email', '==', email).limit(1).get()
+        if query:
+            for doc in query:
+                return doc.id, doc.to_dict()
+        return None, None
+    except:
+        return None, None
+
+def sanitize_input(text):
+    return re.sub(r'[<>"\']', '', text.strip())
 
 # Pages
 def sign_in_page():
@@ -89,27 +108,48 @@ def sign_in_page():
         with st.form("login_form"):
             username = st.text_input("Username")
             password = st.text_input("Password", type="password")
+            
+            st.write("Password must contain at least 7 characters, one uppercase, one lowercase, and one number.")
+            
             login_button = st.form_submit_button("Login")
             
             if login_button:
                 if not username or not password:
                     st.error("Please fill in all fields")
                 else:
-                    user_doc = db.collection('users').document(username).get()
-                    if user_doc.exists:
-                        user_info = user_doc.to_dict()
-                        if check_password(password, user_info.get("password", "")):
-                            st.success("Login successful")
-                        else:
-                            st.error("Incorrect password")
-                    else:
-                        st.error("Username does not exist")
+                    # Show loading
+                    with st.spinner("Signing in..."):
+                        time.sleep(1)  # Simulate processing
+                        
+                        username_clean = sanitize_input(username)
+                        password_clean = sanitize_input(password)
+                        
+                        try:
+                            user_doc = db.collection('users').document(username_clean).get()
+                            if user_doc.exists:
+                                user_info = user_doc.to_dict()
+                                if check_password(password_clean, user_info.get("password", "")):
+                                    st.session_state.user = {
+                                        "username": username_clean,
+                                        "email": user_info.get("email", ""),
+                                        "role": user_info.get("role", "student")
+                                    }
+                                    st.success("Login successful")
+                                    # Don't store plain password
+                                    if "plain_password" in user_info:
+                                        del user_info["plain_password"]
+                                else:
+                                    st.error("Invalid username or password")
+                            else:
+                                st.error("Invalid username or password")
+                        except:
+                            st.error("System error. Please try again.")
 
         col1, col2 = st.columns(2)
         with col1:
             st.button("Forgot Password", use_container_width=True, on_click=lambda: st.session_state.update({"page":"forgot_password"}))
         with col2:
-            st.button("Create Account", use_container_width=True, on_click=lambda: st.session_state.update({"page":"signup"}))
+            st.button("Create Account", use_container_width=True, on_allow_html=True, on_click=lambda: st.session_state.update({"page":"signup"}))
 
 def forgot_password_page():
     st.markdown("<h2 style='text-align: center;'>Forgot Password</h2>", unsafe_allow_html=True)
@@ -122,21 +162,25 @@ def forgot_password_page():
             
             if submit_btn:
                 if not email:
-                    st.error("Please enter email")
+                    st.error("Please enter your email")
                 else:
-                    username, user_info = get_user_by_email(email)
-                    if user_info:
-                        original_password = user_info.get("plain_password", "")
-                        if original_password:
-                            success, message = send_password_email(email, username, original_password)
-                            if success:
-                                st.success("Password sent to email")
+                    email_clean = sanitize_input(email)
+                    with st.spinner("Sending password..."):
+                        time.sleep(1)
+                        
+                        username, user_info = get_user_by_email(email_clean)
+                        if user_info:
+                            original_password = user_info.get("plain_password", "")
+                            if original_password:
+                                success, message = send_password_email(email_clean, username, original_password)
+                                if success:
+                                    st.success("Password sent to your email")
+                                else:
+                                    st.error("Failed to send email")
                             else:
-                                st.error("Failed to send email")
+                                st.error("Account not found")
                         else:
-                            st.error("No password found")
-                    else:
-                        st.info("If email exists, password will be sent")
+                            st.info("If this email exists, password will be sent")
 
         st.button("Back to Sign In", use_container_width=True, on_click=lambda: st.session_state.update({"page":"signin"}))
 
@@ -159,27 +203,37 @@ def sign_up_page():
                     st.error("Please fill in all fields")
                 elif password != password2:
                     st.error("Passwords do not match")
-                elif not validate_password(password):
+                elif not validate_password(password)[0]:
                     st.error("Password must be 7+ characters with uppercase, lowercase, and number")
                 else:
-                    if db.collection('users').document(username).get().exists:
-                        st.error("Username already exists")
-                    else:
-                        existing_user, _ = get_user_by_email(email)
-                        if existing_user:
-                            st.error("Email already registered")
-                        else:
-                            hashed_password = hash_password(password)
-                            user_data = {
-                                "email": email,
-                                "password": hashed_password,
-                                "plain_password": password,
-                                "role": "student"
-                            }
-                            db.collection('users').document(username).set(user_data)
-                            st.success("Account created successfully")
-                            st.session_state.page = "signin"
-                            st.rerun()
+                    with st.spinner("Creating account..."):
+                        time.sleep(1)
+                        
+                        username_clean = sanitize_input(username)
+                        email_clean = sanitize_input(email)
+                        password_clean = sanitize_input(password)
+                        
+                        try:
+                            if db.collection('users').document(username_clean).get().exists:
+                                st.error("Username already exists")
+                            else:
+                                existing_user, _ = get_user_by_email(email_clean)
+                                if existing_user:
+                                    st.error("Email already registered")
+                                else:
+                                    hashed_password = hash_password(password_clean)
+                                    user_data = {
+                                        "email": email_clean,
+                                        "password": hashed_password,
+                                        "plain_password": password_clean,
+                                        "role": "student"
+                                    }
+                                    db.collection('users').document(username_clean).set(user_data)
+                                    st.success("Account created successfully")
+                                    st.session_state.page = "signin"
+                                    st.rerun()
+                        except:
+                            st.error("System error. Please try again.")
 
         st.button("Back to Sign In", use_container_width=True, on_click=lambda: st.session_state.update({"page":"signin"}))
 
@@ -193,4 +247,3 @@ elif st.session_state.page == "signup":
     sign_up_page()
 elif st.session_state.page == "forgot_password":
     forgot_password_page()
-
