@@ -10,192 +10,279 @@ from email.message import EmailMessage
 st.set_page_config(page_title="The Brain App", page_icon="🧠", layout="centered")
 
 # -------------------- Firebase Initialization --------------------
-firebase_secrets = st.secrets["firebase"]
-
-if not firebase_admin._apps:
-    cred = credentials.Certificate({
-        "type": firebase_secrets["type"],
-        "project_id": firebase_secrets["project_id"],
-        "private_key_id": firebase_secrets["private_key_id"],
-        "private_key": firebase_secrets["private_key"].replace("\\n", "\n"),
-        "client_email": firebase_secrets["client_email"],
-        "client_id": firebase_secrets["client_id"],
-        "auth_uri": firebase_secrets["auth_uri"],
-        "token_uri": firebase_secrets["token_uri"],
-        "auth_provider_x509_cert_url": firebase_secrets["auth_provider_x509_cert_url"],
-        "client_x509_cert_url": firebase_secrets["client_x509_cert_url"]
-    })
-    firebase_admin.initialize_app(cred)
-
-db = firestore.client()
+try:
+    firebase_secrets = st.secrets["firebase"]
+    
+    if not firebase_admin._apps:
+        cred = credentials.Certificate({
+            "type": firebase_secrets["type"],
+            "project_id": firebase_secrets["project_id"],
+            "private_key_id": firebase_secrets["private_key_id"],
+            "private_key": firebase_secrets["private_key"].replace("\\n", "\n"),
+            "client_email": firebase_secrets["client_email"],
+            "client_id": firebase_secrets["client_id"],
+            "auth_uri": firebase_secrets["auth_uri"],
+            "token_uri": firebase_secrets["token_uri"],
+            "auth_provider_x509_cert_url": firebase_secrets["auth_provider_x509_cert_url"],
+            "client_x509_cert_url": firebase_secrets["client_x509_cert_url"]
+        })
+        firebase_admin.initialize_app(cred)
+    
+    db = firestore.client()
+    
+except Exception as e:
+    st.error(f"Firebase connection failed: {str(e)}")
+    st.stop()
 
 # -------------------- Email Setup --------------------
 EMAIL_ADDRESS = "zada44919@gmail.com"
 EMAIL_PASSWORD = "mrgklwomlcwwfxrd"
 
 # -------------------- Helper Functions --------------------
-def st_center_text(text, tag="p"):
-    st.markdown(f"<{tag} style='text-align:center;'>{text}</{tag}>", unsafe_allow_html=True)
-
-def st_center_form(form_callable, col_ratio=[1,3,1], form_name="form"):
-    col1, col2, col3 = st.columns(col_ratio)
-    with col2:
-        with st.form(form_name):
-            return form_callable()
-
-def st_center_widget(widget_callable, col_ratio=[1,3,1]):
-    col1, col2, col3 = st.columns(col_ratio)
-    with col2:
-        return widget_callable()
-
 def hash_password(password):
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 def check_password(password, hashed):
     return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
 
-def send_password_email(to_email, password):
+def send_password_email(to_email, username, password):
     msg = EmailMessage()
     msg['Subject'] = 'Your Brain App Password'
     msg['From'] = EMAIL_ADDRESS
     msg['To'] = to_email
-    msg.set_content(f"Hello,\n\nYour password is: {password}\n\n- The Brain App")
+    msg.set_content(f"""
+    Hello {username}
+
+    Your Brain App Account Details:
+
+    Username: {username}
+    Password: {password}
+
+    Please keep this information secure.
+
+    Best regards,
+    The Brain App Team
+    """)
+    
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
             smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
             smtp.send_message(msg)
-        return True, "Password sent successfully!"
+        return True, "Password sent successfully to your email"
     except Exception as e:
-        return False, f"Failed to send email: {e}"
+        return False, f"Failed to send email: {str(e)}"
 
-def export_user_data(uid):
-    user_doc = db.collection('users').document(uid).get()
-    if user_doc.exists:
-        return user_doc.to_dict()
-    return None
+def validate_password(password):
+    if len(password) < 7:
+        return False, "Password must be at least 7 characters long"
+    if not re.search(r"[A-Z]", password):
+        return False, "Password must contain at least one uppercase letter"
+    if not re.search(r"[a-z]", password):
+        return False, "Password must contain at least one lowercase letter"
+    if not re.search(r"[0-9]", password):
+        return False, "Password must contain at least one number"
+    return True, "Password is valid"
+
+def get_user_by_email(email):
+    users_ref = db.collection('users')
+    query = users_ref.where('email', '==', email).limit(1).get()
+    if query:
+        for doc in query:
+            return doc.id, doc.to_dict()
+    return None, None
 
 # -------------------- Pages --------------------
 def sign_in_page():
-    st_center_text("The Brain App", tag="h1")
-    st_center_text("Sign In", tag="h2")
+    st.markdown("<h1 style='text-align: center;'>The Brain App</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center;'>Sign In to Your Account</h3>", unsafe_allow_html=True)
 
-    def login_form():
-        st.text_input("Username", key="signin_username")
-        st.text_input("Password", type="password", key="signin_password")
-        return st.form_submit_button("Login")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        with st.form("login_form"):
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            
+            # Clean password requirements - simple text
+            st.markdown("""
+            <div style='text-align: left; font-size: 0.9rem; color: #666; margin: 10px 0;'>
+                Password must contain at least 7 characters, one uppercase, one lowercase, and one number.
+            </div>
+            """, unsafe_allow_html=True)
+            
+            login_button = st.form_submit_button("Login")
+            
+            if login_button:
+                if not username or not password:
+                    st.error("Please fill in all fields")
+                    return
+                    
+                try:
+                    user_doc = db.collection('users').document(username).get()
+                    if user_doc.exists:
+                        user_info = user_doc.to_dict()
+                        if check_password(password, user_info.get("password", "")):
+                            st.session_state.user = {
+                                "username": username,
+                                "email": user_info.get("email", ""),
+                                "role": user_info.get("role", "student")
+                            }
+                            st.success(f"Welcome back {username}")
+                        else:
+                            st.error("Incorrect password")
+                    else:
+                        st.error("Username does not exist")
+                except Exception as e:
+                    st.error(f"Login error: {str(e)}")
 
-    login_btn = st_center_form(login_form, form_name="signin_form")
-
-    st_center_widget(lambda: st.button("Forgot Password", on_click=lambda: st.session_state.update({"page":"forgot_password"})))
-    st_center_widget(lambda: st.button("Go to Sign Up", on_click=lambda: st.session_state.update({"page":"signup"})))
-
-    if login_btn:
-        username = st.session_state.get("signin_username", "")
-        password = st.session_state.get("signin_password", "")
-        user_doc = db.collection('users').document(username).get()
-        if user_doc.exists:
-            user_info = user_doc.to_dict()
-            if check_password(password, user_info.get("password","")):
-                st_center_widget(lambda: st.success(f"Welcome {username}, logged in successfully!"))
-                st_center_widget(lambda: st.write(f"Role: {user_info.get('role','student')}"))
-            else:
-                st_center_widget(lambda: st.error("Incorrect password!"))
-        else:
-            st_center_widget(lambda: st.error("Username does not exist."))
+        st.button("Forgot Password", on_click=lambda: st.session_state.update({"page":"forgot_password"}))
+        st.button("Create Account", on_click=lambda: st.session_state.update({"page":"signup"}))
 
 def forgot_password_page():
-    st_center_text("Forgot Password", tag="h2")
+    st.markdown("<h2 style='text-align: center;'>Forgot Password</h2>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align: center;'>Enter your email to receive your password</h4>", unsafe_allow_html=True)
 
-    def email_form():
-        st.text_input("Enter your email", key="forgot_email")
-        return st.form_submit_button("Send Password")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        with st.form("forgot_form"):
+            email = st.text_input("Enter your registered email")
+            submit_btn = st.form_submit_button("Send My Password")
+            
+            if submit_btn:
+                if not email:
+                    st.error("Please enter your email")
+                    return
+                    
+                try:
+                    username, user_info = get_user_by_email(email)
+                    if user_info:
+                        original_password = user_info.get("plain_password", "")
+                        if original_password:
+                            success, message = send_password_email(email, username, original_password)
+                            if success:
+                                st.success(f"Password sent to {email}")
+                            else:
+                                st.error(f"{message}")
+                        else:
+                            st.error("No password found for this account")
+                    else:
+                        st.info("If this email exists in our system, you will receive a password email")
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
 
-    submit_btn = st_center_form(email_form, form_name="forgot_form")
-    st_center_widget(lambda: st.button("Back to Sign In", on_click=lambda: st.session_state.update({"page":"signin"})))
-
-    if submit_btn:
-        email = st.session_state.get("forgot_email","").strip()
-        users = db.collection('users').get()
-        found = False
-        for user_doc in users:
-            user_info = user_doc.to_dict()
-            if user_info.get("email","") == email:
-                success, msg = send_password_email(email, user_info.get("plain_password",""))
-                if success:
-                    st_center_widget(lambda: st.success(msg))
-                else:
-                    st_center_widget(lambda: st.error(msg))
-                found = True
-                break
-        if not found:
-            st_center_widget(lambda: st.success("If this email exists, a password reset email would be sent!"))
+        st.button("Back to Sign In", on_click=lambda: st.session_state.update({"page":"signin"}))
 
 def sign_up_page():
-    st_center_text("The Brain App", tag="h1")
-    st_center_text("Sign Up", tag="h2")
+    st.markdown("<h1 style='text-align: center;'>The Brain App</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center;'>Create Your Account</h3>", unsafe_allow_html=True)
 
-    def signup_form():
-        st.text_input("Username", key="signup_username")
-        st.text_input("Email", key="signup_email")
-        st.selectbox("Role", ["Student","Faculty","Admin"], key="signup_role")
-        st.text_input("Password", type="password", key="signup_password")
-        st.text_input("Confirm Password", type="password", key="signup_password2")
-        return st.form_submit_button("Register")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        with st.form("signup_form"):
+            username = st.text_input("Choose Username")
+            email = st.text_input("Email Address")
+            role = st.selectbox("Role", ["Student", "Faculty", "Admin"])
+            password = st.text_input("Password", type="password")
+            password2 = st.text_input("Confirm Password", type="password")
+            
+            # Real-time password validation
+            if password:
+                is_valid, msg = validate_password(password)
+                if is_valid:
+                    st.success(msg)
+                else:
+                    st.error(msg)
+                    
+            signup_btn = st.form_submit_button("Create Account")
+            
+            if signup_btn:
+                if not all([username, email, password, password2]):
+                    st.error("Please fill in all fields")
+                    return
+                    
+                if password != password2:
+                    st.error("Passwords do not match")
+                    return
+                    
+                is_valid, msg = validate_password(password)
+                if not is_valid:
+                    st.error(f"{msg}")
+                    return
 
-    signup_btn = st_center_form(signup_form, form_name="signup_form")
-    st_center_widget(lambda: st.button("Go to Sign In", on_click=lambda: st.session_state.update({"page":"signin"})))
+                try:
+                    if db.collection('users').document(username).get().exists:
+                        st.error("Username already exists")
+                        return
+                        
+                    existing_user, _ = get_user_by_email(email)
+                    if existing_user:
+                        st.error("Email already registered")
+                        return
 
-    if signup_btn:
-        username = st.session_state.get("signup_username","")
-        email = st.session_state.get("signup_email","")
-        role = st.session_state.get("signup_role","")
-        password = st.session_state.get("signup_password","")
-        password2 = st.session_state.get("signup_password2","")
+                    hashed_password = hash_password(password)
+                    user_data = {
+                        "email": email,
+                        "password": hashed_password,
+                        "plain_password": password,
+                        "role": role.lower(),
+                        "created_at": firestore.SERVER_TIMESTAMP
+                    }
+                    
+                    db.collection('users').document(username).set(user_data)
+                    
+                    success, email_msg = send_password_email(email, username, password)
+                    if success:
+                        st.success(f"Account created successfully. {email_msg}")
+                        st.session_state.page = "signin"
+                        st.rerun()
+                    else:
+                        st.warning(f"Account created but {email_msg}")
+                        
+                except Exception as e:
+                    st.error(f"Registration failed: {str(e)}")
 
-        if username in [doc.id for doc in db.collection('users').get()]:
-            st_center_widget(lambda: st.error("Username already exists!"))
-        elif password != password2:
-            st_center_widget(lambda: st.error("Passwords do not match!"))
-        elif len(password)<7 or not re.search(r"[A-Z]",password) or not re.search(r"[a-z]",password) or not re.search(r"[0-9]",password):
-            st_center_widget(lambda: st.error("Password must be at least 7 characters and contain uppercase, lowercase, and number."))
-        else:
-            hashed_password = hash_password(password)
-            db.collection('users').document(username).set({
-                "email": email,
-                "password": hashed_password,
-                "plain_password": password,
-                "role": role.lower()
-            })
-            success, msg = send_password_email(email, password)
-            if success:
-                st_center_widget(lambda: st.success(f"Sign up successful! {msg}"))
-            else:
-                st_center_widget(lambda: st.error(f"Sign up successful, but {msg}"))
+        st.button("Back to Sign In", on_click=lambda: st.session_state.update({"page":"signin"}))
 
-def data_export_page():
+def user_dashboard_page():
     if "user" not in st.session_state:
-        st_center_text("Please log in to export your data.", tag="h2")
+        st.session_state.page = "signin"
+        st.rerun()
         return
-    st_center_text("Export Your Data", tag="h2")
-    if st_center_widget(lambda: st.button("Export My Data")):
-        user_data = export_user_data(st.session_state.user["username"])
-        if user_data:
-            st.json(user_data)
-            st_center_widget(lambda: st.success("Data exported successfully!"))
-        else:
-            st_center_widget(lambda: st.error("No data found."))
+        
+    user = st.session_state.user
+    st.markdown(f"<h1 style='text-align: center;'>Welcome, {user['username']}</h1>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='text-align: center;'>Role: {user['role'].title()}</h3>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("View My Data"):
+            try:
+                user_doc = db.collection('users').document(user['username']).get()
+                if user_doc.exists:
+                    user_data = user_doc.to_dict()
+                    safe_data = {k: v for k, v in user_data.items() if k != 'password'}
+                    st.json(safe_data)
+                else:
+                    st.error("User data not found")
+            except Exception as e:
+                st.error(f"Error loading data: {str(e)}")
+        
+        if st.button("Logout"):
+            st.session_state.pop("user", None)
+            st.session_state.page = "signin"
+            st.rerun()
 
-# -------------------- Main --------------------
+# -------------------- Main App Logic --------------------
 if "page" not in st.session_state:
     st.session_state.page = "signin"
 
-if st.session_state.page=="signin":
+if "user" in st.session_state and st.session_state.page == "signin":
+    st.session_state.page = "dashboard"
+
+if st.session_state.page == "signin":
     sign_in_page()
-elif st.session_state.page=="signup":
+elif st.session_state.page == "signup":
     sign_up_page()
-elif st.session_state.page=="forgot_password":
+elif st.session_state.page == "forgot_password":
     forgot_password_page()
-elif st.session_state.page=="export_data":
-    data_export_page()
-
-
+elif st.session_state.page == "dashboard":
+    user_dashboard_page()
