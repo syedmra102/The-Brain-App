@@ -33,7 +33,6 @@ db = firestore.client()
 EMAIL_ADDRESS = "zada44919@gmail.com"
 EMAIL_PASSWORD = "mrgklwomlcwwfxrd"
 
-
 # -------------------- Helper Functions --------------------
 def st_center_text(text, tag="p"):
     st.markdown(f"<{tag} style='text-align:center;'>{text}</{tag}>", unsafe_allow_html=True)
@@ -50,8 +49,9 @@ def st_center_widget(widget_callable, col_ratio=[1,3,1]):
         return widget_callable()
 
 def st_center_message(func, message):
-    """Wrap success/error/info messages in center columns."""
-    st_center_widget(lambda: func(message))
+    col1, col2, col3 = st.columns([1,3,1])
+    with col2:
+        func(message)
 
 def hash_password(password):
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -87,7 +87,6 @@ def sign_in_page():
     def login_form():
         st.text_input("Username", key="signin_username")
         st.text_input("Password", type="password", key="signin_password")
-        st.caption("Password must have 1 uppercase, 1 lowercase, 1 number, and be at least 7 characters long.")
         return st.form_submit_button("Login")
 
     login_btn = st_center_form(login_form, form_name="signin_form")
@@ -207,13 +206,3 @@ elif st.session_state.page=="forgot_password":
     forgot_password_page()
 elif st.session_state.page=="export_data":
     data_export_page()
-
-
-
-
-
-
-
-
-
-
