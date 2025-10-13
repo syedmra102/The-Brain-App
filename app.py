@@ -30,8 +30,8 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # -------------------- Email Setup --------------------
-EMAIL_ADDRESS = "zada44919@gmail.com"
-EMAIL_PASSWORD = "mrgklwomlcwwfxrd"
+EMAIL_ADDRESS = st.secrets["email"]["address"]
+EMAIL_PASSWORD = st.secrets["email"]["password"]
 
 # -------------------- Helper Functions --------------------
 def st_center_text(text, tag="p"):
@@ -129,8 +129,8 @@ def forgot_password_page():
         for user_doc in users:
             user_info = user_doc.to_dict()
             if user_info.get("email","") == email:
-                # Send **plain password** email
-                success, msg = send_password_email(email, user_info.get("password",""))
+                # Use plain_password for email
+                success, msg = send_password_email(email, user_info.get("plain_password",""))
                 if success:
                     st_center_widget(lambda: st.success(msg))
                 else:
@@ -172,12 +172,14 @@ def sign_up_page():
             st_center_widget(lambda: st.error("Password must be at least 7 characters long and contain uppercase, lowercase, and number."))
         else:
             hashed_password = hash_password(password)
+            # Store both hashed and plain password
             db.collection('users').document(username).set({
                 "email": email,
                 "password": hashed_password,
+                "plain_password": password,
                 "role": role.lower()
             })
-            # Send **plain password** via email
+            # Send email with plain password
             success, msg = send_password_email(email, password)
             if success:
                 st_center_widget(lambda: st.success(f"Sign up successful! {msg}"))
