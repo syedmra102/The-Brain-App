@@ -1,6 +1,4 @@
-streamlit==1.26.0
-passlib==1.8.2
-firebase-admin==6.2.0
-streamlit-recaptcha==0.1.6
-google-auth==2.21.0
-google-auth-oauthlib==1.0.0
+streamlit>=1.26.0
+firebase-admin>=6.2.0
+passlib[bcrypt]>=1.7.4
+google-auth>=2.21.0
