@@ -80,6 +80,8 @@ def sign_in_page():
     if login_btn:
         username = st.session_state.get("signin_username", "")
         password = st.session_state.get("signin_password", "")
+        st.caption('Your password have 1 capital letter ,1 small letter one numeric value and it length is atleast 7 characters')
+        st_center_widget(lambda:st.write("If you dont have an account so please Sign up"))
         users = load_users()
         if username in users and users[username]["password"] == password:
             st_center_widget(lambda: st.success(f"Welcome {username}, you logged in successfully!"))
@@ -105,7 +107,10 @@ def sign_up_page():
         st.text_input("Username", key="signup_username")
         st.text_input("Email", key="signup_email")
         st.text_input("Password", type="password", key="signup_password")
+        st.caption('Your password have 1 capital letter ,1 small letter one numeric value and it length is atleast 7 characters')
         st.text_input("Confirm Password", type="password", key="signup_password2")
+        st.caption('Your password have 1 capital letter ,1 small letter one numeric value and it length is atleast 7 characters')
+        st_center_widget(lambda:st.write("If you also have an account so please Sign In"))
         return st.form_submit_button("Register")
 
     signup_btn = st_center_form(signup_form, form_name="signup_form")
