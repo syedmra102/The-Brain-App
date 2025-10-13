@@ -3,48 +3,46 @@ import re
 
 st.set_page_config(page_title="Login", layout="centered")
 
+# Helper function to center any widget or text
+def st_center(widget=None, text=None, tag="p", unsafe_html=True):
+    """
+    widget : callable, a Streamlit widget like st.button, st.text_input
+    text : str, raw HTML/text to display
+    tag : HTML tag for the text (h1, h2, p, etc.)
+    """
+    col1, col2, col3 = st.columns([1, 3, 1])
+    with col2:
+        if widget:
+            widget()
+        elif text:
+            st.markdown(f"<{tag} style='text-align:center;'>{text}</{tag}>", unsafe_allow_html=unsafe_html)
+
 # Title
-st.markdown("<h1 style='text-align: center;'> The Brain App</h1>", unsafe_allow_html=True)
+st_center(text="The Brain App", tag="h1")
 
-# Center the form in the page
-col1, col2, col3 = st.columns([1, 3, 1])
+# Sign In header
+st_center(text="Sign In", tag="h2")
 
-with col2:
-    st.markdown("<h1 style='text-align: center;'> Sign In</h1>", unsafe_allow_html=True)
-
-   
-    with st.form("login_form"):
-         username = st.text_input("Username")
-         password = st.text_input("Password", type="password")
-         st.caption(" Password must contain at least 7 characters, one uppercase, one lowercase, and one number.")
-         login_btn = st.form_submit_button("Login")
+# Login form
+with st.form("login_form"):
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    st.caption("Password must contain at least 7 characters, one uppercase, one lowercase, and one number.")
+    login_btn = st.form_submit_button("Login")
 
 # Form validation
 if 'login_btn' in locals() and login_btn:
     if len(password) < 7:
-        col1, col2, col3 = st.columns([1, 3, 1])
-        with col2:
-            st.error(' Password must be at least 7 characters long.')
+        st_center(lambda: st.error('Password must be at least 7 characters long.'))
     elif not re.search(r"[A-Z]", password):
-        col1, col2, col3 = st.columns([1, 3, 1])
-        with col2:
-            st.error(" Password must include at least one uppercase letter.")
+        st_center(lambda: st.error("Password must include at least one uppercase letter."))
     elif not re.search(r"[a-z]", password):
-        col1, col2, col3 = st.columns([1, 3, 1])
-        with col2:
-            st.error(" Password must include at least one lowercase letter.")
+        st_center(lambda: st.error("Password must include at least one lowercase letter."))
     elif not re.search(r"[0-9]", password):
-        col1, col2, col3 = st.columns([1, 3, 1])
-        with col2:
-             st.error(" Password must include at least one number.")
+        st_center(lambda: st.error("Password must include at least one number."))
     else:
-        col1, col2, col3 = st.columns([1, 3, 1])
-        with col2:
-            st.success(f" Welcome {username}, you logged in successfully!")
-st.write('Dont have andd account so please Sign up !!')
-signup_btn=st.button('Sign up')
+        st_center(lambda: st.success(f"Welcome {username}, you logged in successfully!"))
 
-
-
-
-
+# Sign up section
+st_center(text="Don't have an account? Please Sign up!", tag="p")
+st_center(lambda: st.button('Sign up'))
