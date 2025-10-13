@@ -38,7 +38,6 @@ def save_users(users):
         json.dump(users, f, indent=4)
 
 def send_password_email(to_email, password):
-    """Send password to user via email (requires valid credentials)"""
     EMAIL_ADDRESS = "your_email@gmail.com"      # Replace with your email
     EMAIL_PASSWORD = "your_app_password"        # Replace with Gmail app password
 
@@ -61,6 +60,10 @@ def sign_in_page():
     st_center_text("The Brain App", tag="h1")
     st_center_text("Sign In", tag="h2")
 
+    # Helpful captions outside form
+    st_center_text("Your password must have at least 1 uppercase, 1 lowercase, 1 numeric character and be at least 7 characters long.", tag="p")
+    st_center_text("If you don't have an account, please Sign Up!", tag="p")
+
     def login_form():
         st.text_input("Username", key="signin_username")
         st.text_input("Password", type="password", key="signin_password")
@@ -80,15 +83,13 @@ def sign_in_page():
     if login_btn:
         username = st.session_state.get("signin_username", "")
         password = st.session_state.get("signin_password", "")
-        st.caption('Your password have 1 capital letter ,1 small letter one numeric value and it length is atleast 7 characters')
-        st_center_widget(lambda:st.write("If you dont have an account so please Sign up"))
         users = load_users()
         if username in users and users[username]["password"] == password:
-            st_center_widget(lambda: st.success(f"Welcome {username}, you logged in successfully!"))
+            st_center_text(f"Welcome {username}, you logged in successfully!", tag="h3")
         elif username in users:
-            st_center_widget(lambda: st.error("Incorrect password!"))
+            st_center_text("Incorrect password!", tag="h3")
         else:
-            st_center_widget(lambda: st.error("Username does not exist. Please Sign Up."))
+            st_center_text("Username does not exist. Please Sign Up.", tag="h3")
 
 def forgot_password():
     users = load_users()
@@ -97,20 +98,21 @@ def forgot_password():
         email = users[username]["email"]
         send_password_email(email, users[username]["password"])
     else:
-        st_center_widget(lambda: st.error("Username not found!"))
+        st_center_text("Username not found!", tag="h3")
 
 def sign_up_page():
     st_center_text("The Brain App", tag="h1")
     st_center_text("Sign Up", tag="h2")
 
+    # Helpful captions outside form
+    st_center_text("Your password must have at least 1 uppercase, 1 lowercase, 1 numeric character and be at least 7 characters long.", tag="p")
+    st_center_text("If you already have an account, please Sign In!", tag="p")
+
     def signup_form():
         st.text_input("Username", key="signup_username")
         st.text_input("Email", key="signup_email")
         st.text_input("Password", type="password", key="signup_password")
-        st.caption('Your password have 1 capital letter ,1 small letter one numeric value and it length is atleast 7 characters')
         st.text_input("Confirm Password", type="password", key="signup_password2")
-        st.caption('Your password have 1 capital letter ,1 small letter one numeric value and it length is atleast 7 characters')
-        st_center_widget(lambda:st.write("If you also have an account so please Sign In"))
         return st.form_submit_button("Register")
 
     signup_btn = st_center_form(signup_form, form_name="signup_form")
@@ -128,16 +130,16 @@ def sign_up_page():
         users = load_users()
 
         if username in users:
-            st_center_widget(lambda: st.error("Username already exists. Try logging in!"))
+            st_center_text("Username already exists. Try logging in!", tag="h3")
             send_password_email(users[username]["email"], users[username]["password"])
         elif password != password2:
-            st_center_widget(lambda: st.error("Passwords do not match!"))
+            st_center_text("Passwords do not match!", tag="h3")
         elif len(password) < 7 or not re.search(r"[A-Z]", password) or not re.search(r"[a-z]", password) or not re.search(r"[0-9]", password):
-            st_center_widget(lambda: st.error("Password must be at least 7 characters long, include uppercase, lowercase, and number."))
+            st_center_text("Password must be at least 7 characters long, include uppercase, lowercase, and number.", tag="h3")
         else:
             users[username] = {"email": email, "password": password}
             save_users(users)
-            st_center_widget(lambda: st.success("Sign up successful! You can now Sign In."))
+            st_center_text("Sign up successful! You can now Sign In.", tag="h3")
 
 # ------------------- Main -------------------
 if "page" not in st.session_state:
