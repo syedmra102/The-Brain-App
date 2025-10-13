@@ -21,6 +21,8 @@ if 'page' not in st.session_state:
     st.session_state.page = "signin"
 if 'prediction_results' not in st.session_state:
     st.session_state.prediction_results = None
+if 'user_profile' not in st.session_state:
+    st.session_state.user_profile = {}
 
 # Firebase setup
 try:
@@ -212,6 +214,11 @@ def sign_in_page():
                                         "email": user_info.get("email", ""),
                                         "role": user_info.get("role", "student")
                                     }
+                                    # Load user profile if exists
+                                    profile_doc = db.collection('user_profiles').document(username_clean).get()
+                                    if profile_doc.exists:
+                                        st.session_state.user_profile = profile_doc.to_dict()
+                                    
                                     st.success("Login successful")
                                     st.session_state.page = "ml_dashboard"
                                     st.rerun()
@@ -322,9 +329,23 @@ def ml_dashboard_page():
     
     user = st.session_state.user
     
-    # SIDEBAR WITH USERNAME AND LOGOUT
+    # SIDEBAR WITH USER PROFILE
     with st.sidebar:
         st.write(f"User: {user['username']}")
+        
+        # Show user profile if exists
+        if st.session_state.user_profile:
+            st.markdown("---")
+            st.markdown("**Your Profile:**")
+            st.write(f"Field: {st.session_state.user_profile.get('field', 'Not set')}")
+            st.write(f"Goal: {st.session_state.user_profile.get('goal', 'Not set')}")
+            st.write(f"Stage: {st.session_state.user_profile.get('stage', 'Not set')}")
+            st.write(f"Distractions: {', '.join(st.session_state.user_profile.get('distractions', []))}")
+        
+        st.markdown("---")
+        st.button("Life Vision", on_click=lambda: st.session_state.update({"page":"life_vision"}))
+        st.button("Challenge Rules", on_click=lambda: st.session_state.update({"page":"challenge_rules"}))
+        st.button("Setup Profile", on_click=lambda: st.session_state.update({"page":"setup_profile"}))
         st.button("Logout", on_click=lambda: st.session_state.pop("user", None) or st.session_state.update({"page":"signin"}))
     
     # MAIN CONTENT - NO COLUMNS, OPENLY DISPLAYED
@@ -400,17 +421,10 @@ def ml_dashboard_page():
         st.markdown("---")
         st.markdown("<h2 style='text-align: center;'>105 Days to Top 1% Challenge</h2>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; font-weight: bold;'>This is a completely life changing challenge and the only opportunity to become top 1% in the world and also in your field</p>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; font-weight: bold;'>Dont take stress we will give you tasks stage by stage like easy, medium then hard</p>", unsafe_allow_html=True)
         
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("See How Your Life Will Look After Challenge"):
-                st.session_state.page = "life_vision"
-                st.rerun()
-        with col2:
-            if st.button("Start My 105 Day Transformation Journey"):
-                st.session_state.page = "challenge_rules"
-                st.rerun()
+        if st.button("See How My Life Will Look After This Challenge"):
+            st.session_state.page = "life_vision"
+            st.rerun()
 
 # LIFE VISION PAGE
 def life_vision_page():
@@ -421,39 +435,66 @@ def life_vision_page():
     
     user = st.session_state.user
     
-    # SIDEBAR WITH USERNAME AND LOGOUT
+    # SIDEBAR
     with st.sidebar:
         st.write(f"User: {user['username']}")
         st.button("Back to Predictor", on_click=lambda: st.session_state.update({"page":"ml_dashboard"}))
+        st.button("View Challenge Rules", on_click=lambda: st.session_state.update({"page":"challenge_rules"}))
         st.button("Logout", on_click=lambda: st.session_state.pop("user", None) or st.session_state.update({"page":"signin"}))
     
-    # MAIN CONTENT - NO COLUMNS, OPENLY DISPLAYED
+    # MAIN CONTENT
     st.markdown("<h1 style='text-align: center; color: #7C3AED;'>After This Challenge How Your Life Is Looking</h1>", unsafe_allow_html=True)
     
     st.markdown("---")
     
-    # Vision Content
-    st.markdown("<h2 style='text-align: center;'>Your Transformed Life After 105 Days</h2>", unsafe_allow_html=True)
+    # Detailed Vision Content
+    st.markdown("<h2 style='text-align: center;'>Your Life After Completing 105-Day Challenge</h2>", unsafe_allow_html=True)
     
     st.markdown("""
-    1. **Healthy life style (no sugar, Daily exercise, No junk food, drinking 5 liters water)**
+    ### **Grade: ELITE PERFORMER - Top 1% Worldwide**
     
-    2. **Wake up early like 4 or 5 am or sleep early like 9pm**
+    **1. Perfect Health & Fitness**
+    - Complete sugar-free lifestyle with optimal nutrition
+    - Daily exercise routine with peak physical fitness
+    - 5 liters water daily consumption
+    - Perfect sleep cycle with consistent energy levels
     
-    3. **Doing 6 hours of work in your field daily**
+    **2. Unbreakable Discipline**
+    - Wake up at 4-5 AM automatically without alarms
+    - Sleep by 9 PM for optimal recovery
+    - Complete control over cravings and impulses
+    - Military-level daily routine execution
     
-    4. **Wealthy, discipline and positive mindset**
+    **3. Peak Productivity**
+    - 6+ hours of deep focused work daily in your field
+    - Zero procrastination or time wasting
+    - Maximum output with minimum effort
+    - Consistent skill development and mastery
     
-    5. **No distraction, distraction free life**
+    **4. Wealth Mindset**
+    - Financial discipline with substantial savings
+    - Multiple income streams developed
+    - Investment portfolio for your field
+    - Money to launch your dream project
     
-    6. **A good amount of saving for your first idea, project or anything which you want to invest in your field**
+    **5. Distraction-Free Life**
+    - Complete elimination of time-wasting activities
+    - No social media addiction
+    - Focused attention span of 3+ hours
+    - Mental clarity and sharp thinking
+    
+    **6. Elite Social Circle**
+    - Surrounded by top 1% performers
+    - Mentors and experts in your network
+    - Respect from peers and competitors
+    - Leadership position in your field
     """)
     
     st.markdown("---")
     
-    st.markdown("<p style='text-align: center; font-weight: bold; font-size: 20px;'>This is not just a challenge - its a complete life transformation</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; font-weight: bold; font-size: 20px;'>This transformation will make you unrecognizable to your current self</p>", unsafe_allow_html=True)
     
-    if st.button("I Want This Life - Start My Transformation"):
+    if st.button("I Want This Transformation - Show Me The Rules"):
         st.session_state.page = "challenge_rules"
         st.rerun()
 
@@ -466,13 +507,14 @@ def challenge_rules_page():
     
     user = st.session_state.user
     
-    # SIDEBAR WITH USERNAME AND LOGOUT
+    # SIDEBAR
     with st.sidebar:
         st.write(f"User: {user['username']}")
         st.button("Back to Predictor", on_click=lambda: st.session_state.update({"page":"ml_dashboard"}))
+        st.button("View Life Vision", on_click=lambda: st.session_state.update({"page":"life_vision"}))
         st.button("Logout", on_click=lambda: st.session_state.pop("user", None) or st.session_state.update({"page":"signin"}))
     
-    # MAIN CONTENT - NO COLUMNS, OPENLY DISPLAYED
+    # MAIN CONTENT
     st.markdown("<h1 style='text-align: center; color: #7C3AED;'>105 Days Transformation Challenge Rules</h1>", unsafe_allow_html=True)
     
     st.markdown("---")
@@ -527,9 +569,94 @@ def challenge_rules_page():
     
     st.markdown("<p style='text-align: center; font-weight: bold; font-size: 20px;'>This is your only opportunity to transform your life and become top 1%</p>", unsafe_allow_html=True)
     
-    if st.button("I Accept The Challenge Rules And Ready To Start"):
-        st.success("Your 105-day transformation journey begins now!")
-        st.info("You will receive daily tracking forms and progress monitoring starting tomorrow.")
+    if st.button("I Am Ready To Start The Challenge"):
+        st.session_state.page = "setup_profile"
+        st.rerun()
+
+# SETUP PROFILE PAGE
+def setup_profile_page():
+    if "user" not in st.session_state:
+        st.session_state.page = "signin"
+        st.rerun()
+        return
+    
+    user = st.session_state.user
+    
+    # SIDEBAR
+    with st.sidebar:
+        st.write(f"User: {user['username']}")
+        st.button("Back to Rules", on_click=lambda: st.session_state.update({"page":"challenge_rules"}))
+        st.button("Logout", on_click=lambda: st.session_state.pop("user", None) or st.session_state.update({"page":"signin"}))
+    
+    # MAIN CONTENT
+    st.markdown("<h1 style='text-align: center; color: #7C3AED;'>Setup Your Challenge Profile</h1>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    with st.form("profile_form"):
+        st.subheader("Your Field & Goals")
+        
+        field = st.selectbox("Select Your Field", [
+            "Programming & Technology",
+            "Engineering", 
+            "Medical & Healthcare",
+            "Business & Entrepreneurship",
+            "Science & Research",
+            "Arts & Creative",
+            "Sports & Fitness",
+            "Education & Teaching",
+            "Finance & Investment",
+            "Other"
+        ])
+        
+        goal = st.text_input("What do you want to become? (e.g., Neurosurgeon, AI Engineer, Entrepreneur)")
+        
+        st.subheader("Your Current Distractions")
+        distractions = st.multiselect("Select distractions you currently face", [
+            "Social Media Scrolling",
+            "YouTube/Netflix Binging", 
+            "Video Games",
+            "Masturbation/Porn",
+            "Procrastination",
+            "Phone Addiction",
+            "Unproductive Socializing",
+            "Overthinking",
+            "Substance Use",
+            "Other"
+        ])
+        
+        st.subheader("Challenge Stage Selection")
+        stage = st.selectbox("Choose your starting stage", [
+            "Silver (15 Days - Easy)",
+            "Platinum (30 Days - Medium)", 
+            "Gold (60 Days - Hard)"
+        ])
+        
+        save_btn = st.form_submit_button("Save Profile & Start Challenge")
+        
+        if save_btn:
+            if not field or not goal or not stage:
+                st.error("Please fill all fields")
+            else:
+                with st.spinner("Saving your profile..."):
+                    # Save profile to session state and database
+                    profile_data = {
+                        'field': field,
+                        'goal': goal,
+                        'distractions': distractions,
+                        'stage': stage,
+                        'created_at': firestore.SERVER_TIMESTAMP
+                    }
+                    
+                    st.session_state.user_profile = profile_data
+                    
+                    # Save to Firebase
+                    try:
+                        db.collection('user_profiles').document(user['username']).set(profile_data)
+                        st.success("Profile saved successfully!")
+                        st.info("Your challenge begins now! Check the sidebar for your profile details.")
+                    except Exception as e:
+                        st.error("Failed to save profile. Please try again.")
 
 # Main app routing
 if st.session_state.user is not None and st.session_state.page == "signin":
@@ -547,3 +674,5 @@ elif st.session_state.page == "life_vision":
     life_vision_page()
 elif st.session_state.page == "challenge_rules":
     challenge_rules_page()
+elif st.session_state.page == "setup_profile":
+    setup_profile_page()
