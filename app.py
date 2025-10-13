@@ -3,7 +3,7 @@ import re
 import bcrypt
 import firebase_admin
 from firebase_admin import credentials, auth, firestore
-from streamlit_recaptcha import st_recaptcha
+import requests
 import smtplib
 from email.message import EmailMessage
 
@@ -94,6 +94,12 @@ def validate_email(email):
     university_domains = ["university.edu", "uni.ac.uk"]  # Customize domains
     return any(email.endswith(f"@{domain}") for domain in university_domains)
 
+def verify_recaptcha(response_token):
+    secret_key = st.secrets["recaptcha"]["secret_key"]
+    payload = {"secret": secret_key, "response": response_token}
+    response = requests.post("https://www.google.com/recaptcha/api/siteverify", data=payload)
+    return response.json().get("success", False)
+
 def send_password_email(to_email, password):
     msg = EmailMessage()
     msg['Subject'] = 'Your Brain App Password'
@@ -121,7 +127,6 @@ def sign_in_page():
         st.markdown('<div class="left-panel"></div>', unsafe_allow_html=True)
     with col2:
         st.markdown('<div class="right-panel">', unsafe_allow_html=True)
-        # Placeholder for university logo
         st.image("https://via.placeholder.com/150x50?text=University+Logo", use_column_width=True)
         st_center_text("The Brain App", tag="h1")
         st_center_text("Sign In", tag="h2")
@@ -217,7 +222,11 @@ def sign_up_page():
             st.text_input("Password", type="password", key="signup_password")
             st.markdown('<p class="caption">Password must have 1 uppercase, 1 lowercase, 1 numeric character, and be at least 7 characters long.</p>', unsafe_allow_html=True)
             st.text_input("Confirm Password", type="password", key="signup_password2")
-            st_recaptcha(key="recaptcha_signup", site_key=st.secrets["recaptcha"]["site_key"])
+            st.markdown("""
+                <script src="https://www.google.com/recaptcha/api.js"></script>
+                <div class="g-recaptcha" data-sitekey="{}"></div>
+            """.format(st.secrets["recaptcha"]["site_key"]), unsafe_allow_html=True)
+            st.text_input("reCAPTCHA Response", key="recaptcha_response", type="hidden")
             return st.form_submit_button("Register")
 
         signup_btn = st_center_form(signup_form, form_name="signup_form")
@@ -231,9 +240,9 @@ def sign_up_page():
                 role = st.session_state.get("signup_role", "")
                 password = st.session_state.get("signup_password", "")
                 password2 = st.session_state.get("signup_password2", "")
-                recaptcha_response = st.session_state.get("recaptcha_signup", False)
+                recaptcha_response = st.session_state.get("recaptcha_response", "")
 
-                if not recaptcha_response:
+                if not verify_recaptcha(recaptcha_response):
                     st_center_widget(lambda: st.error("Please complete the reCAPTCHA!"))
                     return
                 if not validate_email(email):
@@ -263,28 +272,4 @@ def data_export_page():
         st.markdown('<div class="right-panel">', unsafe_allow_html=True)
         st.image("https://via.placeholder.com/150x50?text=University+Logo", use_column_width=True)
         if "user" not in st.session_state:
-            st_center_text("Please log in to export your data.", tag="h2")
-            return
-        st_center_text("Export Your Data", tag="h2")
-        if st_center_widget(lambda: st.button("Export My Data")):
-            with st.spinner("Exporting data..."):
-                user_data = export_user_data(st.session_state.user["username"])
-                if user_data:
-                    st.json(user_data)
-                    st_center_widget(lambda: st.success("Data exported successfully!"))
-                else:
-                    st_center_widget(lambda: st.error("No data found for this user."))
-        st.markdown('</div>', unsafe_allow_html=True)
-
-# ------------------- Main -------------------
-if "page" not in st.session_state:
-    st.session_state.page = "signin"
-
-if st.session_state.page == "signin":
-    sign_in_page()
-elif st.session_state.page == "signup":
-    sign_up_page()
-elif st.session_state.page == "forgot_password":
-    forgot_password_page()
-elif st.session_state.page == "export_data":
-    data_export_page()
+            st_center_text("Please log in to export
