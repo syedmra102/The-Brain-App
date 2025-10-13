@@ -6,15 +6,6 @@ from firebase_admin import credentials, firestore
 import smtplib
 from email.message import EmailMessage
 
-st.markdown("""
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-    html, body, [class*="css"]  {
-        font-family: 'Poppins', sans-serif;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
 # -------------------- Page Config --------------------
 st.set_page_config(page_title="The Brain App", page_icon="🧠", layout="centered")
 
@@ -111,12 +102,8 @@ def sign_in_page():
             username = st.text_input("Username")
             password = st.text_input("Password", type="password")
             
-            # Clean password requirements - simple text
-            st.markdown("""
-            <div style='text-align: left; font-size: 0.9rem; color: #666; margin: 10px 0;'>
-                Password must contain at least 7 characters, one uppercase, one lowercase, and one number.
-            </div>
-            """, unsafe_allow_html=True)
+            # Simple password requirements text
+            st.caption("Password must contain at least 7 characters, one uppercase, one lowercase, and one number.")
             
             login_button = st.form_submit_button("Login")
             
