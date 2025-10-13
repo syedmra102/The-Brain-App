@@ -1,29 +1,27 @@
 import streamlit as st
 import re
 import os
-import bcrypt
+from passlib.hash import bcrypt
 import firebase_admin
-from firebase_admin import credentials, auth, firestore
+from firebase_admin import credentials, firestore
 from streamlit_recaptcha import st_recaptcha
-from google.oauth2 import id_token
-from google.auth.transport import requests
 import smtplib
 from email.message import EmailMessage
 
-# Streamlit page config with university branding
+# ---------------- Streamlit config ----------------
 st.set_page_config(page_title="The Brain App", page_icon="🧠", layout="centered")
 
-# Firebase setup (replace with your Firebase credentials)
+# ---------------- Firebase setup ----------------
 if not firebase_admin._apps:
-    cred = credentials.Certificate("path/to/your-firebase-adminsdk.json")  # Download from Firebase Console
+    cred = credentials.Certificate("path/to/your-firebase-adminsdk.json")  # Replace path
     firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-# Email setup (use Firebase Functions in production; temporary Gmail fallback)
+# ---------------- Email setup ----------------
 EMAIL_ADDRESS = "zada44919@gmail.com"
-EMAIL_PASSWORD = "mrgklwomlcwwfxrd"  # TODO: Move to Firebase Functions for security
+EMAIL_PASSWORD = "mrgklwomlcwwfxrd"  # Your app password
 
-# ------------------- Helper Functions -------------------
+# ---------------- Helper functions ----------------
 def st_center_text(text, tag="p"):
     st.markdown(f"<{tag} style='text-align:center;'>{text}</{tag}>", unsafe_allow_html=True)
 
@@ -39,14 +37,13 @@ def st_center_widget(widget_callable, col_ratio=[1,3,1]):
         return widget_callable()
 
 def hash_password(password):
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    return bcrypt.hash(password)
 
 def check_password(password, hashed):
-    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+    return bcrypt.verify(password, hashed)
 
 def validate_email(email):
-    # Restrict to university emails (customize domain as needed)
-    university_domains = ["university.edu", "uni.ac.uk"]  # Add your uni domains
+    university_domains = ["university.edu", "uni.ac.uk"]
     return any(email.endswith(f"@{domain}") for domain in university_domains)
 
 def send_password_email(to_email, password):
@@ -64,31 +61,15 @@ def send_password_email(to_email, password):
         return False, f"Failed to send email: {e}"
 
 def export_user_data(uid):
-    # GDPR/FERPA compliance: Export user data
     user_doc = db.collection('users').document(uid).get()
     if user_doc.exists:
         return user_doc.to_dict()
     return None
 
-# ------------------- Pages -------------------
+# ---------------- Pages ----------------
 def sign_in_page():
-    # Custom CSS for university branding and mobile responsiveness
-    st.markdown("""
-        <style>
-        .main { background-color: #f5f5f5; }
-        .stButton>button { background-color: #0047AB; color: white; border-radius: 5px; }
-        @media (max-width: 600px) { .stTextInput { width: 100% !important; } }
-        </style>
-    """, unsafe_allow_html=True)
-
     st_center_text("The Brain App", tag="h1")
     st_center_text("Sign In", tag="h2")
-
-    # Google SSO button
-    if st_center_widget(lambda: st.button("Sign in with Google")):
-        # Handle Google OAuth (client-side flow for simplicity)
-        st.write("Redirecting to Google SSO... (Implement OAuth flow in Firebase)")
-        # See Firebase docs for OAuth redirect: https://firebase.google.com/docs/auth/web/google-signin
 
     def login_form():
         st.text_input("Username", key="signin_username")
@@ -104,59 +85,56 @@ def sign_in_page():
         st.session_state.page = "signup"
 
     if login_btn:
-        with st.spinner("Logging in..."):
-            username = st.session_state.get("signin_username", "")
-            password = st.session_state.get("signin_password", "")
-            user_doc = db.collection('users').document(username).get()
-            if user_doc.exists:
-                user_info = user_doc.to_dict()
-                if check_password(password, user_info.get("password", "")):
-                    st.session_state.user = {"username": username, "role": user_info.get("role", "student")}
-                    st_center_widget(lambda: st.success(f"Welcome {username}, you logged in successfully!"))
-                    # Redirect to role-based dashboard (placeholder)
-                    st.write(f"Role: {st.session_state.user['role']}")
-                else:
-                    st_center_widget(lambda: st.error("Incorrect password!"))
+        username = st.session_state.get("signin_username", "")
+        password = st.session_state.get("signin_password", "")
+        user_doc = db.collection('users').document(username).get()
+        if user_doc.exists:
+            user_info = user_doc.to_dict()
+            if check_password(password, user_info.get("password", "")):
+                st.session_state.user = {"username": username, "role": user_info.get("role", "student")}
+                st_center_widget(lambda: st.success(f"Welcome {username}, you logged in successfully!"))
             else:
-                st_center_widget(lambda: st.error("Username does not exist. Please Sign Up."))
+                st_center_widget(lambda: st.error("Incorrect password!"))
+        else:
+            st_center_widget(lambda: st.error("Username does not exist. Please Sign Up."))
 
 def forgot_password_page():
     st_center_text("Forgot Password", tag="h2")
+
     def email_form():
-        st.text_input("Enter your email", key="forgot_email")
+        st.text_input("Enter your university email", key="forgot_email")
         return st.form_submit_button("Send Password")
-    
+
     submit_btn = st_center_form(email_form, form_name="forgot_form")
     st_center_widget(lambda: st.button("Back to Sign In", on_click=lambda: st.session_state.update({"page":"signin"})))
 
     if submit_btn:
-        with st.spinner("Sending email..."):
-            email = st.session_state.get("forgot_email", "").strip()
-            if not email:
-                st_center_widget(lambda: st.error("Please enter your email!"))
-                return
-            if not validate_email(email):
-                st_center_widget(lambda: st.error("Please use a university email (@university.edu)!"))
-                return
-            users = db.collection('users').get()
-            found = False
-            for user_doc in users:
-                user_info = user_doc.to_dict()
-                if user_info.get("email", "") == email:
-                    success, msg = send_password_email(email, user_info.get("password", ""))
-                    if success:
-                        st_center_widget(lambda: st.success(msg))
-                    else:
-                        st_center_widget(lambda: st.error(msg))
-                    found = True
-                    break
-            if not found:
-                st_center_widget(lambda: st.success("If this email exists, a password reset email would be sent!"))
+        email = st.session_state.get("forgot_email", "").strip()
+        if not email:
+            st_center_widget(lambda: st.error("Please enter your email!"))
+            return
+        if not validate_email(email):
+            st_center_widget(lambda: st.error("Please use a university email!"))
+            return
+        users = db.collection('users').get()
+        found = False
+        for user_doc in users:
+            user_info = user_doc.to_dict()
+            if user_info.get("email", "") == email:
+                success, msg = send_password_email(email, user_info.get("password", ""))
+                if success:
+                    st_center_widget(lambda: st.success(msg))
+                else:
+                    st_center_widget(lambda: st.error(msg))
+                found = True
+                break
+        if not found:
+            st_center_widget(lambda: st.success("If this email exists, a password reset email would be sent!"))
 
 def sign_up_page():
     st_center_text("The Brain App", tag="h1")
     st_center_text("Sign Up", tag="h2")
-    
+
     def signup_form():
         st.text_input("Username", key="signup_username")
         st.text_input("Email", key="signup_email")
@@ -164,8 +142,7 @@ def sign_up_page():
         st.text_input("Password", type="password", key="signup_password")
         st.caption("Password must have 1 uppercase, 1 lowercase, 1 numeric character, and be at least 7 characters long.")
         st.text_input("Confirm Password", type="password", key="signup_password2")
-        # reCAPTCHA
-        st_recaptcha(key="recaptcha_signup", site_key="your-recaptcha-site-key")  # Get from Google reCAPTCHA
+        st_recaptcha(key="recaptcha_signup", site_key="your-recaptcha-site-key")
         return st.form_submit_button("Register")
 
     signup_btn = st_center_form(signup_form, form_name="signup_form")
@@ -173,51 +150,35 @@ def sign_up_page():
     st_center_widget(lambda: st.button("Go to Sign In", on_click=lambda: st.session_state.update({"page":"signin"})))
 
     if signup_btn:
-        with st.spinner("Registering..."):
-            username = st.session_state.get("signup_username", "")
-            email = st.session_state.get("signup_email", "")
-            role = st.session_state.get("signup_role", "")
-            password = st.session_state.get("signup_password", "")
-            password2 = st.session_state.get("signup_password2", "")
-            recaptcha_response = st.session_state.get("recaptcha_signup", False)
+        username = st.session_state.get("signup_username", "")
+        email = st.session_state.get("signup_email", "")
+        role = st.session_state.get("signup_role", "")
+        password = st.session_state.get("signup_password", "")
+        password2 = st.session_state.get("signup_password2", "")
+        recaptcha_response = st.session_state.get("recaptcha_signup", False)
 
-            if not recaptcha_response:
-                st_center_widget(lambda: st.error("Please complete the reCAPTCHA!"))
-                return
-            if not validate_email(email):
-                st_center_widget(lambda: st.error("Please use a university email (@university.edu)!"))
-                return
-            if username in [doc.id for doc in db.collection('users').get()]:
-                st_center_widget(lambda: st.error("Username already exists. Try logging in!"))
-            elif password != password2:
-                st_center_widget(lambda: st.error("Passwords do not match!"))
-            elif len(password) < 7 or not re.search(r"[A-Z]", password) or not re.search(r"[a-z]", password) or not re.search(r"[0-9]", password):
-                st_center_widget(lambda: st.error("Password must be at least 7 characters long, include uppercase, lowercase, and number."))
-            else:
-                hashed_password = hash_password(password)
-                db.collection('users').document(username).set({
-                    "email": email,
-                    "password": hashed_password,
-                    "role": role.lower()
-                })
-                st_center_widget(lambda: st.success("Sign up successful! You can now Sign In."))
+        if not recaptcha_response:
+            st_center_widget(lambda: st.error("Please complete the reCAPTCHA!"))
+            return
+        if not validate_email(email):
+            st_center_widget(lambda: st.error("Please use a university email!"))
+            return
+        if username in [doc.id for doc in db.collection('users').get()]:
+            st_center_widget(lambda: st.error("Username already exists!"))
+        elif password != password2:
+            st_center_widget(lambda: st.error("Passwords do not match!"))
+        elif len(password) < 7 or not re.search(r"[A-Z]", password) or not re.search(r"[a-z]", password) or not re.search(r"[0-9]", password):
+            st_center_widget(lambda: st.error("Password must include uppercase, lowercase, and number."))
+        else:
+            hashed_password = hash_password(password)
+            db.collection('users').document(username).set({
+                "email": email,
+                "password": hashed_password,
+                "role": role.lower()
+            })
+            st_center_widget(lambda: st.success("Sign up successful! You can now Sign In."))
 
-# ------------------- Data Export for Compliance -------------------
-def data_export_page():
-    if "user" not in st.session_state:
-        st_center_text("Please log in to export your data.", tag="h2")
-        return
-    st_center_text("Export Your Data", tag="h2")
-    if st_center_widget(lambda: st.button("Export My Data")):
-        with st.spinner("Exporting data..."):
-            user_data = export_user_data(st.session_state.user["username"])
-            if user_data:
-                st.json(user_data)  # Display data (in production, provide download link)
-                st_center_widget(lambda: st.success("Data exported successfully!"))
-            else:
-                st_center_widget(lambda: st.error("No data found for this user."))
-
-# ------------------- Main -------------------
+# ---------------- Main ----------------
 if "page" not in st.session_state:
     st.session_state.page = "signin"
 
@@ -227,5 +188,3 @@ elif st.session_state.page == "signup":
     sign_up_page()
 elif st.session_state.page == "forgot_password":
     forgot_password_page()
-elif st.session_state.page == "export_data":
-    data_export_page()
