@@ -30,8 +30,8 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # -------------------- Email Setup --------------------
-EMAIL_ADDRESS = st.secrets["email"]["address"]
-EMAIL_PASSWORD = st.secrets["email"]["app_password"]  # Gmail App Password
+EMAIL_ADDRESS = "zada44919@gmail.com"       # your email
+EMAIL_PASSWORD = "mrgklwomlcwwfxrd"        # your app password
 
 # -------------------- Helper Functions --------------------
 def st_center_text(text, tag="p"):
@@ -55,7 +55,6 @@ def check_password(password, hashed):
     return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
 
 def validate_email(email):
-    # Restrict to university domains
     university_domains = ["university.edu", "uni.ac.uk"]
     return any(email.endswith(f"@{domain}") for domain in university_domains)
 
@@ -67,7 +66,7 @@ def send_password_email(to_email, password):
     msg.set_content(f"Hello,\n\nYour password is: {password}\n\n- The Brain App")
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-            smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+            smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)  # <--- use these variables
             smtp.send_message(msg)
         return True, "Password sent to your email successfully!"
     except Exception as e:
@@ -203,11 +202,4 @@ def data_export_page():
 if "page" not in st.session_state:
     st.session_state.page = "signin"
 
-if st.session_state.page=="signin":
-    sign_in_page()
-elif st.session_state.page=="signup":
-    sign_up_page()
-elif st.session_state.page=="forgot_password":
-    forgot_password_page()
-elif st.session_state.page=="export_data":
-    data_export_page()
+if st.session_state.page=="signin
