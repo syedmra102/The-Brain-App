@@ -30,8 +30,8 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # -------------------- Email Setup --------------------
-EMAIL_ADDRESS = st.secrets["email"]["address"]
-EMAIL_PASSWORD = st.secrets["email"]["password"]
+EMAIL_ADDRESS = "zada44919@gmail.com"
+EMAIL_PASSWORD = "mrgklwomlcwwfxrd"
 
 # -------------------- Helper Functions --------------------
 def st_center_text(text, tag="p"):
