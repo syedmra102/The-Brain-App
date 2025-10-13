@@ -40,4 +40,11 @@ if 'login_btn' in locals() and login_btn:
     else:
         col1, col2, col3 = st.columns([1, 3, 1])
         with col2:
-            st.success(f"✅ Welcome {username}, you logged in successfully!")
+            st.success(f" Welcome {username}, you logged in successfully!")
+st.write('Dont have andd account so please Sign up !!')
+signup_btn=st.button('Sign up')
+
+
+
+
+
