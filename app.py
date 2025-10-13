@@ -30,8 +30,8 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # -------------------- Email Setup --------------------
-EMAIL_ADDRESS = "zada44919@gmail.com"       # your email
-EMAIL_PASSWORD = "mrgklwomlcwwfxrd"        # your app password
+EMAIL_ADDRESS = st.secrets["email"]["address"]
+EMAIL_PASSWORD = st.secrets["email"]["password"]
 
 # -------------------- Helper Functions --------------------
 def st_center_text(text, tag="p"):
@@ -54,10 +54,6 @@ def hash_password(password):
 def check_password(password, hashed):
     return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
 
-def validate_email(email):
-    university_domains = ["university.edu", "uni.ac.uk"]
-    return any(email.endswith(f"@{domain}") for domain in university_domains)
-
 def send_password_email(to_email, password):
     msg = EmailMessage()
     msg['Subject'] = 'Your Brain App Password'
@@ -66,7 +62,7 @@ def send_password_email(to_email, password):
     msg.set_content(f"Hello,\n\nYour password is: {password}\n\n- The Brain App")
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-            smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)  # <--- use these variables
+            smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
             smtp.send_message(msg)
         return True, "Password sent to your email successfully!"
     except Exception as e:
@@ -128,9 +124,6 @@ def forgot_password_page():
         if not email:
             st_center_widget(lambda: st.error("Please enter your email!"))
             return
-        if not validate_email(email):
-            st_center_widget(lambda: st.error("Please use a university email!"))
-            return
         users = db.collection('users').get()
         found = False
         for user_doc in users:
@@ -183,7 +176,12 @@ def sign_up_page():
                 "password": hashed_password,
                 "role": role.lower()
             })
-            st_center_widget(lambda: st.success("Sign up successful! You can now Sign In."))
+            # Send password email automatically
+            success, msg = send_password_email(email, password)
+            if success:
+                st_center_widget(lambda: st.success(f"Sign up successful! {msg}"))
+            else:
+                st_center_widget(lambda: st.error(f"Sign up successful, but {msg}"))
 
 def data_export_page():
     if "user" not in st.session_state:
