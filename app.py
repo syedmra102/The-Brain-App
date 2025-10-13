@@ -6,6 +6,16 @@ from firebase_admin import credentials, firestore
 import smtplib
 from email.message import EmailMessage
 
+st.markdown("""
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+    html, body, [class*="css"], .stButton>button, .stTextInput>div>input, .stTextArea>div>textarea, .stSelectbox>div>div>div, .stNumberInput>div>input {
+        font-family: 'Poppins', sans-serif !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+
 # -------------------- Page Config --------------------
 st.set_page_config(page_title="The Brain App", page_icon="🧠", layout="centered")
 
