@@ -2,3 +2,4 @@ streamlit>=1.26.0
 firebase-admin>=6.2.0
 passlib[bcrypt]>=1.7.4
 google-auth>=2.21.0
+ 
