@@ -5,24 +5,20 @@ import os
 import smtplib
 from email.message import EmailMessage
 
-# ------------------- Configuration -------------------
 st.set_page_config(page_title="The Brain App", layout="centered")
 USER_FILE = "users.json"
 
 # ------------------- Helper Functions -------------------
 def st_center_text(text, tag="p"):
-    """Center text anywhere in the app"""
     st.markdown(f"<{tag} style='text-align:center;'>{text}</{tag}>", unsafe_allow_html=True)
 
 def st_center_form(form_callable, col_ratio=[1,3,1], form_name="form"):
-    """Center a form in the page"""
     col1, col2, col3 = st.columns(col_ratio)
     with col2:
         with st.form(form_name):
             return form_callable()
 
 def st_center_widget(widget_callable, col_ratio=[1,3,1]):
-    """Center any Streamlit widget (button, etc.)"""
     col1, col2, col3 = st.columns(col_ratio)
     with col2:
         return widget_callable()
@@ -38,8 +34,8 @@ def save_users(users):
         json.dump(users, f, indent=4)
 
 def send_password_email(to_email, password):
-    EMAIL_ADDRESS = "your_email@gmail.com"      # Replace with your email
-    EMAIL_PASSWORD = "your_app_password"        # Replace with Gmail app password
+    EMAIL_ADDRESS = "your_email@gmail.com"
+    EMAIL_PASSWORD = "your_app_password"
 
     msg = EmailMessage()
     msg['Subject'] = 'Your Brain App Password'
@@ -55,21 +51,21 @@ def send_password_email(to_email, password):
     except Exception as e:
         st.error(f"Failed to send email: {e}")
 
-# ------------------- App Pages -------------------
+# ------------------- Pages -------------------
 def sign_in_page():
     st_center_text("The Brain App", tag="h1")
     st_center_text("Sign In", tag="h2")
 
-    # Helpful captions outside form
-    st_center_text("Your password must have at least 1 uppercase, 1 lowercase, 1 numeric character and be at least 7 characters long.", tag="p")
-    st_center_text("If you don't have an account, please Sign Up!", tag="p")
-
     def login_form():
         st.text_input("Username", key="signin_username")
         st.text_input("Password", type="password", key="signin_password")
+        st.caption("Password must have 1 uppercase, 1 lowercase, 1 numeric character, and be at least 7 characters long.")
         return st.form_submit_button("Login")
 
     login_btn = st_center_form(login_form, form_name="signin_form")
+
+    # Links under the form
+    st_center_text("If you don't have an account, please Sign Up!", tag="p")
 
     # Forgot password button
     if st_center_widget(lambda: st.button("Forgot Password")):
@@ -104,18 +100,18 @@ def sign_up_page():
     st_center_text("The Brain App", tag="h1")
     st_center_text("Sign Up", tag="h2")
 
-    # Helpful captions outside form
-    st_center_text("Your password must have at least 1 uppercase, 1 lowercase, 1 numeric character and be at least 7 characters long.", tag="p")
-    st_center_text("If you already have an account, please Sign In!", tag="p")
-
     def signup_form():
         st.text_input("Username", key="signup_username")
         st.text_input("Email", key="signup_email")
         st.text_input("Password", type="password", key="signup_password")
+        st.caption("Password must have 1 uppercase, 1 lowercase, 1 numeric character, and be at least 7 characters long.")
         st.text_input("Confirm Password", type="password", key="signup_password2")
         return st.form_submit_button("Register")
 
     signup_btn = st_center_form(signup_form, form_name="signup_form")
+
+    # Links under the form
+    st_center_text("If you already have an account, please Sign In!", tag="p")
 
     # Go to Sign In
     if st_center_widget(lambda: st.button("Go to Sign In")):
