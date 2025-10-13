@@ -7,7 +7,7 @@ st.set_page_config(page_title="Login", layout="centered")
 def st_center_text(text, tag="p"):
     st.markdown(f"<{tag} style='text-align:center;'>{text}</{tag}>", unsafe_allow_html=True)
 
-# Helper function to center widgets
+# Helper function to center widgets 
 def st_center_widget(widget_callable, col_ratio=[1,3,1]):
     col1, col2, col3 = st.columns(col_ratio)
     with col2:
