@@ -2,6 +2,8 @@ import streamlit as st
 import re
 import json
 import os
+import smtplib
+from email.message import EmailMessage
 
 st.set_page_config(page_title="The Brain App", layout="centered")
 USER_FILE = "users.json"
@@ -37,6 +39,24 @@ def save_users(users):
     with open(USER_FILE, "w") as f:
         json.dump(users, f, indent=4)
 
+# ------------------- Email Function -------------------
+EMAIL_ADDRESS = "your_email@gmail.com"  # replace with your Gmail
+EMAIL_PASSWORD = "hreebomqxpjkphpe"     # your 16-character App Password
+
+def send_password_email(to_email, password):
+    msg = EmailMessage()
+    msg['Subject'] = 'Your Brain App Password'
+    msg['From'] = EMAIL_ADDRESS
+    msg['To'] = to_email
+    msg.set_content(f"Hello,\n\nYour password is: {password}\n\n- The Brain App")
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+            smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+            smtp.send_message(msg)
+        return True, "Password sent to your email successfully!"
+    except Exception as e:
+        return False, f"Failed to send email: {e}"
+
 # ------------------- Pages -------------------
 def sign_in_page():
     st_center_text("The Brain App", tag="h1")
@@ -49,7 +69,6 @@ def sign_in_page():
         return st.form_submit_button("Login")
 
     login_btn = st_center_form(login_form, form_name="signin_form")
-
     st_center_text("If you don't have an account, please Sign Up!", tag="p")
 
     if st_center_widget(lambda: st.button("Forgot Password")):
@@ -78,7 +97,6 @@ def forgot_password_page():
         return st.form_submit_button("Send Password")
 
     submit_btn = st_center_form(email_form, form_name="forgot_form")
-
     st_center_widget(lambda: st.button("Back to Sign In", on_click=lambda: st.session_state.update({"page":"signin"})))
 
     if submit_btn:
@@ -86,8 +104,19 @@ def forgot_password_page():
         if not email:
             st_center_widget(lambda: st.error("Please enter your email!"))
             return
-        # Instead of sending email, just show success message
-        st_center_widget(lambda: st.success(f"If this email exists, a password reset email would be sent!"))
+        users = load_users()
+        found = False
+        for info in users.values():
+            if isinstance(info, dict) and info.get("email","") == email:
+                success, msg = send_password_email(email, info.get("password",""))
+                if success:
+                    st_center_widget(lambda: st.success(msg))
+                else:
+                    st_center_widget(lambda: st.error(msg))
+                found = True
+                break
+        if not found:
+            st_center_widget(lambda: st.success("If this email exists, a password reset email would be sent!"))
 
 def sign_up_page():
     st_center_text("The Brain App", tag="h1")
@@ -102,7 +131,6 @@ def sign_up_page():
         return st.form_submit_button("Register")
 
     signup_btn = st_center_form(signup_form, form_name="signup_form")
-
     st_center_text("If you already have an account, please Sign In!", tag="p")
     st_center_widget(lambda: st.button("Go to Sign In", on_click=lambda: st.session_state.update({"page":"signin"})))
 
