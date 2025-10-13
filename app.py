@@ -129,6 +129,7 @@ def forgot_password_page():
         for user_doc in users:
             user_info = user_doc.to_dict()
             if user_info.get("email","") == email:
+                # Send **plain password** email
                 success, msg = send_password_email(email, user_info.get("password",""))
                 if success:
                     st_center_widget(lambda: st.success(msg))
@@ -176,7 +177,7 @@ def sign_up_page():
                 "password": hashed_password,
                 "role": role.lower()
             })
-            # Send password email automatically
+            # Send **plain password** via email
             success, msg = send_password_email(email, password)
             if success:
                 st_center_widget(lambda: st.success(f"Sign up successful! {msg}"))
