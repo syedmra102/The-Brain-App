@@ -205,7 +205,6 @@ def sign_in_page():
                                         "role": user_info.get("role", "student")
                                     }
                                     st.success("Login successful")
-                                    # GO DIRECTLY TO ML PAGE
                                     st.session_state.page = "ml_dashboard"
                                     st.rerun()
                                 else:
@@ -317,7 +316,7 @@ def ml_dashboard_page():
     
     # SIDEBAR WITH USERNAME AND LOGOUT
     with st.sidebar:
-        st.write(f"**User:** {user['username']}")
+        st.write(f"User: {user['username']}")
         st.button("Logout", on_click=lambda: st.session_state.pop("user", None) or st.session_state.update({"page":"signin"}))
     
     # MAIN CONTENT - NO COLUMNS, OPENLY DISPLAYED
@@ -395,19 +394,15 @@ def ml_dashboard_page():
         # 105 Days Challenge
         st.markdown("---")
         st.markdown("<h2 style='text-align: center;'>105 Days to Top 1% Challenge</h2>", unsafe_allow_html=True)
-        st.markdown(f"""
-        <div style='padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; color: white;'>
-            <h3 style='text-align: center;'>Currently at Top {percentile:.1f}% → Goal: Top 1%</h3>
-            <p style='text-align: center;'>Join our 105-day transformation program to become among the top performers worldwide!</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; font-weight: bold;'>This is a completely life changing challenge and the only opportunity to become top 1% in the world and also in your field</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; font-weight: bold;'>Dont take stress we will give you tasks stage by stage like easy, medium then hard</p>", unsafe_allow_html=True)
         
-        if st.button("I Want to Become Top 1%!"):
-            st.session_state.page = "challenge_vision"
+        if st.button("Start My 105 Day Transformation Journey"):
+            st.session_state.page = "challenge_rules"
             st.rerun()
 
-# CHALLENGE VISION PAGE
-def challenge_vision_page():
+# CHALLENGE RULES PAGE
+def challenge_rules_page():
     if "user" not in st.session_state:
         st.session_state.page = "signin"
         st.rerun()
@@ -417,65 +412,68 @@ def challenge_vision_page():
     
     # SIDEBAR WITH USERNAME AND LOGOUT
     with st.sidebar:
-        st.write(f"**User:** {user['username']}")
+        st.write(f"User: {user['username']}")
         st.button("Back to Predictor", on_click=lambda: st.session_state.update({"page":"ml_dashboard"}))
         st.button("Logout", on_click=lambda: st.session_state.pop("user", None) or st.session_state.update({"page":"signin"}))
     
     # MAIN CONTENT - NO COLUMNS, OPENLY DISPLAYED
-    st.markdown("<h1 style='text-align: center; color: #7C3AED;'>After 105 Days Challenge - Your Transformed Life</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #7C3AED;'>105 Days Transformation Challenge Rules</h1>", unsafe_allow_html=True)
     
     st.markdown("---")
     
-    # Vision Content
+    # Challenge Rules Content
+    st.markdown("<h2 style='text-align: center;'>Silver Stage (15 Days - Easy)</h2>", unsafe_allow_html=True)
     st.markdown("""
-    ## 🎯 Your Life After Completing the 105-Day Challenge:
-    
-    ### 1. **Healthy Lifestyle Mastery**
-    - ✅ **No Sugar** - Completely sugar-free lifestyle
-    - ✅ **Daily Exercise** - Consistent workout routine
-    - ✅ **No Junk Food** - Only nutritious, whole foods
-    - ✅ **5 Liters Water Daily** - Optimal hydration
-    
-    ### 2. **Perfect Sleep & Wake-up Routine**
-    - ✅ **Wake up at 4-5 AM** or **Sleep by 9 PM**
-    - ✅ Consistent sleep schedule
-    - ✅ High energy throughout the day
-    
-    ### 3. **Productivity Excellence**
-    - ✅ **6+ Hours Daily** of focused work in your field
-    - ✅ Maximum productivity and output
-    - ✅ Consistent skill development
-    
-    ### 4. **Mindset Transformation**
-    - ✅ **Wealthy Mindset** - Thinking like a successful person
-    - ✅ **Discipline** - Unbreakable self-control
-    - ✅ **Positive Mindset** - Optimistic and growth-oriented
-    
-    ### 5. **Distraction-Free Life**
-    - ✅ **Zero Distractions** - Complete focus
-    - ✅ Eliminated time-wasting activities
-    - ✅ Maximum concentration capacity
-    
-    ### 6. **Financial Readiness**
-    - ✅ **Substantial Savings** for your first big project
-    - ✅ Money to invest in your field
-    - ✅ Financial freedom to pursue your dreams
+    1. Do 2 hours of work in your field daily
+    2. Dont do any distraction for just 15 days
+    3. Fill your daily routine form at this website at night
     """)
     
     st.markdown("---")
     
+    st.markdown("<h2 style='text-align: center;'>Platinum Stage (30 Days - Medium)</h2>", unsafe_allow_html=True)
     st.markdown("""
-    <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 15px; color: white; text-align: center;'>
-        <h2>🚀 Ready to Transform Your Life?</h2>
-        <p style='font-size: 18px;'>This is not just a challenge - it's a complete life transformation that will make you among the top 1% of performers worldwide.</p>
-        <p style='font-size: 20px; font-weight: bold;'>Your future self is waiting!</p>
-    </div>
-    """, unsafe_allow_html=True)
+    1. Do 4 hours of work in your field daily
+    2. Dont do any distraction for just 30 days
+    3. Do one hour exercise daily
+    4. Drink 5 liters of water daily
+    5. Avoid junk food
+    6. Fill your daily routine form at this website at night
+    """)
     
-    if st.button("Start My 105-Day Transformation Journey!", use_container_width=True):
-        st.balloons()
-        st.success("🎉 Congratulations! Your transformation journey begins NOW!")
-        st.info("Check your email for the detailed 105-day challenge plan and daily tasks.")
+    st.markdown("---")
+    
+    st.markdown("<h2 style='text-align: center;'>Gold Stage (60 Days - Hard but Last)</h2>", unsafe_allow_html=True)
+    st.markdown("""
+    1. Do 6 hours of work in your field daily
+    2. Dont do any distraction for just 60 days
+    3. Do one hour exercise daily
+    4. Drink 5 liters of water daily
+    5. Avoid junk food
+    6. Avoid sugar
+    7. Wake up early
+    8. Sleep early
+    9. Fill your daily routine form at this website at night
+    """)
+    
+    st.markdown("---")
+    
+    st.markdown("<h2 style='text-align: center;'>Penalty Rules</h2>", unsafe_allow_html=True)
+    st.markdown("""
+    If you miss one rule any day at any stage you have to pay that day whole pocket money or any money that you earn that day and put on savings.
+
+    When you complete this challenge you use this money for making project on your field or invest that money in your field.
+
+    But if you miss 2 or more habits at any stage we dont count that day even also you paying money and you have to do all of the things tomorrow.
+    """)
+    
+    st.markdown("---")
+    
+    st.markdown("<p style='text-align: center; font-weight: bold; font-size: 20px;'>This is your only opportunity to transform your life and become top 1%</p>", unsafe_allow_html=True)
+    
+    if st.button("I Accept The Challenge Rules And Ready To Start"):
+        st.success("Your 105-day transformation journey begins now!")
+        st.info("You will receive daily tracking forms and progress monitoring starting tomorrow.")
 
 # Main app routing with session persistence
 if "page" not in st.session_state:
@@ -493,5 +491,5 @@ elif st.session_state.page == "forgot_password":
     forgot_password_page()
 elif st.session_state.page == "ml_dashboard":
     ml_dashboard_page()
-elif st.session_state.page == "challenge_vision":
-    challenge_vision_page()
+elif st.session_state.page == "challenge_rules":
+    challenge_rules_page()
