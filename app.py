@@ -15,106 +15,6 @@ from datetime import datetime, timedelta
 # Page config
 st.set_page_config(page_title="The Brain App", page_icon="🧠", layout="centered")
 
-# Initialize session state for persistence
-if 'user' not in st.session_state or st.session_state.user is None:
-    # Try to get user from query params (persistent login)
-    query_params = st.query_params
-    if 'username' in query_params and 'logged_in' in query_params and query_params['logged_in'] == "true":
-        username = query_params['username']
-        # Verify user still exists in database
-        try:
-            user_doc = db.collection('users').document(username).get()
-            if user_doc.exists:
-                user_info = user_doc.to_dict()
-                st.session_state.user = {
-                    "username": username,
-                    "email": user_info.get("email", ""),
-                    "role": user_info.get("role", "student")
-                }
-                # Load user profile
-                profile_doc = db.collection('user_profiles').document(username).get()
-                if profile_doc.exists:
-                    st.session_state.user_profile = profile_doc.to_dict()
-                
-                # Load challenge data
-                st.session_state.challenge_data = load_challenge_data(username)
-                
-                # Set appropriate page
-                if st.session_state.user_profile:
-                    st.session_state.page = "daily_challenge"
-                else:
-                    st.session_state.page = "ml_dashboard"
-            else:
-                st.session_state.user = None
-                st.session_state.page = "signin"
-                clear_persistent_login()  # Clear invalid query params
-        except:
-            st.session_state.user = None
-            st.session_state.page = "signin"
-            clear_persistent_login()
-    else:
-        st.session_state.user = None
-        st.session_state.page = "signin"
-
-if 'page' not in st.session_state:
-    st.session_state.page = "signin"
-if 'prediction_results' not in st.session_state:
-    st.session_state.prediction_results = None
-if 'user_profile' not in st.session_state:
-    st.session_state.user_profile = {}
-if 'challenge_data' not in st.session_state:
-    st.session_state.challenge_data = {}
-if 'show_stage_completion' not in st.session_state:
-    st.session_state.show_stage_completion = False
-if 'form_submitted' not in st.session_state:
-    st.session_state.form_submitted = False
-if 'show_motivational_task' not in st.session_state:
-    st.session_state.show_motivational_task = False
-
-# Firebase setup
-try:
-    firebase_secrets = st.secrets["firebase"]
-    
-    if not firebase_admin._apps:
-        cred = credentials.Certificate({
-            "type": firebase_secrets["type"],
-            "project_id": firebase_secrets["project_id"],
-            "private_key_id": firebase_secrets["private_key_id"],
-            "private_key": firebase_secrets["private_key"].replace("\\n", "\n"),
-            "client_email": firebase_secrets["client_email"],
-            "client_id": firebase_secrets["client_id"],
-            "auth_uri": firebase_secrets["auth_uri"],
-            "token_uri": firebase_secrets["token_uri"],
-            "auth_provider_x509_cert_url": firebase_secrets["auth_provider_x509_cert_url"],
-            "client_x509_cert_url": firebase_secrets["client_x509_cert_url"]
-        })
-        firebase_admin.initialize_app(cred)
-    
-    db = firestore.client()
-    
-except Exception as e:
-    st.error("System temporarily unavailable")
-    st.stop()
-
-# Load ML Model from model.pkl
-@st.cache_resource
-def load_ml_model():
-    try:
-        with open('model.pkl', 'rb') as f:
-            model_data = pickle.load(f)
-        return model_data
-    except FileNotFoundError:
-        st.error("ML model not found. Please upload model.pkl to your GitHub repository.")
-        return None
-
-model_data = load_ml_model()
-if model_data is None:
-    st.stop()
-
-# Email setup
-EMAIL_ADDRESS = "zada44919@gmail.com"
-EMAIL_PASSWORD = "mrgklwomlcwwfxrd"
-
 # Helper functions
 def hash_password(password):
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -178,6 +78,106 @@ def set_persistent_login(username):
 def clear_persistent_login():
     """Clear persistent login"""
     st.query_params.clear()
+
+# Firebase setup
+try:
+    firebase_secrets = st.secrets["firebase"]
+    
+    if not firebase_admin._apps:
+        cred = credentials.Certificate({
+            "type": firebase_secrets["type"],
+            "project_id": firebase_secrets["project_id"],
+            "private_key_id": firebase_secrets["private_key_id"],
+            "private_key": firebase_secrets["private_key"].replace("\\n", "\n"),
+            "client_email": firebase_secrets["client_email"],
+            "client_id": firebase_secrets["client_id"],
+            "auth_uri": firebase_secrets["auth_uri"],
+            "token_uri": firebase_secrets["token_uri"],
+            "auth_provider_x509_cert_url": firebase_secrets["auth_provider_x509_cert_url"],
+            "client_x509_cert_url": firebase_secrets["client_x509_cert_url"]
+        })
+        firebase_admin.initialize_app(cred)
+    
+    db = firestore.client()
+    
+except Exception as e:
+    st.error("System temporarily unavailable")
+    st.stop()
+
+# Load ML Model from model.pkl
+@st.cache_resource
+def load_ml_model():
+    try:
+        with open('model.pkl', 'rb') as f:
+            model_data = pickle.load(f)
+        return model_data
+    except FileNotFoundError:
+        st.error("ML model not found. Please upload model.pkl to your GitHub repository.")
+        return None
+
+model_data = load_ml_model()
+if model_data is None:
+    st.stop()
+
+# Email setup
+EMAIL_ADDRESS = "zada44919@gmail.com"
+EMAIL_PASSWORD = "mrgklwomlcwwfxrd"
+
+# Initialize session state for persistence
+if 'user' not in st.session_state or st.session_state.user is None:
+    # Try to get user from query params (persistent login)
+    query_params = st.query_params
+    if 'username' in query_params and 'logged_in' in query_params and query_params['logged_in'] == "true":
+        username = query_params['username']
+        # Verify user still exists in database
+        try:
+            user_doc = db.collection('users').document(username).get()
+            if user_doc.exists:
+                user_info = user_doc.to_dict()
+                st.session_state.user = {
+                    "username": username,
+                    "email": user_info.get("email", ""),
+                    "role": user_info.get("role", "student")
+                }
+                # Load user profile
+                profile_doc = db.collection('user_profiles').document(username).get()
+                if profile_doc.exists:
+                    st.session_state.user_profile = profile_doc.to_dict()
+                
+                # Load challenge data
+                st.session_state.challenge_data = load_challenge_data(username)
+                
+                # Set appropriate page
+                if st.session_state.user_profile:
+                    st.session_state.page = "daily_challenge"
+                else:
+                    st.session_state.page = "ml_dashboard"
+            else:
+                st.session_state.user = None
+                st.session_state.page = "signin"
+                clear_persistent_login()  # Clear invalid query params
+        except:
+            st.session_state.user = None
+            st.session_state.page = "signin"
+            clear_persistent_login()
+    else:
+        st.session_state.user = None
+        st.session_state.page = "signin"
+
+if 'page' not in st.session_state:
+    st.session_state.page = "signin"
+if 'prediction_results' not in st.session_state:
+    st.session_state.prediction_results = None
+if 'user_profile' not in st.session_state:
+    st.session_state.user_profile = {}
+if 'challenge_data' not in st.session_state:
+    st.session_state.challenge_data = {}
+if 'show_stage_completion' not in st.session_state:
+    st.session_state.show_stage_completion = False
+if 'form_submitted' not in st.session_state:
+    st.session_state.form_submitted = False
+if 'show_motivational_task' not in st.session_state:
+    st.session_state.show_motivational_task = False
 
 # ML Prediction Function
 def predict_performance(hours, distraction_count, habits):
