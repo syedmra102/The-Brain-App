@@ -28,21 +28,22 @@ def initialize_session_state():
         st.session_state.form_submitted = False
         st.session_state.submission_message = None
         st.session_state.submission_type = None
-        # NEW: Add session persistence flag
         st.session_state.session_persisted = False
 # Initialize session state
 initialize_session_state()
-# FIX: PERSISTENCE CHECK - Modified to restore session on refresh
+# FIX: PERSISTENCE CHECK - Modified to handle missing session_persisted
+if 'session_persisted' not in st.session_state:
+    st.session_state.session_persisted = False
+
 if not st.session_state.session_persisted:
     if st.session_state.logged_in and st.session_state.user is not None:
         # User is logged in, ensure they're not on auth pages
         if st.session_state.page in ["signin", "signup", "forgot_password"]:
             st.session_state.page = "ml_dashboard"
-            # NEW: Mark session as persisted
             st.session_state.session_persisted = True
             st.rerun()
     else:
-        # NEW: Check if user was previously logged in by attempting to restore session
+        # Check if user was previously logged in by attempting to restore session
         try:
             username = st.session_state.get('user', {}).get('username')
             if username:
@@ -488,7 +489,6 @@ def sign_in_page():
                                     # FIX: SET LOGIN STATE AND PAGE
                                     st.session_state.logged_in = True
                                     st.session_state.page = "ml_dashboard"
-                                    # NEW: Mark session as persisted
                                     st.session_state.session_persisted = True
                                    
                                     st.success("Login successful!")
