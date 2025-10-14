@@ -123,7 +123,7 @@ if model_data is None:
 EMAIL_ADDRESS = "zada44919@gmail.com"
 EMAIL_PASSWORD = "mrgklwomlcwwfxrd"
 
-# Initialize session state for persistence
+# Initialize session state
 if 'user' not in st.session_state:
     st.session_state.user = None
 if 'page' not in st.session_state:
@@ -141,7 +141,11 @@ if 'form_submitted' not in st.session_state:
 if 'show_motivational_task' not in st.session_state:
     st.session_state.show_motivational_task = False
 
-# Check for persistent login via query params only if user is not already logged in
+# Debug: Log session state and query params
+st.write(f"Debug: Session user: {st.session_state.user}")
+st.write(f"Debug: Query params: {dict(st.query_params)}")
+
+# Check for persistent login only if user is not already in session state
 if st.session_state.user is None:
     query_params = st.query_params
     if 'username' in query_params and 'logged_in' in query_params and query_params['logged_in'] == "true":
@@ -155,20 +159,25 @@ if st.session_state.user is None:
                     "email": user_info.get("email", ""),
                     "role": user_info.get("role", "student")
                 }
-                # Load user profile
+                st.write(f"Debug: Restored user {username} from query params")
                 profile_doc = db.collection('user_profiles').document(username).get()
                 if profile_doc.exists:
                     st.session_state.user_profile = profile_doc.to_dict()
-                # Load challenge data
                 st.session_state.challenge_data = load_challenge_data(username)
-                # Set appropriate page
                 st.session_state.page = "daily_challenge" if st.session_state.user_profile else "ml_dashboard"
+                set_persistent_login(username)  # Ensure query params are set
             else:
+                st.write("Debug: User not found in database, redirecting to signin")
                 st.session_state.page = "signin"
                 clear_persistent_login()
-        except:
+        except Exception as e:
+            st.write(f"Debug: Error restoring session: {str(e)}")
             st.session_state.page = "signin"
             clear_persistent_login()
+else:
+    # Ensure query params are in sync with session state
+    set_persistent_login(st.session_state.user['username'])
+    st.write(f"Debug: User {st.session_state.user['username']} already in session, query params synced")
 
 # ML Prediction Function
 def predict_performance(hours, distraction_count, habits):
@@ -267,7 +276,6 @@ def load_challenge_data(username):
         if doc.exists:
             return doc.to_dict()
         else:
-            # Initialize challenge data
             initial_data = {
                 'current_stage': '',
                 'start_date': datetime.now(),
@@ -356,6 +364,7 @@ def show_sidebar_content():
             
             st.markdown("---")
             if st.button("Logout", use_container_width=True):
+                st.write("Debug: Logging out user")
                 st.session_state.user = None
                 st.session_state.user_profile = {}
                 st.session_state.challenge_data = {}
@@ -408,6 +417,7 @@ def sign_in_page():
                                         st.session_state.user_profile = {}
                                     st.session_state.challenge_data = load_challenge_data(username_clean)
                                     set_persistent_login(username_clean)
+                                    st.write(f"Debug: Login successful for {username_clean}, setting session and query params")
                                     st.success("Login successful")
                                     st.session_state.page = "daily_challenge" if st.session_state.user_profile else "ml_dashboard"
                                     st.rerun()
@@ -417,6 +427,7 @@ def sign_in_page():
                                 st.error("Invalid username or password")
                         except Exception as e:
                             st.error("Login failed. Please try again.")
+                            st.write(f"Debug: Login error: {str(e)}")
         col1, col2 = st.columns(2)
         with col1:
             st.button("Forgot Password", use_container_width=True, on_click=lambda: st.session_state.update({"page":"forgot_password"}))
@@ -502,11 +513,13 @@ def sign_up_page():
                                     st.rerun()
                         except Exception as e:
                             st.error("Registration failed. Please try again.")
+                            st.write(f"Debug: Signup error: {str(e)}")
         st.button("Back to Sign In", use_container_width=True, on_click=lambda: st.session_state.update({"page":"signin"}))
 
 # ML PAGE
 def ml_dashboard_page():
     if "user" not in st.session_state or st.session_state.user is None:
+        st.write("Debug: No user in session, redirecting to signin")
         st.session_state.page = "signin"
         clear_persistent_login()
         st.rerun()
@@ -603,6 +616,7 @@ def ml_dashboard_page():
 # LIFE VISION PAGE
 def life_vision_page():
     if "user" not in st.session_state or st.session_state.user is None:
+        st.write("Debug: No user in session, redirecting to signin")
         st.session_state.page = "signin"
         clear_persistent_login()
         st.rerun()
@@ -668,6 +682,7 @@ def life_vision_page():
 # CHALLENGE RULES PAGE
 def challenge_rules_page():
     if "user" not in st.session_state or st.session_state.user is None:
+        st.write("Debug: No user in session, redirecting to signin")
         st.session_state.page = "signin"
         clear_persistent_login()
         st.rerun()
@@ -737,6 +752,7 @@ def challenge_rules_page():
 # SETUP PROFILE PAGE
 def setup_profile_page():
     if "user" not in st.session_state or st.session_state.user is None:
+        st.write("Debug: No user in session, redirecting to signin")
         st.session_state.page = "signin"
         clear_persistent_login()
         st.rerun()
@@ -821,6 +837,7 @@ def setup_profile_page():
                         db.collection('user_profiles').document(st.session_state.user['username']).set(profile_data)
                         save_challenge_data(st.session_state.user['username'], challenge_data)
                         set_persistent_login(st.session_state.user['username'])
+                        st.write(f"Debug: Profile saved for {st.session_state.user['username']}")
                         st.success("Profile saved successfully!")
                         st.info("Your profile is now visible in the sidebar. Your challenge begins now!")
                         time.sleep(2)
@@ -828,6 +845,7 @@ def setup_profile_page():
                         st.rerun()
                     except Exception as e:
                         st.error("Failed to save profile. Please try again.")
+                        st.write(f"Debug: Profile save error: {str(e)}")
     
     st.markdown("---")
     if st.button("Back to Challenge Rules", use_container_width=True):
@@ -888,6 +906,7 @@ def stage_completion_popup():
 # DAILY CHALLENGE PAGE
 def daily_challenge_page():
     if "user" not in st.session_state or st.session_state.user is None:
+        st.write("Debug: No user in session, redirecting to signin")
         st.session_state.page = "signin"
         clear_persistent_login()
         st.rerun()
