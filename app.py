@@ -12,6 +12,44 @@ import matplotlib.pyplot as plt
 import pickle
 from datetime import datetime, timedelta
 
+# --- GLOBAL CONFIGURATION AND CONSTANTS ---
+# Define Stage Rules for easier check-in logic and profile setup
+STAGE_RULES = {
+    "Silver (15 Days - Easy)": {
+        "days": 15,
+        "min_hours": 2.0,
+        "max_distractions": 0,
+        "min_pushups": 0,
+        "water_required": False,
+        "junk_food_avoided": False,
+        "sugar_avoided": False,
+        "wakeup_early": False,
+        "sleep_early": False
+    },
+    "Platinum (30 Days - Medium)": {
+        "days": 30,
+        "min_hours": 4.0,
+        "max_distractions": 0,
+        "min_pushups": 30,
+        "water_required": True,
+        "junk_food_avoided": True,
+        "sugar_avoided": False,
+        "wakeup_early": False,
+        "sleep_early": False
+    },
+    "Gold (60 Days - Hard)": {
+        "days": 60,
+        "min_hours": 6.0,
+        "max_distractions": 0,
+        "min_pushups": 50, # Using the highest number from the rule list
+        "water_required": True,
+        "junk_food_avoided": True,
+        "sugar_avoided": True,
+        "wakeup_early": True, # Before 7 AM
+        "sleep_early": True # Before 11 PM
+    }
+}
+
 # Page config
 st.set_page_config(page_title="The Brain App", page_icon="🧠", layout="centered")
 
@@ -201,7 +239,7 @@ def predict_performance(hours, distraction_count, habits):
         return prediction
         
     except Exception as e:
-        st.error("Prediction error occurred")
+        # st.error("Prediction error occurred")
         return 50.0
 
 def calculate_feature_percentiles(hours, distractions, habit_inputs):
@@ -226,67 +264,63 @@ def calculate_feature_percentiles(hours, distractions, habit_inputs):
     for col, friendly_name in habit_mapping.items():
         habit_value = habit_inputs[col]
         if habit_value == 1:
+            # If habit is 'Yes' (1), compare to others who also said 'Yes'
             habit_percentile = (df[col] == 1).mean() * 100
             feature_percentiles[friendly_name] = max(1, 100 - habit_percentile)
         else:
+            # If habit is 'No' (0), use the average percentage who said 'No' as a low baseline
             habit_percentile = (df[col] == 0).mean() * 100
             feature_percentiles[friendly_name] = max(1, habit_percentile)
     
     return feature_percentiles
 
 # Challenge Functions
+# Note: get_stage_days and get_stage_tasks are now redundant, but kept for legacy/rule display.
 def get_stage_days(stage):
-    stage_days = {
-        "Silver (15 Days - Easy)": 15,
-        "Platinum (30 Days - Medium)": 30,
-        "Gold (60 Days - Hard)": 60
-    }
-    return stage_days.get(stage, 15)
+    return STAGE_RULES.get(stage, {}).get("days", 15)
 
 def get_stage_tasks(stage):
-    tasks = {
-        "Silver (15 Days - Easy)": [
-            "Do 2 hours of work in your field",
-            "No distractions today",
-            "Fill daily routine form"
-        ],
-        "Platinum (30 Days - Medium)": [
-            "Do 4 hours of work in your field",
-            "No distractions today", 
-            "Do 30 pushups exercise",
-            "Drink 5 liters of water",
-            "Avoid junk food",
-            "Fill daily routine form"
-        ],
-        "Gold (60 Days - Hard)": [
-            "Do 6 hours of work in your field",
-            "No distractions today",
-            "Do 30 pushups exercise",
-            "Do 50 pushups exercise", 
-            "Drink 5 liters of water",
-            "Avoid junk food",
-            "Avoid sugar",
-            "Wake up before 7 AM",
-            "Sleep before 11 PM",
-            "Fill daily routine form"
-        ]
-    }
-    return tasks.get(stage, [])
+    # This function is now used only for displaying text in the challenge page
+    tasks = []
+    rules = STAGE_RULES.get(stage)
+    if not rules: return []
+
+    tasks.append(f"Do {rules['min_hours']:.1f} hours of work in your field")
+    tasks.append("Achieve zero distractions today")
+    if rules['min_pushups'] > 0:
+        tasks.append(f"Do {rules['min_pushups']} pushups exercise")
+    if rules['water_required']:
+        tasks.append("Drink 5 liters of water")
+    if rules['junk_food_avoided']:
+        tasks.append("Avoid junk food")
+    if rules['sugar_avoided']:
+        tasks.append("Avoid sugar")
+    if rules['wakeup_early']:
+        tasks.append("Wake up before 7 AM")
+    if rules['sleep_early']:
+        tasks.append("Sleep before 11 PM")
+    tasks.append("Fill daily routine form (Check-in)")
+    
+    return tasks
 
 def load_challenge_data(username):
     try:
         doc_ref = db.collection('challenge_progress').document(username)
         doc = doc_ref.get()
         if doc.exists:
-            return doc.to_dict()
+            data = doc.to_dict()
+            # Convert Firestore Timestamps/dates back to datetime objects if necessary for internal logic
+            data['start_date'] = data['start_date'] if isinstance(data['start_date'], datetime) else data['start_date'].to_pydatetime()
+            data['daily_checkins'] = {k: {key: val.to_pydatetime() if hasattr(val, 'to_pydatetime') else val for key, val in v.items()} for k, v in data.get('daily_checkins', {}).items()}
+            return data
         else:
             # Initialize challenge data
             initial_data = {
-                'current_stage': '',
+                'current_stage': '', # Will be set during setup_profile
                 'start_date': datetime.now(),
                 'current_day': 1,
                 'streak_days': 0,
-                'total_savings': 0,
+                'total_savings': 0.0, # Use float for money
                 'completed_days': 0,
                 'penalty_history': [],
                 'daily_checkins': {},
@@ -294,15 +328,18 @@ def load_challenge_data(username):
             }
             return initial_data
     except Exception as e:
-        st.error("Error loading challenge data")
+        st.error(f"Error loading challenge data: {e}")
         return {}
 
 def save_challenge_data(username, data):
     try:
-        db.collection('challenge_progress').document(username).set(data)
+        # Convert datetime objects to Firestore-compatible format before saving
+        data_to_save = data.copy()
+        # Keep datetimes, Firestore handles them correctly.
+        db.collection('challenge_progress').document(username).set(data_to_save)
         return True
     except Exception as e:
-        st.error("Error saving challenge data")
+        st.error(f"Error saving challenge data: {e}")
         return False
 
 # Universal Sidebar Navigation and Profile Display
@@ -324,15 +361,15 @@ def show_sidebar_content():
             if st.button("Challenge Rules", use_container_width=True):
                 st.session_state.page = "challenge_rules"
                 st.rerun()
-            
-            # Only show Daily Challenge if profile exists
-            if st.session_state.user_profile:
+                
+            # Only show Daily Challenge if profile exists AND a stage is selected
+            if st.session_state.user_profile and st.session_state.user_profile.get('stage'):
                 if st.button("Daily Challenge", use_container_width=True):
                     st.session_state.page = "daily_challenge"
                     st.rerun()
             
-            # Only show Setup Profile if no profile exists
-            if not st.session_state.user_profile:
+            # Only show Setup Profile if no profile exists OR stage is missing
+            if not st.session_state.user_profile or not st.session_state.user_profile.get('stage'):
                 if st.button("Setup Profile", use_container_width=True):
                     st.session_state.page = "setup_profile"
                     st.rerun()
@@ -349,7 +386,9 @@ def show_sidebar_content():
                 st.markdown("### My Goals")
                 st.write(f"**Field:** {st.session_state.user_profile.get('field', 'Not set')}")
                 st.write(f"**I want to become:** {st.session_state.user_profile.get('goal', 'Not set')}")
-                st.write(f"**Current Stage:** {st.session_state.user_profile.get('stage', 'Not set')}")
+                
+                current_stage = st.session_state.user_profile.get('stage', 'Not set')
+                st.write(f"**Current Stage:** **{current_stage}**")
                 
                 distractions = st.session_state.user_profile.get('distractions', [])
                 if distractions:
@@ -361,17 +400,18 @@ def show_sidebar_content():
                 if st.session_state.challenge_data:
                     st.markdown("---")
                     st.markdown("### My Progress")
+                    st.write(f"**Challenge Start:** {st.session_state.challenge_data.get('start_date', datetime.now()).strftime('%Y-%m-%d')}")
                     st.write(f"**Current Day:** {st.session_state.challenge_data.get('current_day', 1)}")
                     st.write(f"**Streak Days:** {st.session_state.challenge_data.get('streak_days', 0)}")
-                    st.write(f"**Total Savings:** ${st.session_state.challenge_data.get('total_savings', 0)}")
-                    st.write(f"**Completed Days:** {st.session_state.challenge_data.get('completed_days', 0)}")
+                    st.write(f"**Completed Days:** {st.session_state.challenge_data.get('completed_days', 0)} / {STAGE_RULES.get(current_stage, {}).get('days', '?')}")
+                    st.markdown(f"**Total Savings (Penalty Fund):** <span style='color:#10B981; font-weight:bold;'>${st.session_state.challenge_data.get('total_savings', 0.0):.2f}</span>", unsafe_allow_html=True)
                 
                 # Show badges if any
                 if st.session_state.challenge_data.get('badges'):
                     st.markdown("---")
                     st.markdown("### My Badges")
                     for badge in st.session_state.challenge_data['badges']:
-                        st.success(f"{badge}")
+                        st.success(f"🏅 {badge}")
             
             st.markdown("---")
             if st.button("Logout", use_container_width=True):
@@ -431,7 +471,7 @@ def sign_in_page():
                                     st.success("Login successful")
                                     
                                     # Redirect to appropriate page based on profile completion
-                                    if st.session_state.user_profile:
+                                    if st.session_state.user_profile and st.session_state.user_profile.get('stage'):
                                         st.session_state.page = "daily_challenge"
                                     else:
                                         st.session_state.page = "ml_dashboard"
@@ -573,12 +613,26 @@ def ml_dashboard_page():
                 time.sleep(1)
                 
                 habits = {}
+                # The model requires encoded categorical columns
+                # The ML model expects 'avoid_sugar', 'avoid_junk_food', 'drink_5L_water', 'sleep_early', 'exercise_daily', 'wakeup_early'
+                
+                # Map selectbox values to model column names and ensure encoding is 1 or 0
+                habit_inputs = {
+                    'avoid_sugar': 1 if avoid_sugar == "Yes" else 0,
+                    'avoid_junk_food': 1 if avoid_junk_food == "Yes" else 0,
+                    'drink_5L_water': 1 if drink_5L_water == "Yes" else 0,
+                    'sleep_early': 1 if sleep_early == "Yes" else 0,
+                    'exercise_daily': 1 if exercise_daily == "Yes" else 0,
+                    'wakeup_early': 1 if wakeup_early == "Yes" else 0
+                }
+                
+                # Use the original model encoder which maps 'Yes' to 1 and 'No' to 0 for consistency
                 for col in model_data['categorical_columns']:
-                    value = locals()[col]
+                    value = "Yes" if habit_inputs[col] == 1 else "No"
                     habits[col] = model_data['encoders'][col].transform([value])[0]
                 
                 percentile = predict_performance(hours, distraction_count, habits)
-                feature_percentiles = calculate_feature_percentiles(hours, distraction_count, habits)
+                feature_percentiles = calculate_feature_percentiles(hours, distraction_count, habit_inputs)
                 
                 st.session_state.prediction_results = {
                     'percentile': percentile,
@@ -609,7 +663,7 @@ def ml_dashboard_page():
         for bar, percentile_val in zip(bars, percentiles):
             height = bar.get_height()
             ax.text(bar.get_x() + bar.get_width()/2., height + 1,
-                   f'Top {percentile_val:.1f}%', ha='center', va='bottom', fontweight='bold', fontsize=9)
+                    f'Top {percentile_val:.1f}%', ha='center', va='bottom', fontweight='bold', fontsize=9)
         
         ax.grid(True, alpha=0.3, color='#1E40AF')
         ax.set_facecolor('#F8FAFC')
@@ -725,8 +779,8 @@ def challenge_rules_page():
     # Challenge Rules Content
     st.markdown("<h2 style='text-align: center; color: #7C3AED;'>Silver Stage (15 Days - Easy)</h2>", unsafe_allow_html=True)
     st.markdown("""
-    1. Do 2 hours of work in your field daily
-    2. Dont do any distraction for just 15 days
+    1. Do **2 hours** of work in your field daily
+    2. **Zero distractions** today (no unnecessary phone/social media usage)
     3. Fill your daily routine form at this website at night
     """)
     
@@ -734,11 +788,11 @@ def challenge_rules_page():
     
     st.markdown("<h2 style='text-align: center; color: #7C3AED;'>Platinum Stage (30 Days - Medium)</h2>", unsafe_allow_html=True)
     st.markdown("""
-    1. Do 4 hours of work in your field daily
-    2. Dont do any distraction for just 30 days
-    3. Do 30 pushups exercise daily
-    4. Drink 5 liters of water daily
-    5. Avoid junk food
+    1. Do **4 hours** of work in your field daily
+    2. **Zero distractions** today
+    3. Do **30 pushups** exercise daily
+    4. Drink **5 liters** of water daily
+    5. **Avoid junk food**
     6. Fill your daily routine form at this website at night
     """)
     
@@ -746,27 +800,24 @@ def challenge_rules_page():
     
     st.markdown("<h2 style='text-align: center; color: #7C3AED;'>Gold Stage (60 Days - Hard but Last)</h2>", unsafe_allow_html=True)
     st.markdown("""
-    1. Do 6 hours of work in your field daily
-    2. Dont do any distraction for just 60 days
-    3. Do 30 pushups exercise daily
-    4. Do 50 pushups exercise daily
-    5. Drink 5 liters of water daily
-    6. Avoid junk food
-    7. Avoid sugar
-    8. Wake up before 7 AM
-    9. Sleep before 11 PM
-    10. Fill your daily routine form at this website at night
+    1. Do **6 hours** of work in your field daily
+    2. **Zero distractions** today
+    3. Do **50 pushups** exercise daily (combines and supersedes the 30 pushups rule)
+    4. Drink **5 liters** of water daily
+    5. **Avoid junk food**
+    6. **Avoid sugar**
+    7. **Wake up before 7 AM**
+    8. **Sleep before 11 PM**
+    9. Fill your daily routine form at this website at night
     """)
     
     st.markdown("---")
     
     st.markdown("<h2 style='text-align: center; color: #7C3AED;'>Penalty Rules</h2>", unsafe_allow_html=True)
     st.markdown("""
-    If you miss one rule any day at any stage you have to pay that day whole pocket money or any money that you earn that day and put on savings.
+    If you miss **one rule** any day at any stage you have to pay that day whole pocket money or any money that you earn that day and put on savings. This penalty **redeems** the day, and your streak continues.
 
-    When you complete this challenge you use this money for making project on your field or invest that money in your field.
-
-    But if you miss 2 or more habits at any stage we dont count that day even also you paying money and you have to do all of the things tomorrow.
+    But if you miss **2 or more habits** at any stage, the day **does not count** (current day stalled), you still pay the penalty, and your **streak is reset to 0**. You must do all the things tomorrow.
     """)
     
     st.markdown("---")
@@ -777,9 +828,14 @@ def challenge_rules_page():
     st.markdown("---")
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if st.button("Back to Life Vision", use_container_width=True):
-            st.session_state.page = "life_vision"
+        if st.button("Start My Transformation Now!", use_container_width=True, type="primary"):
+            if st.session_state.user_profile and st.session_state.user_profile.get('stage'):
+                st.session_state.page = "daily_challenge"
+            else:
+                st.session_state.page = "setup_profile"
             st.rerun()
+
+# --- NEW PAGE LOGIC ---
 
 # SETUP PROFILE PAGE
 def setup_profile_page():
@@ -787,398 +843,313 @@ def setup_profile_page():
         st.session_state.page = "signin"
         st.rerun()
         return
-    
-    # Show sidebar navigation and profile
+
     show_sidebar_content()
-    
-    # MAIN CONTENT
-    st.markdown("<h1 style='text-align: center; color: #7C3AED;'>Setup Your Challenge Profile</h1>", unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    with st.form("profile_form"):
-        st.subheader("Your Field & Goals")
+
+    st.markdown("<h1 style='text-align: center; color: #7C3AED;'>Start Your 105-Day Transformation</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center;'>Complete your profile to begin the challenge.</h3>", unsafe_allow_html=True)
+
+    username = st.session_state.user['username']
+
+    # Use the form to collect profile and starting challenge data
+    with st.form("profile_setup_form"):
+        st.subheader("Your Vision")
+        field = st.text_input("Your Field of Study/Work (e.g., Software Engineering, Finance)", value=st.session_state.user_profile.get('field', ''))
+        goal = st.text_area("Your 105-Day Transformation Goal (e.g., Become a Top 1% Developer)", value=st.session_state.user_profile.get('goal', ''))
+
+        st.subheader("Your Challenge Settings")
         
-        field = st.selectbox("Select Your Field", [
-            "Programming & Technology",
-            "Engineering", 
-            "Medical & Healthcare",
-            "Business & Entrepreneurship",
-            "Science & Research",
-            "Arts & Creative",
-            "Sports & Fitness",
-            "Education & Teaching",
-            "Finance & Investment",
-            "Other"
-        ])
-        
-        goal = st.text_input("What do you want to become? (e.g., Neurosurgeon, AI Engineer, Entrepreneur)")
-        
-        st.subheader("Your Current Distractions")
-        distractions = st.multiselect("Select distractions you currently face", [
-            "Social Media Scrolling",
-            "YouTube/Netflix Binging", 
-            "Video Games",
-            "Masturbation/Porn",
-            "Procrastination",
-            "Phone Addiction",
-            "Unproductive Socializing",
-            "Overthinking",
-            "Substance Use",
-            "Other"
-        ])
-        
-        st.subheader("Challenge Stage Selection")
-        stage = st.selectbox("Choose your starting stage", [
-            "Silver (15 Days - Easy)",
-            "Platinum (30 Days - Medium)", 
-            "Gold (60 Days - Hard)"
-        ])
-        
-        save_btn = st.form_submit_button("Save Profile & Start Challenge")
-        
-        if save_btn:
-            if not field or not goal or not stage:
-                st.error("Please fill all fields")
+        # Collect distractions
+        DISTRACTION_OPTIONS = ["Social Media", "Video Games", "TV/Movies", "Mindless Browsing", "Junk Food/Snacking", "Excessive Sleep"]
+        distractions = st.multiselect(
+            "What are your biggest time-wasting distractions? (Select all that apply)",
+            options=DISTRACTION_OPTIONS,
+            default=st.session_state.user_profile.get('distractions', [])
+        )
+
+        # Select starting stage
+        stages = list(STAGE_RULES.keys())
+        initial_stage = st.selectbox(
+            "Select Your Starting Challenge Stage",
+            options=stages,
+            index=stages.index(st.session_state.user_profile.get('stage')) if st.session_state.user_profile.get('stage') in stages else 0,
+            help="Silver is the easiest start, Gold is the full 105-day commitment."
+        )
+
+        submit_btn = st.form_submit_button("Start Challenge!")
+
+        if submit_btn:
+            if not field or not goal or not initial_stage:
+                st.error("Please fill in your field, goal, and select a stage.")
             else:
-                with st.spinner("Saving your profile..."):
-                    # Save profile to session state and database
-                    profile_data = {
-                        'field': field,
-                        'goal': goal,
+                with st.spinner("Saving profile and initializing challenge..."):
+                    
+                    # 1. Save/Update User Profile
+                    new_profile = {
+                        'field': sanitize_input(field),
+                        'goal': sanitize_input(goal),
                         'distractions': distractions,
-                        'stage': stage,
-                        'created_at': firestore.SERVER_TIMESTAMP
+                        'stage': initial_stage
                     }
+                    db.collection('user_profiles').document(username).set(new_profile)
+                    st.session_state.user_profile = new_profile
+
+                    # 2. Initialize/Update Challenge Data
+                    challenge_data = st.session_state.challenge_data.copy()
                     
-                    st.session_state.user_profile = profile_data
+                    # Only reset challenge data if the stage is being changed or it's brand new
+                    if challenge_data.get('current_stage') != initial_stage or not challenge_data.get('current_stage'):
+                        challenge_data = {
+                            'current_stage': initial_stage,
+                            'start_date': datetime.now(),
+                            'current_day': 1,
+                            'streak_days': 0,
+                            'total_savings': 0.0,
+                            'completed_days': 0,
+                            'penalty_history': [],
+                            'daily_checkins': {},
+                            'badges': []
+                        }
                     
-                    # Initialize challenge data
-                    challenge_data = {
-                        'current_stage': stage,
-                        'start_date': datetime.now(),
-                        'current_day': 1,
-                        'streak_days': 0,
-                        'total_savings': 0,
-                        'completed_days': 0,
-                        'penalty_history': [],
-                        'daily_checkins': {},
-                        'badges': []
-                    }
+                    save_challenge_data(username, challenge_data)
                     st.session_state.challenge_data = challenge_data
                     
-                    # Save to Firebase
-                    try:
-                        db.collection('user_profiles').document(st.session_state.user['username']).set(profile_data)
-                        save_challenge_data(st.session_state.user['username'], challenge_data)
-                        st.success("Profile saved successfully!")
-                        st.info("Your profile is now visible in the sidebar. Your challenge begins now!")
-                        time.sleep(2)
-                        st.session_state.page = "daily_challenge"
-                        st.rerun()
-                    except Exception as e:
-                        st.error("Failed to save profile. Please try again.")
-    
-    # Back button at bottom
-    st.markdown("---")
-    if st.button("Back to Challenge Rules", use_container_width=True):
-        st.session_state.page = "challenge_rules"
-        st.rerun()
-
-# STAGE COMPLETION POPUP
-def stage_completion_popup():
-    if st.session_state.show_stage_completion:
-        # Create a popup effect using container
-        with st.container():
-            st.markdown("<div style='background-color: #f0f2f6; padding: 20px; border-radius: 10px; border: 2px solid #7C3AED;'>", unsafe_allow_html=True)
-            
-            st.success("CONGRATULATIONS!")
-            st.markdown(f"### You've successfully completed the {st.session_state.challenge_data['current_stage']}!")
-            st.markdown(f"### You've earned the {st.session_state.challenge_data['current_stage'].split(' ')[0]} Badge!")
-            
-            st.markdown("---")
-            
-            next_stages = {
-                "Silver (15 Days - Easy)": "Platinum (30 Days - Medium)",
-                "Platinum (30 Days - Medium)": "Gold (60 Days - Hard)",
-                "Gold (60 Days - Hard)": "All Stages Completed!"
-            }
-            
-            next_stage = next_stages.get(st.session_state.challenge_data['current_stage'])
-            
-            if next_stage and next_stage != "All Stages Completed!":
-                st.markdown(f"### Ready to upgrade to {next_stage}?")
-                
-                upgrade = st.checkbox("Yes, I want to upgrade to the next stage!")
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button("Upgrade Stage", disabled=not upgrade):
-                        # Upgrade to next stage - reset all progress for new stage
-                        challenge_data = st.session_state.challenge_data
-                        challenge_data['current_stage'] = next_stage
-                        challenge_data['current_day'] = 1
-                        challenge_data['completed_days'] = 0
-                        challenge_data['streak_days'] = 0  # Reset streak for new stage
-                        
-                        save_challenge_data(st.session_state.user['username'], challenge_data)
-                        st.session_state.challenge_data = challenge_data
-                        st.session_state.show_stage_completion = False
-                        st.rerun()
-                
-                with col2:
-                    if st.button("Stay Current Stage"):
-                        st.session_state.show_stage_completion = False
-                        st.rerun()
-            else:
-                st.success("YOU ARE A CHAMPION! You've completed all stages!")
-                if st.button("Continue"):
-                    st.session_state.show_stage_completion = False
+                    st.success(f"Profile saved! Starting {initial_stage} challenge on Day 1.")
+                    st.session_state.page = "daily_challenge"
                     st.rerun()
-            
-            st.markdown("</div>", unsafe_allow_html=True)
 
 # DAILY CHALLENGE PAGE
 def daily_challenge_page():
-    if "user" not in st.session_state:
-        st.session_state.page = "signin"
-        st.rerun()
-        return
-    
-    # Show sidebar navigation and profile
-    show_sidebar_content()
-    
-    # Show stage completion popup if needed
-    if st.session_state.show_stage_completion:
-        stage_completion_popup()
-        return
-    
-    # MAIN CONTENT - NO COLUMNS, FREELY DISPLAYED
-    st.markdown("<h1 style='text-align: center; color: #7C3AED;'>Daily Challenge Tracker</h1>", unsafe_allow_html=True)
-    
-    # Challenge Progress Overview
-    challenge_data = st.session_state.challenge_data
-    user_profile = st.session_state.user_profile
-    
-    if not challenge_data or not user_profile:
-        st.error("Please complete your profile setup first")
+    if not st.session_state.user or not st.session_state.user_profile.get('stage'):
         st.session_state.page = "setup_profile"
         st.rerun()
         return
-    
-    current_stage = challenge_data.get('current_stage', 'Silver (15 Days - Easy)')
-    current_day = challenge_data.get('current_day', 1)
-    streak_days = challenge_data.get('streak_days', 0)
-    total_savings = challenge_data.get('total_savings', 0)
-    completed_days = challenge_data.get('completed_days', 0)
-    
-    stage_days = get_stage_days(current_stage)
-    days_left = stage_days - completed_days
-    
-    # Display progress metrics
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric("Current Stage", current_stage)
-    
-    with col2:
-        st.metric("Days Left", days_left)
-    
-    with col3:
-        st.metric("Streak Days", f"{streak_days} days")
-    
-    with col4:
-        st.metric("Total Savings", f"${total_savings}")
-    
-    st.markdown("---")
-    
-    # Check if stage is completed (but don't show popup yet)
-    if completed_days >= stage_days and not st.session_state.show_stage_completion:
-        badge_name = f"{current_stage.split(' ')[0]} Badge"
-        
-        if badge_name not in challenge_data.get('badges', []):
-            # Add badge if not already earned
-            if 'badges' not in challenge_data:
-                challenge_data['badges'] = []
-            challenge_data['badges'].append(badge_name)
-            save_challenge_data(st.session_state.user['username'], challenge_data)
-            st.session_state.challenge_data = challenge_data
-        
-        # Set flag to show popup on next render
-        st.session_state.show_stage_completion = True
-        st.rerun()
-    
-    # Show submitted day message if form was submitted
-    if st.session_state.form_submitted:
-        st.success("Today's progress saved successfully!")
-        st.session_state.form_submitted = False
-    
-    # Daily Tasks Checkbox Form
-    st.markdown(f"### Today's Tasks - Day {current_day}")
-    st.markdown(f"**Stage:** {current_stage}")
-    
-    today = datetime.now().strftime("%Y-%m-%d")
-    tasks = get_stage_tasks(current_stage)
-    
-    with st.form("daily_tasks_form", clear_on_submit=True):
-        completed_tasks = []
-        
-        st.markdown("#### Complete Your Daily Tasks:")
-        for task in tasks:
-            if st.checkbox(task, key=f"task_{task}"):
-                completed_tasks.append(task)
-        
-        st.markdown("---")
-        st.markdown("#### Savings Section")
-        st.info("Add to your savings - this helps build your project fund!")
-        
-        # Always show savings input
-        savings_amount = st.number_input("Amount to add to savings today ($)", 
-                                       min_value=0.0, 
-                                       step=1.0, 
-                                       key="savings_amount",
-                                       help="Add any amount to your challenge savings")
-        
-        submit_btn = st.form_submit_button("Submit Today's Progress")
-        
-        if submit_btn:
-            # Process the form submission
-            process_daily_submission(completed_tasks, savings_amount, today, tasks)
-    
-    # Show motivational task for 20 seconds if form was just submitted
-    if st.session_state.show_motivational_task:
-        st.markdown("---")
-        motivational_container = st.container()
-        with motivational_container:
-            st.success("Your final task for today: Go to Google, find a motivational image and set it as your wallpaper. When you wake up tomorrow, you will remember your mission!")
-            # Set a timer to hide the message after 20 seconds
-            time.sleep(20)
-            st.session_state.show_motivational_task = False
-            st.rerun()
-    
-    # Show savings progress
-    if challenge_data.get('total_savings', 0) > 0:
-        st.markdown("---")
-        st.markdown("### Your Challenge Savings")
-        st.info(f"Total savings: **${challenge_data['total_savings']}**")
-        st.markdown("Remember: When you complete this challenge, use this money for making a project in your field or invest it in your field.")
-    
-    # Back button at bottom
-    st.markdown("---")
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        if st.button("Back to Predictor", use_container_width=True):
-            st.session_state.page = "ml_dashboard"
-            st.rerun()
 
-def process_daily_submission(completed_tasks, savings_amount, today, tasks):
-    """Process the daily form submission"""
-    user = st.session_state.user
-    challenge_data = st.session_state.challenge_data
+    show_sidebar_content()
+
+    username = st.session_state.user['username']
+    profile = st.session_state.user_profile
+    challenge = st.session_state.challenge_data
     
-    missed_tasks = len(tasks) - len(completed_tasks)
+    current_stage = challenge.get('current_stage', 'Silver (15 Days - Easy)')
+    stage_rules = STAGE_RULES[current_stage]
+    current_day = challenge.get('current_day', 1)
     
-    # Set flag to show motivational task
-    st.session_state.show_motivational_task = True
+    st.markdown(f"<h1 style='text-align: center; color: #7C3AED;'>🔥 Daily Transformation: {current_stage}</h1>", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='text-align: center;'>Day **{current_day}** of **{stage_rules['days']}** | Streak: **{challenge.get('streak_days', 0)}**</h2>", unsafe_allow_html=True)
     
-    if missed_tasks == 0:
-        # Perfect day - all tasks completed
-        challenge_data['completed_days'] += 1
-        challenge_data['current_day'] += 1
-        challenge_data['total_savings'] += savings_amount
+    # Check if user has already checked in today
+    today_date_str = datetime.now().strftime('%Y-%m-%d')
+    already_checked_in = today_date_str in challenge.get('daily_checkins', {})
+    
+    if already_checked_in:
+        st.success("✅ You have already completed your check-in for today! Come back tomorrow.")
+        st.markdown("---")
+    
+    # Display Daily Tasks
+    with st.expander("🎯 Your Required Tasks for Today (Must achieve all)", expanded=True):
+        for task in get_stage_tasks(current_stage):
+            st.markdown(f"- **{task}**")
+
+    st.markdown("---")
+
+    # Daily Routine Check-in Form
+    if not already_checked_in:
+        st.markdown("<h3>Daily Check-in Form (To be filled at night)</h3>", unsafe_allow_html=True)
         
-        # Save daily checkin
-        if 'daily_checkins' not in challenge_data:
-            challenge_data['daily_checkins'] = {}
-        challenge_data['daily_checkins'][today] = {
-            'tasks_completed': completed_tasks,
-            'missed_tasks': 0,
-            'savings_added': savings_amount,
-            'perfect_day': True
-        }
-        
-        save_challenge_data(user['username'], challenge_data)
-        st.session_state.challenge_data = challenge_data
-        st.session_state.form_submitted = True
-        
-        st.success("Perfect day! All tasks completed!")
-        
-    elif missed_tasks == 1:
-        # Missed 1 task - apply penalty rules
-        if savings_amount > 0:
-            # User paid penalty - count the day
-            challenge_data['streak_days'] += 1  # Only count streak when penalty paid
-            challenge_data['completed_days'] += 1
-            challenge_data['current_day'] += 1
-            challenge_data['total_savings'] += savings_amount
+        with st.form("daily_checkin_form"):
             
-            # Add to penalty history
-            penalty_record = {
-                'date': today,
-                'amount': savings_amount,
-                'missed_tasks': 1,
-                'reason': f"Missed 1 task: {set(tasks) - set(completed_tasks)}"
-            }
-            if 'penalty_history' not in challenge_data:
-                challenge_data['penalty_history'] = []
-            challenge_data['penalty_history'].append(penalty_record)
-            
-            # Save daily checkin
-            if 'daily_checkins' not in challenge_data:
-                challenge_data['daily_checkins'] = {}
-            challenge_data['daily_checkins'][today] = {
-                'tasks_completed': completed_tasks,
-                'missed_tasks': 1,
-                'savings_added': savings_amount,
-                'perfect_day': False,
-                'penalty_paid': True
-            }
-            
-            save_challenge_data(user['username'], challenge_data)
-            st.session_state.challenge_data = challenge_data
-            st.session_state.form_submitted = True
-            
-            st.warning(f"You missed 1 task but paid ${savings_amount} penalty. Day counted! Streak: {challenge_data['streak_days']} days")
-            st.info("According to rules: When you miss 1 task and pay penalty, the day counts toward your streak.")
-            
+            col_a, col_b = st.columns(2)
+            with col_a:
+                actual_hours = st.number_input(f"1. Actual Focused Work Hours (Minimum {stage_rules['min_hours']}h)", min_value=0.0, max_value=24.0, value=stage_rules['min_hours'])
+                actual_distractions = st.number_input(f"2. Count of Distractions (Maximum {stage_rules['max_distractions']})", min_value=0, max_value=30, value=0)
+                pocket_money = st.number_input("3. Daily Pocket Money / Earnings (For Penalty Fund)", min_value=0.0, value=10.0)
+                
+            with col_b:
+                # Exercise
+                min_pushups = stage_rules['min_pushups']
+                if min_pushups > 0:
+                    did_exercise = st.number_input(f"4. Pushups Completed (Minimum {min_pushups})", min_value=0, value=min_pushups)
+                else:
+                    did_exercise = min_pushups # Set to 0 if not required
+                
+                # Lifestyle Habits
+                drank_water = st.checkbox("5. Drank 5L of Water Today?", value=stage_rules['water_required'])
+                had_junk_food = st.checkbox("6. Had Junk Food Today?", value=not stage_rules['junk_food_avoided'])
+                had_sugar = st.checkbox("7. Had Sugar Today?", value=not stage_rules['sugar_avoided'])
+                woke_up_early = st.checkbox("8. Woke Up Before 7 AM?", value=stage_rules['wakeup_early'])
+                slept_early = st.checkbox("9. Slept Before 11 PM?", value=stage_rules['sleep_early'])
+
+            submit_checkin = st.form_submit_button("Submit Daily Check-in")
+
+            if submit_checkin:
+                # --- CORE LOGIC: CHECK RULES AND APPLY PENALTIES ---
+                missed_rules = []
+
+                # Rule 1: Focused Hours
+                if actual_hours < stage_rules['min_hours']:
+                    missed_rules.append(f"Work Hours (Goal: {stage_rules['min_hours']}h, Actual: {actual_hours}h)")
+
+                # Rule 2: Distractions
+                if actual_distractions > stage_rules['max_distractions']:
+                    missed_rules.append(f"Distractions (Goal: {stage_rules['max_distractions']}, Actual: {actual_distractions})")
+                
+                # Rule 3: Exercise
+                if stage_rules['min_pushups'] > 0 and did_exercise < stage_rules['min_pushups']:
+                    missed_rules.append(f"Pushups (Goal: {stage_rules['min_pushups']}, Actual: {did_exercise})")
+
+                # Rule 4: Water
+                if stage_rules['water_required'] and not drank_water:
+                    missed_rules.append("5L Water Intake")
+
+                # Rule 5: Junk Food
+                if stage_rules['junk_food_avoided'] and had_junk_food:
+                    missed_rules.append("Avoid Junk Food")
+
+                # Rule 6: Sugar
+                if stage_rules['sugar_avoided'] and had_sugar:
+                    missed_rules.append("Avoid Sugar")
+
+                # Rule 7: Wake Up Early
+                if stage_rules['wakeup_early'] and not woke_up_early:
+                    missed_rules.append("Wake Up Before 7 AM")
+
+                # Rule 8: Sleep Early
+                if stage_rules['sleep_early'] and not slept_early:
+                    missed_rules.append("Sleep Before 11 PM")
+
+
+                num_missed = len(missed_rules)
+                
+                # Update Challenge Data (always update total savings)
+                challenge_data = challenge.copy()
+                penalty_amount = 0.0
+                is_day_counted = False
+                
+                if num_missed == 0:
+                    # PERFECT DAY
+                    st.balloons()
+                    st.success(f"PERFECT DAY! Day {current_day} completed with zero misses.")
+                    challenge_data['completed_days'] += 1
+                    challenge_data['current_day'] += 1
+                    challenge_data['streak_days'] += 1
+                    is_day_counted = True
+                    
+                elif num_missed == 1:
+                    # 1 MISS - REDEEMED BY PENALTY (Day Counts, Streak continues)
+                    penalty_amount = pocket_money
+                    st.warning(f"⚠️ Day {current_day} completed with 1 miss: {missed_rules[0]}. You must pay **${penalty_amount:.2f}** into your savings fund.")
+                    challenge_data['completed_days'] += 1
+                    challenge_data['current_day'] += 1
+                    challenge_data['streak_days'] += 1
+                    challenge_data['total_savings'] += penalty_amount
+                    is_day_counted = True
+
+                else: # num_missed >= 2
+                    # 2+ MISSES - DAY FAILED (Day DOES NOT Count, Streak Resets)
+                    penalty_amount = pocket_money
+                    st.error(f"❌ MAJOR FAILURE! Day {current_day} did NOT count. You missed {num_missed} rules: {', '.join(missed_rules)}. You must pay **${penalty_amount:.2f}** and your streak is **RESET to 0**.")
+                    challenge_data['streak_days'] = 0 # Streak reset
+                    challenge_data['total_savings'] += penalty_amount
+                    # Current day and completed days are NOT incremented
+
+                # Record check-in history
+                checkin_record = {
+                    'timestamp': datetime.now(),
+                    'day': current_day,
+                    'missed_count': num_missed,
+                    'missed_rules': missed_rules,
+                    'penalty_paid': penalty_amount,
+                    'is_day_counted': is_day_counted,
+                    'hours': actual_hours,
+                    'distractions': actual_distractions,
+                    'money': pocket_money
+                }
+                challenge_data['daily_checkins'][today_date_str] = checkin_record
+                challenge_data['penalty_history'].append(checkin_record)
+
+                # Check for Stage Completion (only if day was counted)
+                if is_day_counted and challenge_data['completed_days'] >= stage_rules['days']:
+                    
+                    next_stage = ""
+                    if current_stage.startswith("Silver"):
+                        next_stage = "Platinum (30 Days - Medium)"
+                        badge = "Silver Conqueror Badge"
+                    elif current_stage.startswith("Platinum"):
+                        next_stage = "Gold (60 Days - Hard)"
+                        badge = "Platinum Warrior Badge"
+                    elif current_stage.startswith("Gold"):
+                        next_stage = "Challenge Master"
+                        badge = "105-Day Master Badge"
+                        st.session_state.show_stage_completion = "COMPLETE"
+                    
+                    if next_stage and next_stage != "Challenge Master":
+                        # Advance to next stage
+                        challenge_data['current_stage'] = next_stage
+                        challenge_data['start_date'] = datetime.now()
+                        challenge_data['current_day'] = 1
+                        challenge_data['completed_days'] = 0
+                        
+                        st.session_state.show_stage_completion = f"Stage Completed! Advancing to **{next_stage}**."
+                        
+                    if badge not in challenge_data['badges']:
+                        challenge_data['badges'].append(badge)
+
+                # Save Data and Rerun
+                if save_challenge_data(username, challenge_data):
+                    st.session_state.challenge_data = challenge_data
+                    # Update profile stage if needed (for sidebar display)
+                    if current_stage != challenge_data['current_stage']:
+                        st.session_state.user_profile['stage'] = challenge_data['current_stage']
+                        db.collection('user_profiles').document(username).set(st.session_state.user_profile)
+                    st.rerun() # Rerun to display success/failure messages and prevent form resubmission
+
+    # Motivational Section (Appears after check-in or if already checked in)
+    st.markdown("---")
+    st.markdown("<h3 style='text-align: center; color: #7C3AED;'>Your Transformation Dashboard</h3>", unsafe_allow_html=True)
+    
+    col_c, col_d = st.columns(2)
+    with col_c:
+        st.metric("Total Days Completed in Stage", f"{challenge.get('completed_days', 0)} / {stage_rules['days']}")
+    with col_d:
+        st.markdown(f"**Total Penalty Savings:** <span style='color:#10B981; font-weight:bold; font-size: 24px;'>${challenge.get('total_savings', 0.0):.2f}</span>", unsafe_allow_html=True)
+    
+    # Stage Completion Message
+    if st.session_state.show_stage_completion:
+        if st.session_state.show_stage_completion == "COMPLETE":
+            st.success("🏆 CONGRATULATIONS! You have completed the entire 105-Day Transformation Challenge! You are now in the Top 1%.")
+            st.markdown(f"Use your **${challenge.get('total_savings', 0.0):.2f}** savings to fund your dream project!")
         else:
-            # User didn't pay penalty - don't count the day
-            st.error("According to rules: You missed 1 task but didn't pay penalty. This day doesn't count toward your progress.")
-            
-            # Still save the checkin but don't count the day
-            if 'daily_checkins' not in challenge_data:
-                challenge_data['daily_checkins'] = {}
-            challenge_data['daily_checkins'][today] = {
-                'tasks_completed': completed_tasks,
-                'missed_tasks': 1,
-                'savings_added': 0,
-                'perfect_day': False,
-                'day_not_counted': True
-            }
-            save_challenge_data(user['username'], challenge_data)
-            st.session_state.challenge_data = challenge_data
-            st.session_state.form_submitted = True
-            
-    else:  # missed_tasks >= 2
-        st.error(f"According to rules: You missed {missed_tasks} tasks. This day doesn't count even if you pay penalty.")
-        
-        # Still save the checkin but don't count the day
-        if 'daily_checkins' not in challenge_data:
-            challenge_data['daily_checkins'] = {}
-        challenge_data['daily_checkins'][today] = {
-            'tasks_completed': completed_tasks,
-            'missed_tasks': missed_tasks,
-            'savings_added': savings_amount,
-            'perfect_day': False,
-            'day_not_counted': True
-        }
-        save_challenge_data(user['username'], challenge_data)
-        st.session_state.challenge_data = challenge_data
-        st.session_state.form_submitted = True
-    
-    st.rerun()
+            st.success(st.session_state.show_stage_completion)
+        st.session_state.show_stage_completion = False # Reset flag
 
-# Main app routing
+    # Performance Comparison Chart (if data exists)
+    if challenge.get('penalty_history'):
+        st.markdown("---")
+        st.subheader("Last 7 Days Performance Overview")
+        
+        history = pd.DataFrame(challenge['penalty_history'])
+        history['date'] = history['timestamp'].apply(lambda x: x.strftime('%m-%d'))
+        
+        last_7_days = history.tail(7).sort_values(by='timestamp')
+        
+        fig, ax = plt.subplots(figsize=(10, 4))
+        ax.plot(last_7_days['date'], last_7_days['missed_count'], marker='o', linestyle='-', color='#F59E0B', label='Missed Rules')
+        
+        ax.axhline(y=0, color='green', linestyle='--', linewidth=1, label='Perfect Day')
+        ax.axhline(y=1, color='orange', linestyle='--', linewidth=1, label='Penalty Day')
+        ax.axhline(y=2, color='red', linestyle='--', linewidth=1, label='Failed Day')
+        
+        ax.set_title("Daily Compliance (Missed Rules Count)")
+        ax.set_xlabel("Day")
+        ax.set_ylabel("Rules Missed")
+        ax.set_ylim(-0.5, last_7_days['missed_count'].max() + 1)
+        ax.legend()
+        st.pyplot(fig)
+
+
+# --- MAIN APPLICATION ROUTER ---
+
 if st.session_state.page == "signin":
     sign_in_page()
 elif st.session_state.page == "signup":
