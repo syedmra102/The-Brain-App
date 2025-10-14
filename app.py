@@ -15,9 +15,44 @@ from datetime import datetime, timedelta
 # Page config
 st.set_page_config(page_title="The Brain App", page_icon="🧠", layout="centered")
 
-# Initialize session state for persistence
+# Initialize session state for persistence - CHECK COOKIES FIRST
 if 'user' not in st.session_state:
-    st.session_state.user = None
+    # Try to get user from query params (persistent login)
+    query_params = st.experimental_get_query_params()
+    if 'username' in query_params and 'logged_in' in query_params:
+        username = query_params['username'][0]
+        # Verify user still exists in database
+        try:
+            user_doc = db.collection('users').document(username).get()
+            if user_doc.exists:
+                user_info = user_doc.to_dict()
+                st.session_state.user = {
+                    "username": username,
+                    "email": user_info.get("email", ""),
+                    "role": user_info.get("role", "student")
+                }
+                # Load user profile
+                profile_doc = db.collection('user_profiles').document(username).get()
+                if profile_doc.exists:
+                    st.session_state.user_profile = profile_doc.to_dict()
+                
+                # Load challenge data
+                st.session_state.challenge_data = load_challenge_data(username)
+                
+                # Set appropriate page
+                if st.session_state.user_profile:
+                    st.session_state.page = "daily_challenge"
+                else:
+                    st.session_state.page = "ml_dashboard"
+            else:
+                st.session_state.user = None
+                st.session_state.page = "signin"
+        except:
+            st.session_state.user = None
+            st.session_state.page = "signin"
+    else:
+        st.session_state.user = None
+
 if 'page' not in st.session_state:
     st.session_state.page = "signin"
 if 'prediction_results' not in st.session_state:
@@ -136,6 +171,17 @@ def get_user_by_email(email):
 
 def sanitize_input(text):
     return re.sub(r'[<>"\']', '', text.strip())
+
+def set_persistent_login(username):
+    """Set persistent login using query parameters"""
+    st.experimental_set_query_params(
+        username=username,
+        logged_in="true"
+    )
+
+def clear_persistent_login():
+    """Clear persistent login"""
+    st.experimental_set_query_params()
 
 # ML Prediction Function
 def predict_performance(hours, distraction_count, habits):
@@ -333,6 +379,7 @@ def show_sidebar_content():
                 st.session_state.user_profile = {}
                 st.session_state.challenge_data = {}
                 st.session_state.page = "signin"
+                clear_persistent_login()
                 st.rerun()
 
 # Pages - LOGIN/REGISTER/FORGOT PASSWORD CENTERED
@@ -377,6 +424,9 @@ def sign_in_page():
                                     
                                     # Load challenge data
                                     st.session_state.challenge_data = load_challenge_data(username_clean)
+                                    
+                                    # Set persistent login
+                                    set_persistent_login(username_clean)
                                     
                                     st.success("Login successful")
                                     
@@ -1127,14 +1177,6 @@ def process_daily_submission(completed_tasks, savings_amount, today, tasks):
         st.session_state.form_submitted = True
     
     st.rerun()
-
-# Session persistence - Check if user should stay logged in
-if st.session_state.user is not None and st.session_state.page == "signin":
-    # If user is logged in but page is signin, redirect to appropriate page
-    if st.session_state.user_profile:
-        st.session_state.page = "daily_challenge"
-    else:
-        st.session_state.page = "ml_dashboard"
 
 # Main app routing
 if st.session_state.page == "signin":
