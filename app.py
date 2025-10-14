@@ -11,7 +11,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pickle
 from datetime import datetime, timedelta
-import hashlib
 
 # Page config - MUST be first command
 st.set_page_config(page_title="The Brain App", page_icon="🧠", layout="centered")
@@ -75,12 +74,12 @@ def restore_user_session():
     if not st.session_state.session_restored:
         st.session_state.session_restored = True
         
-        # Get query parameters for session restoration
-        query_params = st.experimental_get_query_params()
+        # Get query parameters for session restoration using NEW API
+        query_params = st.query_params
         
         # Check if we have a username in query params (persisted session)
-        if 'username' in query_params:
-            username = query_params['username'][0]
+        if 'username' in query_params and query_params['username']:
+            username = query_params['username']
             try:
                 # Verify user exists in database
                 user_doc = db.collection('users').document(username).get()
@@ -117,7 +116,7 @@ def restore_user_session():
                 st.session_state.user_profile = {}
                 st.session_state.challenge_data = {}
                 st.session_state.page = "signin"
-                st.experimental_set_query_params()
+                st.query_params.clear()
                 return False
         
         # If no persisted session, check current session state
@@ -426,8 +425,8 @@ def show_sidebar_content():
                 st.session_state.page = "signin"
                 st.session_state.session_restored = False
                 
-                # Clear query params
-                st.experimental_set_query_params()
+                # Clear query params using NEW API
+                st.query_params.clear()
                 st.rerun()
 
 def show_navigation_buttons():
@@ -545,8 +544,8 @@ def sign_in_page():
                                     st.session_state.page = "ml_dashboard"
                                     st.session_state.session_restored = True
                                     
-                                    # FIX: Persist session in query params
-                                    st.experimental_set_query_params(username=username_clean)
+                                    # FIX: Persist session in query params using NEW API
+                                    st.query_params["username"] = username_clean
                                     
                                     st.success("Login successful!")
                                     time.sleep(1)
