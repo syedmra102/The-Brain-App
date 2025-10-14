@@ -79,6 +79,76 @@ def clear_persistent_login():
     """Clear persistent login"""
     st.query_params.clear()
 
+# Challenge Functions
+def get_stage_days(stage):
+    stage_days = {
+        "Silver (15 Days - Easy)": 15,
+        "Platinum (30 Days - Medium)": 30,
+        "Gold (60 Days - Hard)": 60
+    }
+    return stage_days.get(stage, 15)
+
+def get_stage_tasks(stage):
+    tasks = {
+        "Silver (15 Days - Easy)": [
+            "Do 2 hours of work in your field",
+            "No distractions today",
+            "Fill daily routine form"
+        ],
+        "Platinum (30 Days - Medium)": [
+            "Do 4 hours of work in your field",
+            "No distractions today",
+            "Do 30 pushups exercise",
+            "Drink 5 liters of water",
+            "Avoid junk food",
+            "Fill daily routine form"
+        ],
+        "Gold (60 Days - Hard)": [
+            "Do 6 hours of work in your field",
+            "No distractions today",
+            "Do 30 pushups exercise",
+            "Do 50 pushups exercise",
+            "Drink 5 liters of water",
+            "Avoid junk food",
+            "Avoid sugar",
+            "Wake up before 7 AM",
+            "Sleep before 11 PM",
+            "Fill daily routine form"
+        ]
+    }
+    return tasks.get(stage, [])
+
+def load_challenge_data(username):
+    try:
+        doc_ref = db.collection('challenge_progress').document(username)
+        doc = doc_ref.get()
+        if doc.exists:
+            return doc.to_dict()
+        else:
+            initial_data = {
+                'current_stage': '',
+                'start_date': datetime.now(),
+                'current_day': 1,
+                'streak_days': 0,
+                'total_savings': 0,
+                'completed_days': 0,
+                'penalty_history': [],
+                'daily_checkins': {},
+                'badges': []
+            }
+            return initial_data
+    except Exception as e:
+        st.error("Error loading challenge data")
+        return {}
+
+def save_challenge_data(username, data):
+    try:
+        db.collection('challenge_progress').document(username).set(data)
+        return True
+    except Exception as e:
+        st.error("Error saving challenge data")
+        return False
+
 # Firebase setup
 try:
     firebase_secrets = st.secrets["firebase"]
@@ -229,76 +299,6 @@ def calculate_feature_percentiles(hours, distractions, habit_inputs):
             feature_percentiles[friendly_name] = max(1, habit_percentile)
     
     return feature_percentiles
-
-# Challenge Functions
-def get_stage_days(stage):
-    stage_days = {
-        "Silver (15 Days - Easy)": 15,
-        "Platinum (30 Days - Medium)": 30,
-        "Gold (60 Days - Hard)": 60
-    }
-    return stage_days.get(stage, 15)
-
-def get_stage_tasks(stage):
-    tasks = {
-        "Silver (15 Days - Easy)": [
-            "Do 2 hours of work in your field",
-            "No distractions today",
-            "Fill daily routine form"
-        ],
-        "Platinum (30 Days - Medium)": [
-            "Do 4 hours of work in your field",
-            "No distractions today",
-            "Do 30 pushups exercise",
-            "Drink 5 liters of water",
-            "Avoid junk food",
-            "Fill daily routine form"
-        ],
-        "Gold (60 Days - Hard)": [
-            "Do 6 hours of work in your field",
-            "No distractions today",
-            "Do 30 pushups exercise",
-            "Do 50 pushups exercise",
-            "Drink 5 liters of water",
-            "Avoid junk food",
-            "Avoid sugar",
-            "Wake up before 7 AM",
-            "Sleep before 11 PM",
-            "Fill daily routine form"
-        ]
-    }
-    return tasks.get(stage, [])
-
-def load_challenge_data(username):
-    try:
-        doc_ref = db.collection('challenge_progress').document(username)
-        doc = doc_ref.get()
-        if doc.exists:
-            return doc.to_dict()
-        else:
-            initial_data = {
-                'current_stage': '',
-                'start_date': datetime.now(),
-                'current_day': 1,
-                'streak_days': 0,
-                'total_savings': 0,
-                'completed_days': 0,
-                'penalty_history': [],
-                'daily_checkins': {},
-                'badges': []
-            }
-            return initial_data
-    except Exception as e:
-        st.error("Error loading challenge data")
-        return {}
-
-def save_challenge_data(username, data):
-    try:
-        db.collection('challenge_progress').document(username).set(data)
-        return True
-    except Exception as e:
-        st.error("Error saving challenge data")
-        return False
 
 # Universal Sidebar Navigation and Profile Display
 def show_sidebar_content():
