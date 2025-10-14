@@ -11,9 +11,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pickle
 from datetime import datetime, timedelta
+
 # Page config
 st.set_page_config(page_title="The Brain App", page_icon="🧠", layout="centered")
-# FIX: COMPLETE SESSION STATE SOLUTION
+
+# Initialize session state
 def initialize_session_state():
     """Initialize all session state variables with proper defaults"""
     if 'initialized' not in st.session_state:
@@ -29,22 +31,26 @@ def initialize_session_state():
         st.session_state.submission_message = None
         st.session_state.submission_type = None
         st.session_state.session_persisted = False
+
 # Initialize session state
 initialize_session_state()
-# FIX: PERSISTENCE CHECK - Modified to handle missing session_persisted
+
+# Ensure session_persisted exists
 if 'session_persisted' not in st.session_state:
     st.session_state.session_persisted = False
 
+# FIX: Improved persistence check to prevent logout on refresh
 if not st.session_state.session_persisted:
-    if st.session_state.logged_in and st.session_state.user is not None:
-        # User is logged in, ensure they're not on auth pages
-        if st.session_state.page in ["signin", "signup", "forgot_password"]:
-            st.session_state.page = "ml_dashboard"
+    try:
+        # Check if user is already logged in or can be restored
+        if st.session_state.logged_in and st.session_state.user and 'username' in st.session_state.user:
+            # Ensure user is not on auth pages
+            if st.session_state.page in ["signin", "signup", "forgot_password"]:
+                st.session_state.page = "ml_dashboard"
             st.session_state.session_persisted = True
             st.rerun()
-    else:
-        # Check if user was previously logged in by attempting to restore session
-        try:
+        else:
+            # Attempt to restore session from user data
             username = st.session_state.get('user', {}).get('username')
             if username:
                 user_doc = db.collection('users').document(username).get()
@@ -66,26 +72,35 @@ if not st.session_state.session_persisted:
                     st.session_state.session_persisted = True
                     st.rerun()
                 else:
-                    # User not found, reset to signin
+                    # User not found in Firebase, reset to signin
                     st.session_state.user = None
                     st.session_state.logged_in = False
+                    st.session_state.user_profile = {}
+                    st.session_state.challenge_data = {}
                     st.session_state.page = "signin"
                     st.session_state.session_persisted = True
                     st.rerun()
             else:
-                # No user in session, ensure on auth pages
-                if st.session_state.page not in ["signin", "signup", "forgot_password"]:
-                    st.session_state.page = "signin"
-                    st.session_state.session_persisted = True
-                    st.rerun()
-        except Exception:
-            # Handle any errors by resetting to signin
-            st.session_state.page = "signin"
-            st.session_state.session_persisted = True
-            st.rerun()
+                # No user data, ensure on signin page
+                st.session_state.user = None
+                st.session_state.logged_in = False
+                st.session_state.user_profile = {}
+                st.session_state.challenge_data = {}
+                st.session_state.page = "signin"
+                st.session_state.session_persisted = True
+                st.rerun()
+    except Exception as e:
+        # Handle any errors by resetting to signin
+        st.session_state.user = None
+        st.session_state.logged_in = False
+        st.session_state.user_profile = {}
+        st.session_state.challenge_data = {}
+        st.session_state.page = "signin"
+        st.session_state.session_persisted = True
+        st.rerun()
 else:
-    # Session already persisted, proceed normally
-    if st.session_state.logged_in and st.session_state.user is not None:
+    # Session already persisted, verify user state
+    if st.session_state.logged_in and st.session_state.user and 'username' in st.session_state.user:
         if st.session_state.page in ["signin", "signup", "forgot_password"]:
             st.session_state.page = "ml_dashboard"
             st.rerun()
@@ -93,6 +108,7 @@ else:
         if st.session_state.page not in ["signin", "signup", "forgot_password"]:
             st.session_state.page = "signin"
             st.rerun()
+
 # Firebase setup
 try:
     firebase_secrets = st.secrets["firebase"]
@@ -117,6 +133,7 @@ try:
 except Exception as e:
     st.error("System temporarily unavailable")
     st.stop()
+
 # Load ML Model from model.pkl
 @st.cache_resource
 def load_ml_model():
@@ -127,17 +144,22 @@ def load_ml_model():
     except FileNotFoundError:
         st.error("ML model not found. Please upload model.pkl to your GitHub repository.")
         return None
+
 model_data = load_ml_model()
 if model_data is None:
     st.stop()
+
 # Email setup
 EMAIL_ADDRESS = "zada44919@gmail.com"
 EMAIL_PASSWORD = "mrgklwomlcwwfxrd"
+
 # Helper functions
 def hash_password(password):
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
 def check_password(password, hashed):
     return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+
 def send_password_email(to_email, username, password):
     try:
         msg = EmailMessage()
@@ -160,6 +182,7 @@ def send_password_email(to_email, username, password):
         return True, "Password sent to your email"
     except Exception as e:
         return False, "Email service temporarily unavailable"
+
 def validate_password(password):
     if len(password) < 7:
         return False, "Password must be at least 7 characters long"
@@ -170,6 +193,7 @@ def validate_password(password):
     if not re.search(r"[0-9]", password):
         return False, "Password must contain at least one number"
     return True, "Password is valid"
+
 def get_user_by_email(email):
     try:
         users_ref = db.collection('users')
@@ -180,8 +204,10 @@ def get_user_by_email(email):
         return None, None
     except:
         return None, None
+
 def sanitize_input(text):
     return re.sub(r'[<>"\']', '', text.strip())
+
 # ML Prediction Function
 def predict_performance(hours, distraction_count, habits):
     try:
@@ -210,6 +236,7 @@ def predict_performance(hours, distraction_count, habits):
     except Exception as e:
         st.error("Prediction error occurred")
         return 50.0
+
 def calculate_feature_percentiles(hours, distractions, habit_inputs):
     try:
         feature_percentiles = {}
@@ -243,6 +270,7 @@ def calculate_feature_percentiles(hours, distractions, habit_inputs):
     except Exception as e:
         st.error("Error calculating feature percentiles")
         return {}
+
 # Challenge Functions
 def get_stage_days(stage):
     stage_days = {
@@ -251,6 +279,7 @@ def get_stage_days(stage):
         "Gold (60 Days - Hard)": 60
     }
     return stage_days.get(stage, 15)
+
 def get_stage_tasks(stage):
     tasks = {
         "Silver (15 Days - Easy)": [
@@ -280,6 +309,7 @@ def get_stage_tasks(stage):
         ]
     }
     return tasks.get(stage, [])
+
 def load_challenge_data(username):
     try:
         doc_ref = db.collection('challenge_progress').document(username)
@@ -302,6 +332,7 @@ def load_challenge_data(username):
     except Exception as e:
         st.error("Error loading challenge data")
         return {}
+
 def save_challenge_data(username, data):
     try:
         db.collection('challenge_progress').document(username).set(data)
@@ -309,6 +340,7 @@ def save_challenge_data(username, data):
     except Exception as e:
         st.error("Error saving challenge data")
         return False
+
 # Universal Sidebar Navigation and Profile Display
 def show_sidebar_content():
     """Show navigation and full profile in sidebar for all pages when user is logged in"""
@@ -381,8 +413,10 @@ def show_sidebar_content():
                 # Clear all session state
                 for key in list(st.session_state.keys()):
                     del st.session_state[key]
+                initialize_session_state()  # Reinitialize session state
                 st.session_state.page = "signin"
                 st.rerun()
+
 def show_navigation_buttons():
     """Show navigation buttons at the bottom of every page"""
     st.markdown("---")
@@ -443,6 +477,7 @@ def show_navigation_buttons():
             if st.button("← Back to Predictor", use_container_width=True):
                 st.session_state.page = "ml_dashboard"
                 st.rerun()
+
 # Authentication Pages
 def sign_in_page():
     st.markdown("<h1 style='text-align: center;'>The Brain App</h1>", unsafe_allow_html=True)
@@ -472,7 +507,6 @@ def sign_in_page():
                             if user_doc.exists:
                                 user_info = user_doc.to_dict()
                                 if check_password(password_clean, user_info.get("password", "")):
-                                    # FIX: COMPLETE LOGIN PROCESS
                                     st.session_state.user = {
                                         "username": username_clean,
                                         "email": user_info.get("email", ""),
@@ -482,15 +516,13 @@ def sign_in_page():
                                     profile_doc = db.collection('user_profiles').document(username_clean).get()
                                     if profile_doc.exists:
                                         st.session_state.user_profile = profile_doc.to_dict()
-                                   
+                                    else:
+                                        st.session_state.user_profile = {}
                                     # Load challenge data
                                     st.session_state.challenge_data = load_challenge_data(username_clean)
-                                   
-                                    # FIX: SET LOGIN STATE AND PAGE
                                     st.session_state.logged_in = True
                                     st.session_state.page = "ml_dashboard"
                                     st.session_state.session_persisted = True
-                                   
                                     st.success("Login successful!")
                                     time.sleep(1)
                                     st.rerun()
@@ -505,6 +537,7 @@ def sign_in_page():
             st.button("Forgot Password", use_container_width=True, on_click=lambda: setattr(st.session_state, 'page', 'forgot_password'))
         with col2:
             st.button("Create Account", use_container_width=True, on_click=lambda: setattr(st.session_state, 'page', 'signup'))
+
 def forgot_password_page():
     st.markdown("<h2 style='text-align: center;'>Forgot Password</h2>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 3, 1])
@@ -535,6 +568,7 @@ def forgot_password_page():
                         else:
                             st.info("If this email exists, password will be sent")
         st.button("Back to Sign In", use_container_width=True, on_click=lambda: setattr(st.session_state, 'page', 'signin'))
+
 def sign_up_page():
     st.markdown("<h1 style='text-align: center;'>The Brain App</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center;'>Create Account</h3>", unsafe_allow_html=True)
@@ -584,9 +618,9 @@ def sign_up_page():
                         except Exception as e:
                             st.error("Registration failed. Please try again.")
         st.button("Back to Sign In", use_container_width=True, on_click=lambda: setattr(st.session_state, 'page', 'signin'))
+
 # Protected Pages with Enhanced Authentication
 def ml_dashboard_page():
-    # FIX: STRICT AUTH CHECK
     if not st.session_state.logged_in or not st.session_state.user:
         st.session_state.page = "signin"
         st.rerun()
@@ -679,6 +713,7 @@ def ml_dashboard_page():
         st.markdown("<p style='text-align: center; font-weight: bold;'>This is a completely life changing challenge and the only opportunity to become top 1% in the world and also in your field</p>", unsafe_allow_html=True)
    
     show_navigation_buttons()
+
 def stage_completion_popup():
     st.markdown("""
         <style>
@@ -757,6 +792,7 @@ def stage_completion_popup():
         st.markdown('</div>', unsafe_allow_html=True)
    
     st.markdown('</div>', unsafe_allow_html=True)
+
 def show_persistent_message():
     if st.session_state.submission_message:
         st.markdown("---")
@@ -771,8 +807,8 @@ def show_persistent_message():
             st.markdown("---")
             st.markdown("### Your Final Task For Today:")
             st.success("**Go to Google, find a powerful motivational image and set it as your wallpaper. When you wake up tomorrow and see that wallpaper, you'll remember that you're on a mission and won't get distracted!**")
+
 def daily_challenge_page():
-    # FIX: STRICT AUTH CHECK
     if not st.session_state.logged_in or not st.session_state.user:
         st.session_state.page = "signin"
         st.rerun()
@@ -881,6 +917,7 @@ def daily_challenge_page():
         st.markdown("*Remember: When you complete this challenge, use this money for making a project in your field or invest it in your field.*")
    
     show_navigation_buttons()
+
 def process_daily_submission(completed_tasks, missed_tasks, penalty_amount, penalty_confirmation, today, tasks):
     user = st.session_state.user
     challenge_data = st.session_state.challenge_data
@@ -960,8 +997,8 @@ def process_daily_submission(completed_tasks, missed_tasks, penalty_amount, pena
         st.session_state.challenge_data = challenge_data
    
     st.rerun()
+
 def life_vision_page():
-    # FIX: STRICT AUTH CHECK
     if not st.session_state.logged_in or not st.session_state.user:
         st.session_state.page = "signin"
         st.rerun()
@@ -1020,8 +1057,8 @@ def life_vision_page():
     st.markdown("<p style='text-align: center; font-weight: bold; font-size: 20px;'>This transformation will make you unrecognizable to your current self</p>", unsafe_allow_html=True)
    
     show_navigation_buttons()
+
 def challenge_rules_page():
-    # FIX: STRICT AUTH CHECK
     if not st.session_state.logged_in or not st.session_state.user:
         st.session_state.page = "signin"
         st.rerun()
@@ -1082,8 +1119,8 @@ def challenge_rules_page():
     st.markdown("<p style='text-align: center; font-weight: bold; font-size: 20px;'>This is your only opportunity to transform your life and become top 1%</p>", unsafe_allow_html=True)
    
     show_navigation_buttons()
+
 def setup_profile_page():
-    # FIX: STRICT AUTH CHECK
     if not st.session_state.logged_in or not st.session_state.user:
         st.session_state.page = "signin"
         st.rerun()
@@ -1183,7 +1220,8 @@ def setup_profile_page():
                         st.error("Failed to save profile. Please try again.")
    
     show_navigation_buttons()
-# FIX: MAIN APP ROUTING - SIMPLE AND EFFECTIVE
+
+# Main App Routing
 if st.session_state.page == "signin":
     sign_in_page()
 elif st.session_state.page == "signup":
@@ -1201,6 +1239,5 @@ elif st.session_state.page == "setup_profile":
 elif st.session_state.page == "daily_challenge":
     daily_challenge_page()
 else:
-    # Fallback to signin
     st.session_state.page = "signin"
     st.rerun()
