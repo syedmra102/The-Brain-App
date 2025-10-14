@@ -211,10 +211,6 @@ if 'form_submitted' not in st.session_state:
 if 'show_motivational_task' not in st.session_state:
     st.session_state.show_motivational_task = False
 
-# Debug: Log session state and query params
-st.write(f"Debug: Session user: {st.session_state.user}")
-st.write(f"Debug: Query params: {dict(st.query_params)}")
-
 # Check for persistent login only if user is not already in session state
 if st.session_state.user is None:
     query_params = st.query_params
@@ -229,7 +225,6 @@ if st.session_state.user is None:
                     "email": user_info.get("email", ""),
                     "role": user_info.get("role", "student")
                 }
-                st.write(f"Debug: Restored user {username} from query params")
                 profile_doc = db.collection('user_profiles').document(username).get()
                 if profile_doc.exists:
                     st.session_state.user_profile = profile_doc.to_dict()
@@ -237,17 +232,14 @@ if st.session_state.user is None:
                 st.session_state.page = "daily_challenge" if st.session_state.user_profile else "ml_dashboard"
                 set_persistent_login(username)  # Ensure query params are set
             else:
-                st.write("Debug: User not found in database, redirecting to signin")
                 st.session_state.page = "signin"
                 clear_persistent_login()
         except Exception as e:
-            st.write(f"Debug: Error restoring session: {str(e)}")
             st.session_state.page = "signin"
             clear_persistent_login()
 else:
     # Ensure query params are in sync with session state
     set_persistent_login(st.session_state.user['username'])
-    st.write(f"Debug: User {st.session_state.user['username']} already in session, query params synced")
 
 # ML Prediction Function
 def predict_performance(hours, distraction_count, habits):
@@ -364,7 +356,6 @@ def show_sidebar_content():
             
             st.markdown("---")
             if st.button("Logout", use_container_width=True):
-                st.write("Debug: Logging out user")
                 st.session_state.user = None
                 st.session_state.user_profile = {}
                 st.session_state.challenge_data = {}
@@ -417,7 +408,6 @@ def sign_in_page():
                                         st.session_state.user_profile = {}
                                     st.session_state.challenge_data = load_challenge_data(username_clean)
                                     set_persistent_login(username_clean)
-                                    st.write(f"Debug: Login successful for {username_clean}, setting session and query params")
                                     st.success("Login successful")
                                     st.session_state.page = "daily_challenge" if st.session_state.user_profile else "ml_dashboard"
                                     st.rerun()
@@ -427,7 +417,6 @@ def sign_in_page():
                                 st.error("Invalid username or password")
                         except Exception as e:
                             st.error("Login failed. Please try again.")
-                            st.write(f"Debug: Login error: {str(e)}")
         col1, col2 = st.columns(2)
         with col1:
             st.button("Forgot Password", use_container_width=True, on_click=lambda: st.session_state.update({"page":"forgot_password"}))
@@ -513,13 +502,11 @@ def sign_up_page():
                                     st.rerun()
                         except Exception as e:
                             st.error("Registration failed. Please try again.")
-                            st.write(f"Debug: Signup error: {str(e)}")
         st.button("Back to Sign In", use_container_width=True, on_click=lambda: st.session_state.update({"page":"signin"}))
 
 # ML PAGE
 def ml_dashboard_page():
     if "user" not in st.session_state or st.session_state.user is None:
-        st.write("Debug: No user in session, redirecting to signin")
         st.session_state.page = "signin"
         clear_persistent_login()
         st.rerun()
@@ -616,7 +603,6 @@ def ml_dashboard_page():
 # LIFE VISION PAGE
 def life_vision_page():
     if "user" not in st.session_state or st.session_state.user is None:
-        st.write("Debug: No user in session, redirecting to signin")
         st.session_state.page = "signin"
         clear_persistent_login()
         st.rerun()
@@ -682,7 +668,6 @@ def life_vision_page():
 # CHALLENGE RULES PAGE
 def challenge_rules_page():
     if "user" not in st.session_state or st.session_state.user is None:
-        st.write("Debug: No user in session, redirecting to signin")
         st.session_state.page = "signin"
         clear_persistent_login()
         st.rerun()
@@ -752,7 +737,6 @@ def challenge_rules_page():
 # SETUP PROFILE PAGE
 def setup_profile_page():
     if "user" not in st.session_state or st.session_state.user is None:
-        st.write("Debug: No user in session, redirecting to signin")
         st.session_state.page = "signin"
         clear_persistent_login()
         st.rerun()
@@ -837,7 +821,6 @@ def setup_profile_page():
                         db.collection('user_profiles').document(st.session_state.user['username']).set(profile_data)
                         save_challenge_data(st.session_state.user['username'], challenge_data)
                         set_persistent_login(st.session_state.user['username'])
-                        st.write(f"Debug: Profile saved for {st.session_state.user['username']}")
                         st.success("Profile saved successfully!")
                         st.info("Your profile is now visible in the sidebar. Your challenge begins now!")
                         time.sleep(2)
@@ -845,7 +828,6 @@ def setup_profile_page():
                         st.rerun()
                     except Exception as e:
                         st.error("Failed to save profile. Please try again.")
-                        st.write(f"Debug: Profile save error: {str(e)}")
     
     st.markdown("---")
     if st.button("Back to Challenge Rules", use_container_width=True):
@@ -888,253 +870,4 @@ def stage_completion_popup():
                         
                         save_challenge_data(st.session_state.user['username'], challenge_data)
                         st.session_state.challenge_data = challenge_data
-                        st.session_state.show_stage_completion = False
-                        st.rerun()
-                
-                with col2:
-                    if st.button("Stay Current Stage"):
-                        st.session_state.show_stage_completion = False
-                        st.rerun()
-            else:
-                st.success("YOU ARE A CHAMPION! You've completed all stages!")
-                if st.button("Continue"):
-                    st.session_state.show_stage_completion = False
-                    st.rerun()
-            
-            st.markdown("</div>", unsafe_allow_html=True)
-
-# DAILY CHALLENGE PAGE
-def daily_challenge_page():
-    if "user" not in st.session_state or st.session_state.user is None:
-        st.write("Debug: No user in session, redirecting to signin")
-        st.session_state.page = "signin"
-        clear_persistent_login()
-        st.rerun()
-        return
-    
-    show_sidebar_content()
-    
-    if st.session_state.show_stage_completion:
-        stage_completion_popup()
-        return
-    
-    st.markdown("<h1 style='text-align: center; color: #7C3AED;'>Daily Challenge Tracker</h1>", unsafe_allow_html=True)
-    
-    challenge_data = st.session_state.challenge_data
-    user_profile = st.session_state.user_profile
-    
-    if not challenge_data or not user_profile:
-        st.error("Please complete your profile setup first")
-        st.session_state.page = "setup_profile"
-        clear_persistent_login()
-        st.rerun()
-        return
-    
-    current_stage = challenge_data.get('current_stage', 'Silver (15 Days - Easy)')
-    current_day = challenge_data.get('current_day', 1)
-    streak_days = challenge_data.get('streak_days', 0)
-    total_savings = challenge_data.get('total_savings', 0)
-    completed_days = challenge_data.get('completed_days', 0)
-    
-    stage_days = get_stage_days(current_stage)
-    days_left = stage_days - completed_days
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric("Current Stage", current_stage)
-    
-    with col2:
-        st.metric("Days Left", days_left)
-    
-    with col3:
-        st.metric("Streak Days", f"{streak_days} days")
-    
-    with col4:
-        st.metric("Total Savings", f"${total_savings}")
-    
-    st.markdown("---")
-    
-    if completed_days >= stage_days and not st.session_state.show_stage_completion:
-        badge_name = f"{current_stage.split(' ')[0]} Badge"
-        
-        if badge_name not in challenge_data.get('badges', []):
-            if 'badges' not in challenge_data:
-                challenge_data['badges'] = []
-            challenge_data['badges'].append(badge_name)
-            save_challenge_data(st.session_state.user['username'], challenge_data)
-            st.session_state.challenge_data = challenge_data
-        
-        st.session_state.show_stage_completion = True
-        st.rerun()
-    
-    if st.session_state.form_submitted:
-        st.success("Today's progress saved successfully!")
-        st.session_state.form_submitted = False
-    
-    st.markdown(f"### Today's Tasks - Day {current_day}")
-    st.markdown(f"**Stage:** {current_stage}")
-    
-    today = datetime.now().strftime("%Y-%m-%d")
-    tasks = get_stage_tasks(current_stage)
-    
-    with st.form("daily_tasks_form", clear_on_submit=True):
-        completed_tasks = []
-        
-        st.markdown("#### Complete Your Daily Tasks:")
-        for task in tasks:
-            if st.checkbox(task, key=f"task_{task}"):
-                completed_tasks.append(task)
-        
-        st.markdown("---")
-        st.markdown("#### Savings Section")
-        st.info("Add to your savings - this helps build your project fund!")
-        
-        savings_amount = st.number_input("Amount to add to savings today ($)",
-                                       min_value=0.0,
-                                       step=1.0,
-                                       key="savings_amount",
-                                       help="Add any amount to your challenge savings")
-        
-        submit_btn = st.form_submit_button("Submit Today's Progress")
-        
-        if submit_btn:
-            process_daily_submission(completed_tasks, savings_amount, today, tasks)
-    
-    if st.session_state.show_motivational_task:
-        st.markdown("---")
-        motivational_container = st.container()
-        with motivational_container:
-            st.success("Your final task for today: Go to Google, find a motivational image and set it as your wallpaper. When you wake up tomorrow, you will remember your mission!")
-            time.sleep(20)
-            st.session_state.show_motivational_task = False
-            st.rerun()
-    
-    if challenge_data.get('total_savings', 0) > 0:
-        st.markdown("---")
-        st.markdown("### Your Challenge Savings")
-        st.info(f"Total savings: **${challenge_data['total_savings']}**")
-        st.markdown("Remember: When you complete this challenge, use this money for making a project in your field or invest it in your field.")
-    
-    st.markdown("---")
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        if st.button("Back to Predictor", use_container_width=True):
-            st.session_state.page = "ml_dashboard"
-            st.rerun()
-
-def process_daily_submission(completed_tasks, savings_amount, today, tasks):
-    """Process the daily form submission"""
-    user = st.session_state.user
-    challenge_data = st.session_state.challenge_data
-    
-    missed_tasks = len(tasks) - len(completed_tasks)
-    
-    st.session_state.show_motivational_task = True
-    
-    if missed_tasks == 0:
-        challenge_data['completed_days'] += 1
-        challenge_data['current_day'] += 1
-        challenge_data['total_savings'] += savings_amount
-        challenge_data['streak_days'] += 1
-        
-        if 'daily_checkins' not in challenge_data:
-            challenge_data['daily_checkins'] = {}
-        challenge_data['daily_checkins'][today] = {
-            'tasks_completed': completed_tasks,
-            'missed_tasks': 0,
-            'savings_added': savings_amount,
-            'perfect_day': True
-        }
-        
-        save_challenge_data(user['username'], challenge_data)
-        st.session_state.challenge_data = challenge_data
-        st.session_state.form_submitted = True
-        
-        st.success("Perfect day! All tasks completed!")
-        
-    elif missed_tasks == 1:
-        if savings_amount > 0:
-            challenge_data['streak_days'] += 1
-            challenge_data['completed_days'] += 1
-            challenge_data['current_day'] += 1
-            challenge_data['total_savings'] += savings_amount
-            
-            penalty_record = {
-                'date': today,
-                'amount': savings_amount,
-                'missed_tasks': 1,
-                'reason': f"Missed 1 task: {set(tasks) - set(completed_tasks)}"
-            }
-            if 'penalty_history' not in challenge_data:
-                challenge_data['penalty_history'] = []
-            challenge_data['penalty_history'].append(penalty_record)
-            
-            if 'daily_checkins' not in challenge_data:
-                challenge_data['daily_checkins'] = {}
-            challenge_data['daily_checkins'][today] = {
-                'tasks_completed': completed_tasks,
-                'missed_tasks': 1,
-                'savings_added': savings_amount,
-                'perfect_day': False,
-                'penalty_paid': True
-            }
-            
-            save_challenge_data(user['username'], challenge_data)
-            st.session_state.challenge_data = challenge_data
-            st.session_state.form_submitted = True
-            
-            st.warning(f"You missed 1 task but paid ${savings_amount} penalty. Day counted! Streak: {challenge_data['streak_days']} days")
-            st.info("According to rules: When you miss 1 task and pay penalty, the day counts toward your streak.")
-            
-        else:
-            st.error("According to rules: You missed 1 task but didn't pay penalty. This day doesn't count toward your progress.")
-            
-            if 'daily_checkins' not in challenge_data:
-                challenge_data['daily_checkins'] = {}
-            challenge_data['daily_checkins'][today] = {
-                'tasks_completed': completed_tasks,
-                'missed_tasks': 1,
-                'savings_added': 0,
-                'perfect_day': False,
-                'day_not_counted': True
-            }
-            save_challenge_data(user['username'], challenge_data)
-            st.session_state.challenge_data = challenge_data
-            st.session_state.form_submitted = True
-            
-    else:
-        st.error(f"According to rules: You missed {missed_tasks} tasks. This day doesn't count even if you pay penalty.")
-        
-        if 'daily_checkins' not in challenge_data:
-            challenge_data['daily_checkins'] = {}
-        challenge_data['daily_checkins'][today] = {
-            'tasks_completed': completed_tasks,
-            'missed_tasks': missed_tasks,
-            'savings_added': savings_amount,
-            'perfect_day': False,
-            'day_not_counted': True
-        }
-        save_challenge_data(user['username'], challenge_data)
-        st.session_state.challenge_data = challenge_data
-        st.session_state.form_submitted = True
-    
-    st.rerun()
-
-# Main app routing
-if st.session_state.page == "signin":
-    sign_in_page()
-elif st.session_state.page == "signup":
-    sign_up_page()
-elif st.session_state.page == "forgot_password":
-    forgot_password_page()
-elif st.session_state.page == "ml_dashboard":
-    ml_dashboard_page()
-elif st.session_state.page == "life_vision":
-    life_vision_page()
-elif st.session_state.page == "challenge_rules":
-    challenge_rules_page()
-elif st.session_state.page == "setup_profile":
-    setup_profile_page()
-elif st.session_state.page == "daily_challenge":
-    daily_challenge_page()
+                        st.session_state
