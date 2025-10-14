@@ -810,10 +810,11 @@ def daily_challenge_page():
         
         if missed_tasks > 0:
             if missed_tasks == 1:
-                st.warning(f"You missed 1 task today. According to rules, you need to pay your whole day money to count this day.")
+                st.warning(f"You missed 1 task today. According to rules, you need to pay penalty to count this day toward your streak.")
                 penalty_confirmation = st.checkbox("I confirm I've paid the penalty for missed task")
+                st.info("Note: If you pay penalty for 1 missed task, the day WILL count toward your streak and progress.")
             else:
-                st.error(f"You missed {missed_tasks} tasks. According to rules, this day won't count even if you pay penalty.")
+                st.error(f"You missed {missed_tasks} tasks. According to rules, this day WON'T count even if you pay penalty.")
                 penalty_confirmation = False
         else:
             penalty_confirmation = True  # No missed tasks, so automatically confirmed
@@ -843,7 +844,7 @@ def daily_challenge_page():
             st.rerun()
 
 def process_daily_submission(completed_tasks, missed_tasks, penalty_amount, penalty_confirmation, today, tasks):
-    """Process the daily form submission"""
+    """Process the daily form submission - FIXED VERSION"""
     user = st.session_state.user
     challenge_data = st.session_state.challenge_data
     
@@ -871,10 +872,10 @@ def process_daily_submission(completed_tasks, missed_tasks, penalty_amount, pena
         st.session_state.submission_type = "success"
         
     elif missed_tasks == 1 and penalty_confirmation and penalty_amount > 0:
-        # Missed 1 task but paid penalty
-        challenge_data['streak_days'] += 1
-        challenge_data['completed_days'] += 1
-        challenge_data['current_day'] += 1
+        # FIXED: Missed 1 task but paid penalty - COUNT THE DAY
+        challenge_data['streak_days'] += 1  # FIXED: Count as streak day
+        challenge_data['completed_days'] += 1  # FIXED: Count the day
+        challenge_data['current_day'] += 1  # FIXED: Move to next day
         challenge_data['total_savings'] += penalty_amount
         
         # Add to penalty history
@@ -882,7 +883,7 @@ def process_daily_submission(completed_tasks, missed_tasks, penalty_amount, pena
             'date': today,
             'amount': penalty_amount,
             'missed_tasks': 1,
-            'reason': f"Missed 1 task"
+            'reason': f"Missed 1 task but paid penalty"
         }
         if 'penalty_history' not in challenge_data:
             challenge_data['penalty_history'] = []
@@ -895,24 +896,41 @@ def process_daily_submission(completed_tasks, missed_tasks, penalty_amount, pena
             'tasks_completed': completed_tasks,
             'missed_tasks': 1,
             'savings_added': penalty_amount,
-            'perfect_day': False
+            'perfect_day': False,
+            'penalty_paid': True  # FIXED: Mark that penalty was paid
         }
         
         save_challenge_data(user['username'], challenge_data)
         st.session_state.challenge_data = challenge_data
         
-        st.session_state.submission_message = f"Day counted! ${penalty_amount} added to savings. Day {challenge_data['current_day']-1} successfully saved. Streak continues: {challenge_data['streak_days']} days!"
+        st.session_state.submission_message = f"Day counted with penalty! ${penalty_amount} added to savings. Day {challenge_data['current_day']-1} successfully saved. Streak continues: {challenge_data['streak_days']} days!"
         st.session_state.submission_type = "success"
         
     elif missed_tasks == 1 and (not penalty_confirmation or penalty_amount == 0):
-        st.session_state.submission_message = "According to rules: You missed 1 task but didn't pay penalty. Please pay your whole day money to count this day."
+        # FIXED: Missed 1 task but didn't pay penalty - DON'T COUNT THE DAY
+        st.session_state.submission_message = "According to rules: You missed 1 task but didn't pay penalty. This day doesn't count toward your progress."
         st.session_state.submission_type = "error"
         
+        # Save the checkin but don't count the day
+        if 'daily_checkins' not in challenge_data:
+            challenge_data['daily_checkins'] = {}
+        challenge_data['daily_checkins'][today] = {
+            'tasks_completed': completed_tasks,
+            'missed_tasks': 1,
+            'savings_added': 0,
+            'perfect_day': False,
+            'day_not_counted': True,  # FIXED: Mark that day was not counted
+            'penalty_not_paid': True  # FIXED: Mark that penalty was not paid
+        }
+        save_challenge_data(user['username'], challenge_data)
+        st.session_state.challenge_data = challenge_data
+        
     else:  # missed_tasks >= 2
+        # FIXED: Multiple missed tasks - DON'T COUNT THE DAY even with penalty
         st.session_state.submission_message = f"According to rules: You missed {missed_tasks} tasks. This day doesn't count even if you pay penalty. You have to do all tasks tomorrow."
         st.session_state.submission_type = "error"
         
-        # Still save the checkin but don't count the day
+        # Save the checkin but don't count the day
         if 'daily_checkins' not in challenge_data:
             challenge_data['daily_checkins'] = {}
         challenge_data['daily_checkins'][today] = {
@@ -920,7 +938,7 @@ def process_daily_submission(completed_tasks, missed_tasks, penalty_amount, pena
             'missed_tasks': missed_tasks,
             'savings_added': penalty_amount,
             'perfect_day': False,
-            'day_not_counted': True
+            'day_not_counted': True  # FIXED: Mark that day was not counted
         }
         save_challenge_data(user['username'], challenge_data)
         st.session_state.challenge_data = challenge_data
