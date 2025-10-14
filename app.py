@@ -1031,3 +1031,91 @@ def process_daily_submission(completed_tasks, savings_amount, today, tasks):
         save_challenge_data(user['username'], challenge_data)
         st.session_state.challenge_data = challenge_data
         st.session_state.form_submitted = True
+        
+        st.success("Perfect day! All tasks completed!")
+        
+    elif missed_tasks == 1:
+        if savings_amount > 0:
+            challenge_data['streak_days'] += 1
+            challenge_data['completed_days'] += 1
+            challenge_data['current_day'] += 1
+            challenge_data['total_savings'] += savings_amount
+            
+            penalty_record = {
+                'date': today,
+                'amount': savings_amount,
+                'missed_tasks': 1,
+                'reason': f"Missed 1 task: {set(tasks) - set(completed_tasks)}"
+            }
+            if 'penalty_history' not in challenge_data:
+                challenge_data['penalty_history'] = []
+            challenge_data['penalty_history'].append(penalty_record)
+            
+            if 'daily_checkins' not in challenge_data:
+                challenge_data['daily_checkins'] = {}
+            challenge_data['daily_checkins'][today] = {
+                'tasks_completed': completed_tasks,
+                'missed_tasks': 1,
+                'savings_added': savings_amount,
+                'perfect_day': False,
+                'penalty_paid': True
+            }
+            
+            save_challenge_data(user['username'], challenge_data)
+            st.session_state.challenge_data = challenge_data
+            st.session_state.form_submitted = True
+            
+            st.warning(f"You missed 1 task but paid ${savings_amount} penalty. Day counted! Streak: {challenge_data['streak_days']} days")
+            st.info("According to rules: When you miss 1 task and pay penalty, the day counts toward your streak.")
+            
+        else:
+            st.error("According to rules: You missed 1 task but didn't pay penalty. This day doesn't count toward your progress.")
+            
+            if 'daily_checkins' not in challenge_data:
+                challenge_data['daily_checkins'] = {}
+            challenge_data['daily_checkins'][today] = {
+                'tasks_completed': completed_tasks,
+                'missed_tasks': 1,
+                'savings_added': 0,
+                'perfect_day': False,
+                'day_not_counted': True
+            }
+            save_challenge_data(user['username'], challenge_data)
+            st.session_state.challenge_data = challenge_data
+            st.session_state.form_submitted = True
+            
+    else:
+        st.error(f"According to rules: You missed {missed_tasks} tasks. This day doesn't count even if you pay penalty.")
+        
+        if 'daily_checkins' not in challenge_data:
+            challenge_data['daily_checkins'] = {}
+        challenge_data['daily_checkins'][today] = {
+            'tasks_completed': completed_tasks,
+            'missed_tasks': missed_tasks,
+            'savings_added': savings_amount,
+            'perfect_day': False,
+            'day_not_counted': True
+        }
+        save_challenge_data(user['username'], challenge_data)
+        st.session_state.challenge_data = challenge_data
+        st.session_state.form_submitted = True
+    
+    st.rerun()
+
+# Main app routing
+if st.session_state.page == "signin":
+    sign_in_page()
+elif st.session_state.page == "signup":
+    sign_up_page()
+elif st.session_state.page == "forgot_password":
+    forgot_password_page()
+elif st.session_state.page == "ml_dashboard":
+    ml_dashboard_page()
+elif st.session_state.page == "life_vision":
+    life_vision_page()
+elif st.session_state.page == "challenge_rules":
+    challenge_rules_page()
+elif st.session_state.page == "setup_profile":
+    setup_profile_page()
+elif st.session_state.page == "daily_challenge":
+    daily_challenge_page()
