@@ -35,9 +35,43 @@ if 'submission_message' not in st.session_state:
 if 'submission_type' not in st.session_state:  # 'success', 'error', 'warning'
     st.session_state.submission_type = None
 
-# FIX 3: Add persistent login state
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
+# FIX 3: Add persistent login state using query parameters
+def set_persistent_login(username):
+    """Set persistent login using query parameters"""
+    st.query_params["username"] = username
+    st.query_params["logged_in"] = "true"
+
+def clear_persistent_login():
+    """Clear persistent login"""
+    st.query_params.clear()
+
+def check_persistent_login():
+    """Check if user should be logged in from query parameters"""
+    query_params = st.query_params
+    if 'username' in query_params and 'logged_in' in query_params and query_params['logged_in'] == "true":
+        username = query_params['username']
+        try:
+            user_doc = db.collection('users').document(username).get()
+            if user_doc.exists:
+                user_info = user_doc.to_dict()
+                st.session_state.user = {
+                    "username": username,
+                    "email": user_info.get("email", ""),
+                    "role": user_info.get("role", "student")
+                }
+                # Load user profile if exists
+                profile_doc = db.collection('user_profiles').document(username).get()
+                if profile_doc.exists:
+                    st.session_state.user_profile = profile_doc.to_dict()
+                
+                # Load challenge data
+                st.session_state.challenge_data = load_challenge_data(username)
+                
+                st.session_state.page = "ml_dashboard"
+                return True
+        except Exception as e:
+            pass
+    return False
 
 # Firebase setup
 try:
@@ -358,7 +392,7 @@ def show_sidebar_content():
                 st.session_state.form_submitted = False
                 st.session_state.submission_message = None
                 st.session_state.submission_type = None
-                st.session_state.logged_in = False  # FIX 3: Clear login state
+                clear_persistent_login()  # FIX 3: Clear query params on logout
                 st.rerun()
 
 # FIX 2: Navigation buttons for all pages
@@ -469,7 +503,7 @@ def sign_in_page():
                                     
                                     st.success("Login successful")
                                     st.session_state.page = "ml_dashboard"
-                                    st.session_state.logged_in = True  # FIX 3: Set login state
+                                    set_persistent_login(username_clean)  # FIX 3: Set persistent login
                                     st.rerun()
                                 else:
                                     st.error("Invalid username or password")
@@ -574,7 +608,7 @@ def sign_up_page():
 
 # ML PAGE
 def ml_dashboard_page():
-    if "user" not in st.session_state or not st.session_state.logged_in:  # FIX 3: Check login state
+    if "user" not in st.session_state or st.session_state.user is None:
         st.session_state.page = "signin"
         st.rerun()
         return
@@ -779,7 +813,7 @@ def show_persistent_message():
 
 # DAILY CHALLENGE PAGE
 def daily_challenge_page():
-    if "user" not in st.session_state or not st.session_state.logged_in:  # FIX 3: Check login state
+    if "user" not in st.session_state or st.session_state.user is None:
         st.session_state.page = "signin"
         st.rerun()
         return
@@ -865,382 +899,3 @@ def daily_challenge_page():
         st.info("You can add to your savings anytime, even if you complete all tasks!")
         
         # Always show penalty/savings input
-        penalty_amount = st.number_input("Amount to add to savings today ($)", 
-                                       min_value=0.0, 
-                                       step=1.0, 
-                                       key="penalty_amount",
-                                       help="Add any amount to your challenge savings")
-        
-        missed_tasks = len(tasks) - len(completed_tasks)
-        
-        if missed_tasks > 0:
-            if missed_tasks == 1:
-                st.warning(f"You missed 1 task today. According to rules, you need to pay penalty to count this day toward your streak.")
-                penalty_confirmation = st.checkbox("I confirm I've paid the penalty for missed task")
-                st.info("Note: If you pay penalty for 1 missed task, the day WILL count toward your streak and progress.")
-            else:
-                st.error(f"You missed {missed_tasks} tasks. According to rules, this day WON'T count even if you pay penalty.")
-                penalty_confirmation = False
-        else:
-            penalty_confirmation = True  # No missed tasks, so automatically confirmed
-        
-        submit_btn = st.form_submit_button("Submit Today's Progress")
-        
-        if submit_btn:
-            # Process the form submission
-            process_daily_submission(completed_tasks, missed_tasks, penalty_amount, penalty_confirmation, today, tasks)
-    
-    # Show persistent message at the BOTTOM of the page (after the form)
-    show_persistent_message()
-    
-    # Show savings progress
-    if challenge_data.get('total_savings', 0) > 0:
-        st.markdown("---")
-        st.markdown("### Your Challenge Savings")
-        st.info(f"**Total savings: ${challenge_data['total_savings']}**")
-        st.markdown("*Remember: When you complete this challenge, use this money for making a project in your field or invest it in your field.*")
-    
-    # FIX 2: Navigation buttons
-    show_navigation_buttons()
-
-def process_daily_submission(completed_tasks, missed_tasks, penalty_amount, penalty_confirmation, today, tasks):
-    """Process the daily form submission - FIX 1: Fixed streak logic"""
-    user = st.session_state.user
-    challenge_data = st.session_state.challenge_data
-    
-    if missed_tasks == 0:
-        # Perfect day - all tasks completed
-        challenge_data['streak_days'] += 1
-        challenge_data['completed_days'] += 1
-        challenge_data['current_day'] += 1
-        challenge_data['total_savings'] += penalty_amount  # Add any voluntary savings
-        
-        # Save daily checkin
-        if 'daily_checkins' not in challenge_data:
-            challenge_data['daily_checkins'] = {}
-        challenge_data['daily_checkins'][today] = {
-            'tasks_completed': completed_tasks,
-            'missed_tasks': 0,
-            'savings_added': penalty_amount,
-            'perfect_day': True
-        }
-        
-        save_challenge_data(user['username'], challenge_data)
-        st.session_state.challenge_data = challenge_data
-        
-        st.session_state.submission_message = f"Perfect day! All tasks completed! Day {challenge_data['current_day']-1} successfully saved. Streak: {challenge_data['streak_days']} days!"
-        st.session_state.submission_type = "success"
-        
-    elif missed_tasks == 1:
-        # FIX 1: Missed 1 task - count day but only update streak if penalty is paid
-        challenge_data['completed_days'] += 1
-        challenge_data['current_day'] += 1
-        
-        # FIX 1: Only increment streak_days if penalty is paid AND task was missed
-        if penalty_confirmation and penalty_amount > 0:
-            challenge_data['streak_days'] += 1
-            challenge_data['total_savings'] += penalty_amount
-            
-            # Add to penalty history
-            penalty_record = {
-                'date': today,
-                'amount': penalty_amount,
-                'missed_tasks': 1,
-                'reason': f"Missed 1 task but paid penalty"
-            }
-            if 'penalty_history' not in challenge_data:
-                challenge_data['penalty_history'] = []
-            challenge_data['penalty_history'].append(penalty_record)
-            
-            st.session_state.submission_message = f"Day counted with penalty! ${penalty_amount} added to savings. Day {challenge_data['current_day']-1} successfully saved. Streak continues: {challenge_data['streak_days']} days!"
-            st.session_state.submission_type = "success"
-        else:
-            # FIX 1: Don't increment streak if no penalty paid for missed task
-            st.session_state.submission_message = f"Day {challenge_data['current_day']-1} counted but no penalty paid for missed task, so streak not incremented. Streak remains: {challenge_data['streak_days']} days."
-            st.session_state.submission_type = "warning"
-        
-        # Save daily checkin
-        if 'daily_checkins' not in challenge_data:
-            challenge_data['daily_checkins'] = {}
-        challenge_data['daily_checkins'][today] = {
-            'tasks_completed': completed_tasks,
-            'missed_tasks': 1,
-            'savings_added': penalty_amount,
-            'perfect_day': False,
-            'penalty_paid': penalty_confirmation and penalty_amount > 0
-        }
-        
-        save_challenge_data(user['username'], challenge_data)
-        st.session_state.challenge_data = challenge_data
-        
-    else:  # missed_tasks >= 2
-        st.session_state.submission_message = f"According to rules: You missed {missed_tasks} tasks. This day doesn't count even if you pay penalty. You have to do all tasks tomorrow."
-        st.session_state.submission_type = "error"
-        
-        # Still save the checkin but don't count the day
-        if 'daily_checkins' not in challenge_data:
-            challenge_data['daily_checkins'] = {}
-        challenge_data['daily_checkins'][today] = {
-            'tasks_completed': completed_tasks,
-            'missed_tasks': missed_tasks,
-            'savings_added': penalty_amount,
-            'perfect_day': False,
-            'day_not_counted': True
-        }
-        save_challenge_data(user['username'], challenge_data)
-        st.session_state.challenge_data = challenge_data
-    
-    st.rerun()
-
-# LIFE VISION PAGE
-def life_vision_page():
-    if "user" not in st.session_state or not st.session_state.logged_in:  # FIX 3: Check login state
-        st.session_state.page = "signin"
-        st.rerun()
-        return
-    
-    show_sidebar_content()
-    
-    st.markdown("<h1 style='text-align: center; color: #7C3AED;'>After This Challenge How Your Life Is Looking</h1>", unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    st.markdown("<h2 style='text-align: center; color: #7C3AED;'>Your Life After Completing 105-Day Challenge</h2>", unsafe_allow_html=True)
-    
-    st.markdown("""
-    ### **Grade: ELITE PERFORMER - Top 1% Worldwide**
-    
-    **1. Perfect Health & Fitness**
-    - Complete sugar-free lifestyle with optimal nutrition
-    - Daily exercise routine with peak physical fitness
-    - 5 liters water daily consumption
-    - Perfect sleep cycle with consistent energy levels
-    
-    **2. Unbreakable Discipline**
-    - Wake up at 4-5 AM automatically without alarms
-    - Sleep by 9 PM for optimal recovery
-    - Complete control over cravings and impulses
-    - Military-level daily routine execution
-    
-    **3. Peak Productivity**
-    - 6+ hours of deep focused work daily in your field
-    - Zero procrastination or time wasting
-    - Maximum output with minimum effort
-    - Consistent skill development and mastery
-    
-    **4. Wealth Mindset**
-    - Financial discipline with substantial savings
-    - Multiple income streams developed
-    - Investment portfolio for your field
-    - Money to launch your dream project
-    
-    **5. Distraction-Free Life**
-    - Complete elimination of time-wasting activities
-    - No social media addiction
-    - Focused attention span of 3+ hours
-    - Mental clarity and sharp thinking
-    
-    **6. Elite Social Circle**
-    - Surrounded by top 1% performers
-    - Mentors and experts in your network
-    - Respect from peers and competitors
-    - Leadership position in your field
-    """)
-    
-    st.markdown("---")
-    
-    st.markdown("<p style='text-align: center; font-weight: bold; font-size: 20px;'>This transformation will make you unrecognizable to your current self</p>", unsafe_allow_html=True)
-    
-    # FIX 2: Navigation buttons
-    show_navigation_buttons()
-
-# CHALLENGE RULES PAGE
-def challenge_rules_page():
-    if "user" not in st.session_state or not st.session_state.logged_in:  # FIX 3: Check login state
-        st.session_state.page = "signin"
-        st.rerun()
-        return
-    
-    show_sidebar_content()
-    
-    st.markdown("<h1 style='text-align: center; color: #7C3AED;'>105 Days Transformation Challenge Rules</h1>", unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    st.markdown("<h2 style='text-align: center; color: #7C3AED;'>Silver Stage (15 Days - Easy)</h2>", unsafe_allow_html=True)
-    st.markdown("""
-    1. Do 2 hours of work in your field daily
-    2. Dont do any distraction for just 15 days
-    3. Fill your daily routine form at this website at night
-    """)
-    
-    st.markdown("---")
-    
-    st.markdown("<h2 style='text-align: center; color: #7C3AED;'>Platinum Stage (30 Days - Medium)</h2>", unsafe_allow_html=True)
-    st.markdown("""
-    1. Do 4 hours of work in your field daily
-    2. Dont do any distraction for just 30 days
-    3. Do 30 pushups exercise daily
-    4. Drink 5 liters of water daily
-    5. Avoid junk food
-    6. Fill your daily routine form at this website at night
-    """)
-    
-    st.markdown("---")
-    
-    st.markdown("<h2 style='text-align: center; color: #7C3AED;'>Gold Stage (60 Days - Hard but Last)</h2>", unsafe_allow_html=True)
-    st.markdown("""
-    1. Do 6 hours of work in your field daily
-    2. Dont do any distraction for just 60 days
-    3. Do 30 pushups exercise daily
-    4. Do 50 pushups exercise daily
-    5. Drink 5 liters of water daily
-    6. Avoid junk food
-    7. Avoid sugar
-    8. Wake up before 7 AM
-    9. Sleep before 11 PM
-    10. Fill your daily routine form at this website at night
-    """)
-    
-    st.markdown("---")
-    
-    st.markdown("<h2 style='text-align: center; color: #7C3AED;'>Penalty Rules</h2>", unsafe_allow_html=True)
-    st.markdown("""
-    If you miss one rule any day at any stage you have to pay that day whole pocket money or any money that you earn that day and put on savings.
-    When you complete this challenge you use this money for making project on your field or invest that money in your field.
-    But if you miss 2 or more habits at any stage we dont count that day even also you paying money and you have to do all of the things tomorrow.
-    """)
-    
-    st.markdown("---")
-    
-    st.markdown("<p style='text-align: center; font-weight: bold; font-size: 20px;'>This is your only opportunity to transform your life and become top 1%</p>", unsafe_allow_html=True)
-    
-    # FIX 2: Navigation buttons
-    show_navigation_buttons()
-
-# SETUP PROFILE PAGE
-def setup_profile_page():
-    if "user" not in st.session_state or not st.session_state.logged_in:  # FIX 3: Check login state
-        st.session_state.page = "signin"
-        st.rerun()
-        return
-    
-    show_sidebar_content()
-    
-    # Check if user is editing existing profile or creating new one
-    is_editing = bool(st.session_state.user_profile)
-    
-    st.markdown("<h1 style='text-align: center; color: #7C3AED;'>Setup Your Challenge Profile</h1>", unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    with st.form("profile_form"):
-        st.subheader("Your Field & Goals")
-        
-        field = st.selectbox("Select Your Field", [
-            "Programming & Technology",
-            "Engineering",
-            "Medical & Healthcare",
-            "Business & Entrepreneurship",
-            "Science & Research",
-            "Arts & Creative",
-            "Sports & Fitness",
-            "Education & Teaching",
-            "Finance & Investment",
-            "Other"
-        ])
-        
-        goal = st.text_input("What do you want to become? (e.g., Neurosurgeon, AI Engineer, Entrepreneur)")
-        
-        st.subheader("Your Current Distractions")
-        distractions = st.multiselect("Select distractions you currently face", [
-            "Social Media Scrolling",
-            "YouTube/Netflix Binging",
-            "Video Games",
-            "Masturbation/Porn",
-            "Procrastination",
-            "Phone Addiction",
-            "Unproductive Socializing",
-            "Overthinking",
-            "Substance Use",
-            "Other"
-        ])
-        
-        st.subheader("Challenge Stage Selection")
-        stage = st.selectbox("Choose your starting stage", [
-            "Silver (15 Days - Easy)",
-            "Platinum (30 Days - Medium)",
-            "Gold (60 Days - Hard)"
-        ])
-        
-        save_btn = st.form_submit_button("Update Profile" if is_editing else "Save Profile & Start Challenge")
-        
-        if save_btn:
-            if not field or not goal or not stage:
-                st.error("Please fill all fields")
-            else:
-                with st.spinner("Saving your profile..."):
-                    profile_data = {
-                        'field': field,
-                        'goal': goal,
-                        'distractions': distractions,
-                        'stage': stage,
-                        'created_at': firestore.SERVER_TIMESTAMP,
-                        'updated_at': firestore.SERVER_TIMESTAMP
-                    }
-                    
-                    st.session_state.user_profile = profile_data
-                    
-                    # Only initialize challenge data if it's a new profile
-                    if not is_editing:
-                        challenge_data = {
-                            'current_stage': stage,
-                            'start_date': datetime.now(),
-                            'current_day': 1,
-                            'streak_days': 0,
-                            'total_savings': 0,
-                            'completed_days': 0,
-                            'penalty_history': [],
-                            'daily_checkins': {},
-                            'badges': []
-                        }
-                        st.session_state.challenge_data = challenge_data
-                    
-                    try:
-                        db.collection('user_profiles').document(st.session_state.user['username']).set(profile_data)
-                        if not is_editing:
-                            save_challenge_data(st.session_state.user['username'], challenge_data)
-                        st.success("Profile saved successfully!")
-                        
-                        if not is_editing:
-                            st.info("Your profile is now visible in the sidebar. Your challenge begins now!")
-                            time.sleep(2)
-                            st.session_state.page = "daily_challenge"
-                            st.rerun()
-                    except Exception as e:
-                        st.error("Failed to save profile. Please try again.")
-    
-    # FIX 2: Navigation buttons
-    show_navigation_buttons()
-
-# FIX 3: Session persistence - Check if user should stay logged in
-if st.session_state.user is not None and st.session_state.page == "signin" and st.session_state.logged_in:
-    st.session_state.page = "ml_dashboard"
-
-# Main app routing
-if st.session_state.page == "signin":
-    sign_in_page()
-elif st.session_state.page == "signup":
-    sign_up_page()
-elif st.session_state.page == "forgot_password":
-    forgot_password_page()
-elif st.session_state.page == "ml_dashboard":
-    ml_dashboard_page()
-elif st.session_state.page == "life_vision":
-    life_vision_page()
-elif st.session_state.page == "challenge_rules":
-    challenge_rules_page()
-elif st.session_state.page == "setup_profile":
-    setup_profile_page()
-elif st.session_state.page == "daily_challenge":
-    daily_challenge_page()
