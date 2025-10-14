@@ -11,26 +11,35 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pickle
 from datetime import datetime, timedelta
+import hashlib
 
-# Page config
+# Page config - MUST be first command
 st.set_page_config(page_title="The Brain App", page_icon="🧠", layout="centered")
 
-# Initialize session state
+# FIX: COMPLETE SESSION STATE SOLUTION
 def initialize_session_state():
     """Initialize all session state variables with proper defaults"""
-    if 'initialized' not in st.session_state:
-        st.session_state.initialized = True
+    if 'app_initialized' not in st.session_state:
+        st.session_state.app_initialized = True
+        
+        # Core authentication states
         st.session_state.user = None
-        st.session_state.page = "signin"
         st.session_state.logged_in = False
-        st.session_state.prediction_results = None
+        st.session_state.page = "signin"
+        
+        # User data states
         st.session_state.user_profile = {}
         st.session_state.challenge_data = {}
+        
+        # App functionality states
+        st.session_state.prediction_results = None
         st.session_state.show_stage_completion = False
         st.session_state.form_submitted = False
         st.session_state.submission_message = None
         st.session_state.submission_type = None
-        st.session_state.session_persisted = False
+        
+        # Session persistence
+        st.session_state.session_restored = False
 
 # Initialize session state
 initialize_session_state()
@@ -60,21 +69,73 @@ except Exception as e:
     st.error("System temporarily unavailable")
     st.stop()
 
-# FIX: Simple session persistence
-if not st.session_state.session_persisted:
-    st.session_state.session_persisted = True
+# FIX: SESSION RESTORATION - This runs on every page load
+def restore_user_session():
+    """Restore user session from browser storage or redirect to login"""
+    if not st.session_state.session_restored:
+        st.session_state.session_restored = True
+        
+        # Get query parameters for session restoration
+        query_params = st.experimental_get_query_params()
+        
+        # Check if we have a username in query params (persisted session)
+        if 'username' in query_params:
+            username = query_params['username'][0]
+            try:
+                # Verify user exists in database
+                user_doc = db.collection('users').document(username).get()
+                if user_doc.exists:
+                    user_info = user_doc.to_dict()
+                    
+                    # Restore user session
+                    st.session_state.user = {
+                        "username": username,
+                        "email": user_info.get("email", ""),
+                        "role": user_info.get("role", "student")
+                    }
+                    
+                    # Restore user profile
+                    profile_doc = db.collection('user_profiles').document(username).get()
+                    if profile_doc.exists:
+                        st.session_state.user_profile = profile_doc.to_dict()
+                    
+                    # Restore challenge data
+                    st.session_state.challenge_data = load_challenge_data(username)
+                    
+                    # Set login state
+                    st.session_state.logged_in = True
+                    
+                    # Ensure we're not on auth pages
+                    if st.session_state.page in ["signin", "signup", "forgot_password"]:
+                        st.session_state.page = "ml_dashboard"
+                    
+                    return True
+            except Exception as e:
+                # If restoration fails, clear everything and go to signin
+                st.session_state.user = None
+                st.session_state.logged_in = False
+                st.session_state.user_profile = {}
+                st.session_state.challenge_data = {}
+                st.session_state.page = "signin"
+                st.experimental_set_query_params()
+                return False
+        
+        # If no persisted session, check current session state
+        elif st.session_state.logged_in and st.session_state.user:
+            # User is logged in, ensure proper page
+            if st.session_state.page in ["signin", "signup", "forgot_password"]:
+                st.session_state.page = "ml_dashboard"
+            return True
+        else:
+            # Not logged in, ensure on signin page
+            if st.session_state.page not in ["signin", "signup", "forgot_password"]:
+                st.session_state.page = "signin"
+            return False
     
-    # If user was logged in, keep them logged in
-    if st.session_state.logged_in and st.session_state.user:
-        # Only redirect if they're on auth pages
-        if st.session_state.page in ["signin", "signup", "forgot_password"]:
-            st.session_state.page = "ml_dashboard"
-            st.rerun()
-    else:
-        # If not logged in, ensure they're on signin page
-        if st.session_state.page not in ["signin", "signup", "forgot_password"]:
-            st.session_state.page = "signin"
-            st.rerun()
+    return st.session_state.logged_in
+
+# Restore session on every run
+restore_user_session()
 
 # Load ML Model from model.pkl
 @st.cache_resource
@@ -357,13 +418,16 @@ def show_sidebar_content():
             
             st.markdown("---")
             if st.button("Logout", use_container_width=True):
-                # Simple logout - clear only necessary states
+                # Clear session state
                 st.session_state.user = None
                 st.session_state.logged_in = False
                 st.session_state.user_profile = {}
                 st.session_state.challenge_data = {}
                 st.session_state.page = "signin"
-                st.session_state.session_persisted = False
+                st.session_state.session_restored = False
+                
+                # Clear query params
+                st.experimental_set_query_params()
                 st.rerun()
 
 def show_navigation_buttons():
@@ -429,6 +493,12 @@ def show_navigation_buttons():
 
 # Authentication Pages
 def sign_in_page():
+    # Auto-redirect if already logged in
+    if st.session_state.logged_in and st.session_state.user:
+        st.session_state.page = "ml_dashboard"
+        st.rerun()
+        return
+        
     st.markdown("<h1 style='text-align: center;'>The Brain App</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center;'>Sign In</h3>", unsafe_allow_html=True)
 
@@ -457,6 +527,7 @@ def sign_in_page():
                             if user_doc.exists:
                                 user_info = user_doc.to_dict()
                                 if check_password(password_clean, user_info.get("password", "")):
+                                    # FIX: COMPLETE LOGIN WITH PERSISTENCE
                                     st.session_state.user = {
                                         "username": username_clean,
                                         "email": user_info.get("email", ""),
@@ -472,7 +543,11 @@ def sign_in_page():
                                     st.session_state.challenge_data = load_challenge_data(username_clean)
                                     st.session_state.logged_in = True
                                     st.session_state.page = "ml_dashboard"
-                                    st.session_state.session_persisted = True
+                                    st.session_state.session_restored = True
+                                    
+                                    # FIX: Persist session in query params
+                                    st.experimental_set_query_params(username=username_clean)
+                                    
                                     st.success("Login successful!")
                                     time.sleep(1)
                                     st.rerun()
@@ -576,6 +651,7 @@ def sign_up_page():
 
 # Protected Pages with Enhanced Authentication
 def ml_dashboard_page():
+    # FIX: STRICT AUTH CHECK
     if not st.session_state.logged_in or not st.session_state.user:
         st.session_state.page = "signin"
         st.rerun()
