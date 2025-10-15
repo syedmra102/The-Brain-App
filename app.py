@@ -452,7 +452,7 @@ def main():
 
 # Add these enhanced pages similarly...
 def enhanced_signin_page():
-    st.markdown('<div class="main-header">🚀 NeuroFlow</div>', unsafe_allow_html=True>
+    st.markdown('<div class="main-header">🚀 NeuroFlow</div>', unsafe_allow_html=True)
     st.markdown('<h3 style="text-align: center; color: #667eea;">AI-Powered Productivity Platform</h3>', unsafe_allow_html=True)
     
     col1, col2 = st.columns([2, 1])
