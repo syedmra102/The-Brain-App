@@ -358,7 +358,7 @@ def create_advanced_analytics(challenge_data, user_profile):
         
         labels = ['Perfect Days', 'Penalty Days', 'Skipped Days']
         sizes = [sum(perfect_days), sum(penalty_days), sum(skipped_days)]
-        colors = ['lightgreen', 'lightyellow', 'lightcoral']
+        colors = ['seagreen', 'goldenrod', 'indianred']
         
         # Only show pie chart if we have data
         if sum(sizes) > 0:
@@ -377,8 +377,8 @@ def create_advanced_analytics(challenge_data, user_profile):
             fig2, ax2 = plt.subplots(figsize=(10, 4))
             
             cumulative_savings = np.cumsum(daily_savings)
-            ax2.fill_between(range(len(dates)), cumulative_savings, alpha=0.4, color='lightblue')
-            ax2.plot(range(len(dates)), cumulative_savings, color='blue', linewidth=2, marker='o')
+            ax2.fill_between(range(len(dates)), cumulative_savings, alpha=0.4, color='steelblue')
+            ax2.plot(range(len(dates)), cumulative_savings, color='navy', linewidth=2, marker='o')
             ax2.set_xlabel('Days')
             ax2.set_ylabel('Total Savings ($)')
             ax2.set_title('Cumulative Savings Progress', fontweight='bold')
@@ -694,8 +694,8 @@ def ml_dashboard_page():
         
         show_sidebar_content()
         
-        st.markdown("<h1 style='text-align: center;'>Performance Predictor</h1>", unsafe_allow_html=True)
-        st.markdown("<h3 style='text-align: center;'>Discover Your Top Percentile</h3>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: darkblue;'>Performance Predictor</h1>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align: center; color: darkblue;'>Discover Your Top Percentile</h3>", unsafe_allow_html=True)
         
         if st.button("Back to Life Vision", use_container_width=False):
             st.session_state.page = "life_vision"
@@ -750,13 +750,13 @@ def ml_dashboard_page():
             feature_percentiles = results['feature_percentiles']
             
             st.markdown("---")
-            st.markdown(f"<h2 style='text-align: center; color: purple;'>Your Performance: Top {percentile:.1f}%</h2>", unsafe_allow_html=True)
+            st.markdown(f"<h2 style='text-align: center; color: darkgreen;'>Your Performance: Top {percentile:.1f}%</h2>", unsafe_allow_html=True)
             
             fig, ax = plt.subplots(figsize=(12, 6))
             features = list(feature_percentiles.keys())
             percentiles = list(feature_percentiles.values())
             
-            bars = ax.bar(features, percentiles, color='lightblue', edgecolor='blue', linewidth=1.5)
+            bars = ax.bar(features, percentiles, color='steelblue', edgecolor='navy', linewidth=1.5)
             ax.set_ylabel('Performance Percentile', fontweight='bold')
             ax.set_title('Performance Breakdown Analysis', fontweight='bold', fontsize=14)
             ax.set_ylim(0, 100)
@@ -767,16 +767,16 @@ def ml_dashboard_page():
                 ax.text(bar.get_x() + bar.get_width()/2., height + 1,
                        f'Top {percentile_val:.1f}%', ha='center', va='bottom', fontweight='bold', fontsize=9)
             
-            ax.grid(True, alpha=0.3, color='blue')
+            ax.grid(True, alpha=0.3, color='gray')
             ax.set_facecolor('white')
             
             st.pyplot(fig)
         
         st.markdown("---")
-        st.markdown("<h2 style='text-align: center; color: purple;'>105 Days to Top 1% Challenge</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: darkblue;'>105 Days to Top 1% Challenge</h2>", unsafe_allow_html=True)
         st.markdown("""
-        <div style='background-color: lightblue; padding: 20px; border-radius: 10px; border: 2px solid purple;'>
-        <h3 style='text-align: center; color: purple;'>Transform Your Life Completely!</h3>
+        <div style='background-color: aliceblue; padding: 20px; border-radius: 10px; border: 2px solid darkblue;'>
+        <h3 style='text-align: center; color: darkblue;'>Transform Your Life Completely!</h3>
         <p style='text-align: center; font-weight: bold; font-size: 18px;'>
         This is your only opportunity to become top 1% in the world and in your field.
         Join the challenge that will change everything!
@@ -807,7 +807,7 @@ def life_vision_page():
         
         show_sidebar_content()
         
-        st.markdown("<h1 style='text-align: center; color: purple;'>After This Challenge How Your Life Is Looking</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: darkblue;'>After This Challenge How Your Life Is Looking</h1>", unsafe_allow_html=True)
         
         if st.button("Back to Predictor", use_container_width=False):
             st.session_state.page = "ml_dashboard"
@@ -815,7 +815,7 @@ def life_vision_page():
         
         st.markdown("---")
         
-        st.markdown("<h2 style='text-align: center; color: purple;'>Your Life After Completing 105-Day Challenge</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: darkblue;'>Your Life After Completing 105-Day Challenge</h2>", unsafe_allow_html=True)
         
         st.markdown("""
         ### **Grade: ELITE PERFORMER - Top 1% Worldwide**
@@ -859,7 +859,7 @@ def life_vision_page():
         
         st.markdown("---")
         
-        st.markdown("<p style='text-align: center; font-weight: bold; font-size: 20px;'>This transformation will make you unrecognizable to your current self</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; font-weight: bold; font-size: 20px; color: darkgreen;'>This transformation will make you unrecognizable to your current self</p>", unsafe_allow_html=True)
         
         st.markdown("---")
         col1, col2, col3 = st.columns([1, 2, 1])
@@ -882,7 +882,7 @@ def challenge_rules_page():
         
         show_sidebar_content()
         
-        st.markdown("<h1 style='text-align: center; color: purple;'>105 Days Transformation Challenge Rules</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: darkblue;'>105 Days Transformation Challenge Rules</h1>", unsafe_allow_html=True)
         
         if st.button("Back to Life Vision", use_container_width=False):
             st.session_state.page = "life_vision"
@@ -890,7 +890,7 @@ def challenge_rules_page():
         
         st.markdown("---")
         
-        st.markdown("<h2 style='text-align: center; color: purple;'>Silver Stage (15 Days - Easy)</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: darkblue;'>Silver Stage (15 Days - Easy)</h2>", unsafe_allow_html=True)
         st.markdown("""
         1. Do 2 hours of work in your field daily
         2. Don't do any distraction for just 15 days
@@ -899,7 +899,7 @@ def challenge_rules_page():
         
         st.markdown("---")
         
-        st.markdown("<h2 style='text-align: center; color: purple;'>Platinum Stage (30 Days - Medium)</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: darkblue;'>Platinum Stage (30 Days - Medium)</h2>", unsafe_allow_html=True)
         st.markdown("""
         1. Do 4 hours of work in your field daily
         2. Don't do any distraction for just 30 days
@@ -911,7 +911,7 @@ def challenge_rules_page():
         
         st.markdown("---")
         
-        st.markdown("<h2 style='text-align: center; color: purple;'>Gold Stage (60 Days - Hard but Last)</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: darkblue;'>Gold Stage (60 Days - Hard but Last)</h2>", unsafe_allow_html=True)
         st.markdown("""
         1. Do 6 hours of work in your field daily
         2. Don't do any distraction for just 60 days
@@ -926,7 +926,7 @@ def challenge_rules_page():
         
         st.markdown("---")
         
-        st.markdown("<h2 style='text-align: center; color: purple;'>Penalty Rules</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: darkblue;'>Penalty Rules</h2>", unsafe_allow_html=True)
         st.markdown("""
         If you miss one rule any day at any stage you have to pay that day whole pocket money or any money that you earn that day and put on savings.
         When you complete this challenge you use this money for making project on your field or invest that money in your field.
@@ -935,7 +935,7 @@ def challenge_rules_page():
         
         st.markdown("---")
         
-        st.markdown("<p style='text-align: center; font-weight: bold; font-size: 20px;'>This is your only opportunity to transform your life and become top 1%</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; font-weight: bold; font-size: 20px; color: darkgreen;'>This is your only opportunity to transform your life and become top 1%</p>", unsafe_allow_html=True)
         
         st.markdown("---")
         col1, col2, col3 = st.columns([1, 2, 1])
@@ -963,7 +963,7 @@ def setup_profile_page():
         
         show_sidebar_content()
         
-        st.markdown("<h1 style='text-align: center; color: purple;'>Setup Your Challenge Profile</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: darkblue;'>Setup Your Challenge Profile</h1>", unsafe_allow_html=True)
         
         if st.button("Back to Challenge Rules", use_container_width=False):
             st.session_state.page = "challenge_rules"
@@ -1071,7 +1071,7 @@ def edit_profile_page():
         
         show_sidebar_content()
         
-        st.markdown("<h1 style='text-align: center; color: purple;'>Edit Your Profile</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: darkblue;'>Edit Your Profile</h1>", unsafe_allow_html=True)
         
         if st.button("Back to Previous Page", use_container_width=False):
             st.session_state.page = "daily_challenge"
@@ -1169,7 +1169,7 @@ def edit_profile_page():
 def stage_completion_popup():
     if st.session_state.show_stage_completion:
         with st.container():
-            st.markdown("<div style='background-color: lightgray; padding: 20px; border-radius: 10px; border: 2px solid purple;'>", unsafe_allow_html=True)
+            st.markdown("<div style='background-color: aliceblue; padding: 20px; border-radius: 10px; border: 2px solid darkblue;'>", unsafe_allow_html=True)
             
             st.success("CONGRATULATIONS!")
             st.markdown(f"### You've successfully completed the {st.session_state.challenge_data['current_stage']}!")
@@ -1230,7 +1230,7 @@ def daily_challenge_page():
             stage_completion_popup()
             return
         
-        st.markdown("<h1 style='text-align: center; color: purple;'>Daily Challenge Tracker</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: darkblue;'>Daily Challenge Tracker</h1>", unsafe_allow_html=True)
         
         if st.button("Back to Setup Profile", use_container_width=False):
             st.session_state.page = "setup_profile"
@@ -1459,7 +1459,7 @@ def analytics_page():
         
         show_sidebar_content()
         
-        st.markdown("<h1 style='text-align: center; color: purple;'>Advanced Analytics Dashboard</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: darkblue;'>Advanced Analytics Dashboard</h1>", unsafe_allow_html=True)
         
         if st.button("Back to Daily Challenge", use_container_width=False):
             st.session_state.page = "daily_challenge"
@@ -1518,7 +1518,7 @@ def certificate_page():
         
         show_sidebar_content()
         
-        st.markdown("<h1 style='text-align: center; color: purple;'>Your Achievement Certificate</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: darkblue;'>Your Achievement Certificate</h1>", unsafe_allow_html=True)
         
         if st.button("Back to Dashboard", use_container_width=False):
             st.session_state.page = "daily_challenge"
@@ -1558,8 +1558,8 @@ def certificate_page():
 # SAFE Sign In Page
 def sign_in_page():
     try:
-        st.markdown("<h1 style='text-align: center;'>The Brain App</h1>", unsafe_allow_html=True)
-        st.markdown("<h3 style='text-align: center;'>Sign In</h3>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: darkblue;'>The Brain App</h1>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align: center; color: darkblue;'>Sign In</h3>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 3, 1])
         with col2:
             with st.form("login_form"):
@@ -1620,7 +1620,7 @@ def sign_in_page():
 # SAFE Forgot Password Page
 def forgot_password_page():
     try:
-        st.markdown("<h2 style='text-align: center;'>Forgot Password</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: darkblue;'>Forgot Password</h2>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 3, 1])
         with col2:
             with st.form("forgot_form"):
@@ -1654,8 +1654,8 @@ def forgot_password_page():
 # SAFE Sign Up Page
 def sign_up_page():
     try:
-        st.markdown("<h1 style='text-align: center;'>The Brain App</h1>", unsafe_allow_html=True)
-        st.markdown("<h3 style='text-align: center;'>Create Account</h3>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: darkblue;'>The Brain App</h1>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align: center; color: darkblue;'>Create Account</h3>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 3, 1])
         with col2:
             with st.form("signup_form"):
