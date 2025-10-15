@@ -1,4 +1,3 @@
-
 import streamlit as st
 import re
 import bcrypt
@@ -306,6 +305,7 @@ def create_advanced_analytics(challenge_data, user_profile):
         penalty_days = []
         daily_savings = []
         task_completion_rates = []
+        distraction_days = []
         
         for date in dates:
             checkin = daily_checkins[date]
@@ -313,7 +313,12 @@ def create_advanced_analytics(challenge_data, user_profile):
             penalty_days.append(1 if checkin.get('penalty_paid', False) else 0)
             daily_savings.append(checkin.get('savings_added', 0))
             
-            completed = len(checkin.get('tasks_completed', []))
+            # Track distraction days
+            tasks_completed = checkin.get('tasks_completed', [])
+            distraction_day = 0 if "No distractions today" in tasks_completed else 1
+            distraction_days.append(distraction_day)
+            
+            completed = len(tasks_completed)
             total_tasks = completed + checkin.get('missed_tasks', 0)
             rate = (completed / total_tasks * 100) if total_tasks > 0 else 0
             task_completion_rates.append(rate)
@@ -327,9 +332,31 @@ def create_advanced_analytics(challenge_data, user_profile):
         with col2:
             st.metric("Perfect Days", sum(perfect_days))
         with col3:
-            st.metric("Penalty Days", sum(penalty_days))
+            st.metric("Distraction Days", sum(distraction_days))
         with col4:
             st.metric("Total Savings", f"${sum(daily_savings)}")
+        
+        # Distraction trend chart
+        if len(dates) > 1:
+            st.markdown("#### Distraction Trend")
+            fig, ax = plt.subplots(figsize=(10, 4))
+            
+            # Create distraction trend line
+            distraction_trend = np.cumsum(distraction_days)
+            ax.plot(range(len(dates)), distraction_trend, 'navy', linewidth=2, label='Total Distraction Days')
+            ax.set_xlabel('Days')
+            ax.set_ylabel('Cumulative Distraction Days')
+            ax.set_title('Distraction Trend Over Time')
+            ax.grid(True, alpha=0.3)
+            ax.legend()
+            
+            if len(dates) > 10:
+                step = max(1, len(dates)//10)
+                ax.set_xticks(range(0, len(dates), step))
+            else:
+                ax.set_xticks(range(len(dates)))
+            
+            st.pyplot(fig)
         
         # Simple progress chart
         if len(dates) > 1:
@@ -495,6 +522,37 @@ def calculate_feature_percentiles(hours, distractions, habit_inputs):
             'Wake-up Time': 50
         }
 
+def get_distraction_trend(challenge_data):
+    """Calculate distraction trend from challenge data"""
+    try:
+        daily_checkins = challenge_data.get('daily_checkins', {})
+        if not daily_checkins:
+            return "No data yet"
+        
+        distraction_days = 0
+        total_days = len(daily_checkins)
+        
+        for date, checkin in daily_checkins.items():
+            tasks_completed = checkin.get('tasks_completed', [])
+            if "No distractions today" not in tasks_completed:
+                distraction_days += 1
+        
+        if total_days == 0:
+            return "No data"
+        
+        distraction_rate = (distraction_days / total_days) * 100
+        if distraction_rate <= 20:
+            return f"Excellent ({distraction_rate:.1f}% distraction days)"
+        elif distraction_rate <= 40:
+            return f"Good ({distraction_rate:.1f}% distraction days)"
+        elif distraction_rate <= 60:
+            return f"Average ({distraction_rate:.1f}% distraction days)"
+        else:
+            return f"Needs Improvement ({distraction_rate:.1f}% distraction days)"
+            
+    except Exception as e:
+        return "Calculating..."
+
 def show_sidebar_content():
     if st.session_state.user:
         with st.sidebar:
@@ -542,6 +600,11 @@ def show_sidebar_content():
                 st.write(f"**Field:** {st.session_state.user_profile.get('field', 'Not set')}")
                 st.write(f"**Goal:** {st.session_state.user_profile.get('goal', 'Not set')}")
                 st.write(f"**Stage:** {st.session_state.user_profile.get('stage', 'Not set')}")
+                
+                # Show distraction trend in sidebar
+                if st.session_state.challenge_data:
+                    distraction_trend = get_distraction_trend(st.session_state.challenge_data)
+                    st.write(f"**Distraction Trend:** {distraction_trend}")
                 
             if st.session_state.challenge_data:
                 st.markdown("---")
@@ -595,6 +658,14 @@ def ml_dashboard_page():
         with col1:
             hours = st.slider("Study Hours", 0, 12, 4)
             distraction_count = st.slider("Distractions Count", 0, 20, 5)
+            
+            # New distraction type input
+            st.markdown("#### Distraction Types")
+            social_media = st.checkbox("Social Media", value=False)
+            phone_calls = st.checkbox("Phone Calls", value=False)
+            entertainment = st.checkbox("Entertainment", value=False)
+            people_interruptions = st.checkbox("People Interruptions", value=False)
+            other_distractions = st.checkbox("Other Distractions", value=False)
         
         with col2:
             st.markdown("#### Daily Habits")
@@ -617,6 +688,19 @@ def ml_dashboard_page():
                 'wakeup_early': 1 if wakeup_early else 0
             }
             
+            # Store distraction types
+            distraction_types = []
+            if social_media:
+                distraction_types.append("Social Media")
+            if phone_calls:
+                distraction_types.append("Phone Calls")
+            if entertainment:
+                distraction_types.append("Entertainment")
+            if people_interruptions:
+                distraction_types.append("People Interruptions")
+            if other_distractions:
+                distraction_types.append("Other")
+            
             prediction = predict_performance(hours, distraction_count, habit_inputs)
             percentiles = calculate_feature_percentiles(hours, distraction_count, habit_inputs)
             
@@ -625,6 +709,7 @@ def ml_dashboard_page():
                 'percentiles': percentiles,
                 'hours': hours,
                 'distractions': distraction_count,
+                'distraction_types': distraction_types,
                 'habits': habit_inputs
             }
     
@@ -660,6 +745,12 @@ def ml_dashboard_page():
             st.markdown(f"<h3 style='text-align: center; color: {color};'>{status}</h3>", unsafe_allow_html=True)
             st.markdown(f"<p style='text-align: center;'>{interpretation}</p>", unsafe_allow_html=True)
         
+        # Show distraction types if any
+        if results['distraction_types']:
+            st.markdown("#### Your Distractions Today")
+            for distraction in results['distraction_types']:
+                st.write(f"- {distraction}")
+        
         # Feature Analysis with Bar Chart
         st.markdown("#### Feature Analysis - Percentile Ranking")
         features_df = pd.DataFrame(list(results['percentiles'].items()), columns=['Feature', 'Percentile'])
@@ -668,10 +759,8 @@ def ml_dashboard_page():
         features = features_df['Feature']
         percentiles = features_df['Percentile']
         
-        # FIXED: Green for low percentages (good), Red for high percentages (needs improvement)
-        colors = ['green' if p <= 20 else 'blue' if p <= 40 else 'orange' if p <= 60 else 'red' for p in percentiles]
-        
-        bars = ax.bar(features, percentiles, color=colors, alpha=0.7)
+        # FIXED: Changed bar color to navy blue
+        bars = ax.bar(features, percentiles, color='navy', alpha=0.7)
         ax.set_ylabel('Percentile Score (%)')
         ax.set_title('Feature Performance (Lower % = Better Ranking)')
         ax.set_ylim(0, 100)
@@ -748,6 +837,11 @@ def life_vision_page():
         st.write(f"**Goal:** {st.session_state.user_profile.get('goal', 'Not set')}")
         st.write(f"**Stage:** {st.session_state.user_profile.get('stage', 'Not set')}")
         
+        # Show distraction trend in profile
+        if st.session_state.challenge_data:
+            distraction_trend = get_distraction_trend(st.session_state.challenge_data)
+            st.write(f"**Distraction Trend:** {distraction_trend}")
+            
         if st.session_state.challenge_data:
             st.write(f"**Current Day:** {st.session_state.challenge_data.get('current_day', 1)}")
             st.write(f"**Streak:** {st.session_state.challenge_data.get('streak_days', 0)} days")
