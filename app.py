@@ -289,12 +289,7 @@ def generate_certificate(username, user_profile, challenge_data):
         pdf.cell(0, 10, f'Generated on: {datetime.now().strftime("%Y-%m-%d")}', 0, 1, 'C')
         
         # Save to bytes buffer
-        pdf_output = pdf.output(dest='S')
-        if isinstance(pdf_output, str):
-            pdf_bytes = pdf_output.encode('latin1')
-        else:
-            pdf_bytes = pdf_output
-        return pdf_bytes
+        return pdf.output(dest='S').encode('latin-1')
     except Exception as e:
         return None
 
@@ -306,7 +301,7 @@ def create_advanced_analytics(challenge_data, user_profile):
     try:
         daily_checkins = challenge_data.get('daily_checkins', {})
         if not daily_checkins:
-            st.info("📊 Complete more days to see advanced analytics!")
+            st.info("Complete more days to see advanced analytics!")
             return
             
         # Prepare data for analytics
@@ -335,7 +330,7 @@ def create_advanced_analytics(challenge_data, user_profile):
             task_completion_rates.append(rate)
         
         # Create advanced analytics dashboard
-        st.markdown("### 📈 Advanced Performance Analytics")
+        st.markdown("### Advanced Performance Analytics")
         
         # Row 1: Performance Metrics
         col1, col2, col3, col4 = st.columns(4)
@@ -363,7 +358,7 @@ def create_advanced_analytics(challenge_data, user_profile):
         
         labels = ['Perfect Days', 'Penalty Days', 'Skipped Days']
         sizes = [sum(perfect_days), sum(penalty_days), sum(skipped_days)]
-        colors = ['#2ecc71', '#f39c12', '#e74c3c']
+        colors = ['lightgreen', 'lightyellow', 'lightcoral']
         
         # Only show pie chart if we have data
         if sum(sizes) > 0:
@@ -382,8 +377,8 @@ def create_advanced_analytics(challenge_data, user_profile):
             fig2, ax2 = plt.subplots(figsize=(10, 4))
             
             cumulative_savings = np.cumsum(daily_savings)
-            ax2.fill_between(range(len(dates)), cumulative_savings, alpha=0.4, color='#3498db')
-            ax2.plot(range(len(dates)), cumulative_savings, color='#2980b9', linewidth=2, marker='o')
+            ax2.fill_between(range(len(dates)), cumulative_savings, alpha=0.4, color='lightblue')
+            ax2.plot(range(len(dates)), cumulative_savings, color='blue', linewidth=2, marker='o')
             ax2.set_xlabel('Days')
             ax2.set_ylabel('Total Savings ($)')
             ax2.set_title('Cumulative Savings Progress', fontweight='bold')
@@ -558,47 +553,47 @@ def show_sidebar_content():
         with st.sidebar:
             st.markdown("### Navigation")
             
-            if st.button("🏠 Performance Predictor", use_container_width=True):
+            if st.button("Performance Predictor", use_container_width=True):
                 st.session_state.page = "ml_dashboard"
                 st.rerun()
                 
-            if st.button("🌟 Life Vision", use_container_width=True):
+            if st.button("Life Vision", use_container_width=True):
                 st.session_state.page = "life_vision"
                 st.rerun()
                 
-            if st.button("📋 Challenge Rules", use_container_width=True):
+            if st.button("Challenge Rules", use_container_width=True):
                 st.session_state.page = "challenge_rules"
                 st.rerun()
             
             if st.session_state.user_profile:
-                if st.button("✅ Daily Challenge", use_container_width=True):
+                if st.button("Daily Challenge", use_container_width=True):
                     st.session_state.page = "daily_challenge"
                     st.rerun()
                 
                 # Analytics Page Button
-                if st.button("📊 Advanced Analytics", use_container_width=True):
+                if st.button("Advanced Analytics", use_container_width=True):
                     st.session_state.page = "analytics"
                     st.rerun()
             
             if not st.session_state.user_profile:
-                if st.button("👤 Setup Profile", use_container_width=True):
+                if st.button("Setup Profile", use_container_width=True):
                     st.session_state.page = "setup_profile"
                     st.rerun()
             
             if st.session_state.user_profile:
-                if st.button("✏️ Edit Profile", use_container_width=True):
+                if st.button("Edit Profile", use_container_width=True):
                     st.session_state.page = "edit_profile"
                     st.rerun()
             
             st.markdown("---")
             
-            st.markdown("### 👤 My Profile")
+            st.markdown("### My Profile")
             st.write(f"**Username:** {st.session_state.user['username']}")
             st.write(f"**Email:** {st.session_state.user['email']}")
             
             if st.session_state.user_profile:
                 st.markdown("---")
-                st.markdown("### 🎯 My Goals")
+                st.markdown("### My Goals")
                 st.write(f"**Field:** {st.session_state.user_profile.get('field', 'Not set')}")
                 st.write(f"**I want to become:** {st.session_state.user_profile.get('goal', 'Not set')}")
                 st.write(f"**Current Stage:** {st.session_state.user_profile.get('stage', 'Not set')}")
@@ -611,7 +606,7 @@ def show_sidebar_content():
                 
                 if st.session_state.challenge_data:
                     st.markdown("---")
-                    st.markdown("### 📈 My Progress")
+                    st.markdown("### My Progress")
                     st.write(f"**Current Day:** {st.session_state.challenge_data.get('current_day', 1)}")
                     st.write(f"**Streak Days:** {st.session_state.challenge_data.get('streak_days', 0)}")
                     st.write(f"**Total Savings:** ${st.session_state.challenge_data.get('total_savings', 0)}")
@@ -619,13 +614,13 @@ def show_sidebar_content():
                 
                 if st.session_state.challenge_data.get('badges'):
                     st.markdown("---")
-                    st.markdown("### 🏆 My Badges")
+                    st.markdown("### My Badges")
                     for badge in st.session_state.challenge_data['badges']:
                         st.success(f"{badge}")
             
             # SMS Reminders Section
             st.markdown("---")
-            st.markdown("### 📱 SMS Reminders")
+            st.markdown("### SMS Reminders")
             phone_number = st.text_input("Phone Number", 
                                        value=st.session_state.phone_number,
                                        placeholder="+1234567890",
@@ -639,18 +634,18 @@ def show_sidebar_content():
                 if success:
                     st.success("Test SMS sent!")
                 else:
-                    st.info("SMS service not configured")
+                    st.info("SMS service is not configured")
             
             # Certificate Download
             if st.session_state.challenge_data.get('badges'):
                 st.markdown("---")
-                st.markdown("### 📜 Certificates")
+                st.markdown("### Certificates")
                 if st.button("Download Progress Certificate", use_container_width=True):
                     st.session_state.page = "certificate"
                     st.rerun()
             
             st.markdown("---")
-            if st.button("🚪 Logout", use_container_width=True):
+            if st.button("Logout", use_container_width=True):
                 st.session_state.user = None
                 st.session_state.user_profile = {}
                 st.session_state.challenge_data = {}
@@ -663,6 +658,32 @@ def show_sidebar_content():
                 clear_persistent_login()
                 st.rerun()
 
+# Check for persistent login - FIXED VERSION
+if st.session_state.user is None:
+    try:
+        query_params = st.query_params
+        if 'username' in query_params and 'logged_in' in query_params and query_params['logged_in'] == "true":
+            username = query_params['username']
+            user_doc = db.collection('users').document(username).get()
+            if user_doc.exists:
+                user_info = user_doc.to_dict()
+                st.session_state.user = {
+                    "username": username,
+                    "email": user_info.get("email", ""),
+                    "role": user_info.get("role", "student")
+                }
+                profile_doc = db.collection('user_profiles').document(username).get()
+                if profile_doc.exists:
+                    st.session_state.user_profile = profile_doc.to_dict()
+                st.session_state.challenge_data = load_challenge_data(username)
+                if st.session_state.user_profile:
+                    st.session_state.page = "life_vision"
+                else:
+                    st.session_state.page = "life_vision"
+                set_persistent_login(username)
+    except Exception as e:
+        pass  # Silently handle any errors during persistent login
+
 # SAFE ML Dashboard Page
 def ml_dashboard_page():
     try:
@@ -673,10 +694,10 @@ def ml_dashboard_page():
         
         show_sidebar_content()
         
-        st.markdown("<h1 style='text-align: center;'>🧠 Performance Predictor</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center;'>Performance Predictor</h1>", unsafe_allow_html=True)
         st.markdown("<h3 style='text-align: center;'>Discover Your Top Percentile</h3>", unsafe_allow_html=True)
         
-        if st.button("← Back to Life Vision", use_container_width=False):
+        if st.button("Back to Life Vision", use_container_width=False):
             st.session_state.page = "life_vision"
             st.rerun()
         
@@ -729,13 +750,13 @@ def ml_dashboard_page():
             feature_percentiles = results['feature_percentiles']
             
             st.markdown("---")
-            st.markdown(f"<h2 style='text-align: center; color: #7C3AED;'>Your Performance: Top {percentile:.1f}%</h2>", unsafe_allow_html=True)
+            st.markdown(f"<h2 style='text-align: center; color: purple;'>Your Performance: Top {percentile:.1f}%</h2>", unsafe_allow_html=True)
             
             fig, ax = plt.subplots(figsize=(12, 6))
             features = list(feature_percentiles.keys())
             percentiles = list(feature_percentiles.values())
             
-            bars = ax.bar(features, percentiles, color='#1E3A8A', edgecolor='#1E40AF', linewidth=1.5)
+            bars = ax.bar(features, percentiles, color='lightblue', edgecolor='blue', linewidth=1.5)
             ax.set_ylabel('Performance Percentile', fontweight='bold')
             ax.set_title('Performance Breakdown Analysis', fontweight='bold', fontsize=14)
             ax.set_ylim(0, 100)
@@ -746,16 +767,16 @@ def ml_dashboard_page():
                 ax.text(bar.get_x() + bar.get_width()/2., height + 1,
                        f'Top {percentile_val:.1f}%', ha='center', va='bottom', fontweight='bold', fontsize=9)
             
-            ax.grid(True, alpha=0.3, color='#1E40AF')
-            ax.set_facecolor('#F8FAFC')
+            ax.grid(True, alpha=0.3, color='blue')
+            ax.set_facecolor('white')
             
             st.pyplot(fig)
         
         st.markdown("---")
-        st.markdown("<h2 style='text-align: center; color: #7C3AED;'>105 Days to Top 1% Challenge</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: purple;'>105 Days to Top 1% Challenge</h2>", unsafe_allow_html=True)
         st.markdown("""
-        <div style='background-color: #f0f8ff; padding: 20px; border-radius: 10px; border: 2px solid #7C3AED;'>
-        <h3 style='text-align: center; color: #7C3AED;'>Transform Your Life Completely!</h3>
+        <div style='background-color: lightblue; padding: 20px; border-radius: 10px; border: 2px solid purple;'>
+        <h3 style='text-align: center; color: purple;'>Transform Your Life Completely!</h3>
         <p style='text-align: center; font-weight: bold; font-size: 18px;'>
         This is your only opportunity to become top 1% in the world and in your field.
         Join the challenge that will change everything!
@@ -786,15 +807,15 @@ def life_vision_page():
         
         show_sidebar_content()
         
-        st.markdown("<h1 style='text-align: center; color: #7C3AED;'>🌟 After This Challenge How Your Life Is Looking</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: purple;'>After This Challenge How Your Life Is Looking</h1>", unsafe_allow_html=True)
         
-        if st.button("← Back to Predictor", use_container_width=False):
+        if st.button("Back to Predictor", use_container_width=False):
             st.session_state.page = "ml_dashboard"
             st.rerun()
         
         st.markdown("---")
         
-        st.markdown("<h2 style='text-align: center; color: #7C3AED;'>Your Life After Completing 105-Day Challenge</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: purple;'>Your Life After Completing 105-Day Challenge</h2>", unsafe_allow_html=True)
         
         st.markdown("""
         ### **Grade: ELITE PERFORMER - Top 1% Worldwide**
@@ -843,7 +864,7 @@ def life_vision_page():
         st.markdown("---")
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            if st.button("Next: Challenge Rules →", use_container_width=True):
+            if st.button("Next: Challenge Rules", use_container_width=True):
                 st.session_state.page = "challenge_rules"
                 st.rerun()
     except Exception as e:
@@ -861,15 +882,15 @@ def challenge_rules_page():
         
         show_sidebar_content()
         
-        st.markdown("<h1 style='text-align: center; color: #7C3AED;'>📋 105 Days Transformation Challenge Rules</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: purple;'>105 Days Transformation Challenge Rules</h1>", unsafe_allow_html=True)
         
-        if st.button("← Back to Life Vision", use_container_width=False):
+        if st.button("Back to Life Vision", use_container_width=False):
             st.session_state.page = "life_vision"
             st.rerun()
         
         st.markdown("---")
         
-        st.markdown("<h2 style='text-align: center; color: #7C3AED;'>Silver Stage (15 Days - Easy)</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: purple;'>Silver Stage (15 Days - Easy)</h2>", unsafe_allow_html=True)
         st.markdown("""
         1. Do 2 hours of work in your field daily
         2. Don't do any distraction for just 15 days
@@ -878,7 +899,7 @@ def challenge_rules_page():
         
         st.markdown("---")
         
-        st.markdown("<h2 style='text-align: center; color: #7C3AED;'>Platinum Stage (30 Days - Medium)</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: purple;'>Platinum Stage (30 Days - Medium)</h2>", unsafe_allow_html=True)
         st.markdown("""
         1. Do 4 hours of work in your field daily
         2. Don't do any distraction for just 30 days
@@ -890,7 +911,7 @@ def challenge_rules_page():
         
         st.markdown("---")
         
-        st.markdown("<h2 style='text-align: center; color: #7C3AED;'>Gold Stage (60 Days - Hard but Last)</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: purple;'>Gold Stage (60 Days - Hard but Last)</h2>", unsafe_allow_html=True)
         st.markdown("""
         1. Do 6 hours of work in your field daily
         2. Don't do any distraction for just 60 days
@@ -905,7 +926,7 @@ def challenge_rules_page():
         
         st.markdown("---")
         
-        st.markdown("<h2 style='text-align: center; color: #7C3AED;'>Penalty Rules</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: purple;'>Penalty Rules</h2>", unsafe_allow_html=True)
         st.markdown("""
         If you miss one rule any day at any stage you have to pay that day whole pocket money or any money that you earn that day and put on savings.
         When you complete this challenge you use this money for making project on your field or invest that money in your field.
@@ -920,11 +941,11 @@ def challenge_rules_page():
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             if st.session_state.user_profile:
-                if st.button("Next: Daily Challenge →", use_container_width=True):
+                if st.button("Next: Daily Challenge", use_container_width=True):
                     st.session_state.page = "daily_challenge"
                     st.rerun()
             else:
-                if st.button("Next: Setup Profile →", use_container_width=True):
+                if st.button("Next: Setup Profile", use_container_width=True):
                     st.session_state.page = "setup_profile"
                     st.rerun()
     except Exception as e:
@@ -942,9 +963,9 @@ def setup_profile_page():
         
         show_sidebar_content()
         
-        st.markdown("<h1 style='text-align: center; color: #7C3AED;'>👤 Setup Your Challenge Profile</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: purple;'>Setup Your Challenge Profile</h1>", unsafe_allow_html=True)
         
-        if st.button("← Back to Challenge Rules", use_container_width=False):
+        if st.button("Back to Challenge Rules", use_container_width=False):
             st.session_state.page = "challenge_rules"
             st.rerun()
         
@@ -1050,9 +1071,9 @@ def edit_profile_page():
         
         show_sidebar_content()
         
-        st.markdown("<h1 style='text-align: center; color: #7C3AED;'>✏️ Edit Your Profile</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: purple;'>Edit Your Profile</h1>", unsafe_allow_html=True)
         
-        if st.button("← Back to Previous Page", use_container_width=False):
+        if st.button("Back to Previous Page", use_container_width=False):
             st.session_state.page = "daily_challenge"
             st.rerun()
         
@@ -1148,7 +1169,7 @@ def edit_profile_page():
 def stage_completion_popup():
     if st.session_state.show_stage_completion:
         with st.container():
-            st.markdown("<div style='background-color: #f0f2f6; padding: 20px; border-radius: 10px; border: 2px solid #7C3AED;'>", unsafe_allow_html=True)
+            st.markdown("<div style='background-color: lightgray; padding: 20px; border-radius: 10px; border: 2px solid purple;'>", unsafe_allow_html=True)
             
             st.success("CONGRATULATIONS!")
             st.markdown(f"### You've successfully completed the {st.session_state.challenge_data['current_stage']}!")
@@ -1209,9 +1230,9 @@ def daily_challenge_page():
             stage_completion_popup()
             return
         
-        st.markdown("<h1 style='text-align: center; color: #7C3AED;'>✅ Daily Challenge Tracker</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: purple;'>Daily Challenge Tracker</h1>", unsafe_allow_html=True)
         
-        if st.button("← Back to Setup Profile", use_container_width=False):
+        if st.button("Back to Setup Profile", use_container_width=False):
             st.session_state.page = "setup_profile"
             st.rerun()
         
@@ -1331,12 +1352,12 @@ def process_daily_submission(completed_tasks, savings_amount, today, tasks, send
         
         # Send SMS reminder if requested and phone number is available
         if send_reminder and st.session_state.phone_number:
-            reminder_message = f"Hello {user['username']}! Don't forget your Brain App challenge today. Stay focused! 💪"
+            reminder_message = f"Hello {user['username']}! Don't forget your Brain App challenge today. Stay focused!"
             success, msg = send_sms_reminder(st.session_state.phone_number, reminder_message)
             if success:
-                st.info("📱 SMS reminder scheduled for tomorrow!")
+                st.info("SMS reminder scheduled for tomorrow!")
             else:
-                st.info("SMS service not configured")
+                st.info("SMS service is not configured")
         
         if missed_tasks == 0:
             challenge_data['completed_days'] += 1
@@ -1438,9 +1459,9 @@ def analytics_page():
         
         show_sidebar_content()
         
-        st.markdown("<h1 style='text-align: center; color: #7C3AED;'>📊 Advanced Analytics Dashboard</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: purple;'>Advanced Analytics Dashboard</h1>", unsafe_allow_html=True)
         
-        if st.button("← Back to Daily Challenge", use_container_width=False):
+        if st.button("Back to Daily Challenge", use_container_width=False):
             st.session_state.page = "daily_challenge"
             st.rerun()
         
@@ -1458,7 +1479,7 @@ def analytics_page():
         
         # Additional insights
         st.markdown("---")
-        st.markdown("### 📋 Performance Insights")
+        st.markdown("### Performance Insights")
         
         daily_checkins = challenge_data.get('daily_checkins', {})
         if daily_checkins:
@@ -1497,9 +1518,9 @@ def certificate_page():
         
         show_sidebar_content()
         
-        st.markdown("<h1 style='text-align: center; color: #7C3AED;'>📜 Your Achievement Certificate</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: purple;'>Your Achievement Certificate</h1>", unsafe_allow_html=True)
         
-        if st.button("← Back to Dashboard", use_container_width=False):
+        if st.button("Back to Dashboard", use_container_width=False):
             st.session_state.page = "daily_challenge"
             st.rerun()
         
@@ -1512,12 +1533,12 @@ def certificate_page():
         
         if pdf_bytes:
             # Display certificate info
-            st.success("🎉 Your certificate is ready!")
+            st.success("Your certificate is ready!")
             
             col1, col2 = st.columns(2)
             with col1:
                 st.download_button(
-                    label="📄 Download PDF Certificate",
+                    label="Download PDF Certificate",
                     data=pdf_bytes,
                     file_name=f"brain_app_certificate_{st.session_state.user['username']}.pdf",
                     mime="application/pdf",
@@ -1525,10 +1546,10 @@ def certificate_page():
                 )
             
             with col2:
-                if st.button("🔄 Generate New Certificate", use_container_width=True):
+                if st.button("Generate New Certificate", use_container_width=True):
                     st.rerun()
         else:
-            st.info("Certificate generation requires FPDF package. Please contact support.")
+            st.info("Certificate generation is currently unavailable. Please try again later.")
     except Exception as e:
         st.error("Something went wrong. Please try refreshing the page.")
         st.session_state.page = "signin"
@@ -1537,7 +1558,7 @@ def certificate_page():
 # SAFE Sign In Page
 def sign_in_page():
     try:
-        st.markdown("<h1 style='text-align: center;'>🧠 The Brain App</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center;'>The Brain App</h1>", unsafe_allow_html=True)
         st.markdown("<h3 style='text-align: center;'>Sign In</h3>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 3, 1])
         with col2:
@@ -1599,7 +1620,7 @@ def sign_in_page():
 # SAFE Forgot Password Page
 def forgot_password_page():
     try:
-        st.markdown("<h2 style='text-align: center;'>🔒 Forgot Password</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center;'>Forgot Password</h2>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 3, 1])
         with col2:
             with st.form("forgot_form"):
@@ -1621,7 +1642,7 @@ def forgot_password_page():
                                     if email_success:
                                         st.success("Password reset link sent to your email")
                                     else:
-                                        st.info("Email service not configured")
+                                        st.info("Email service is not configured")
                                 except Exception as e:
                                     st.error("Failed to generate reset link. Please try again later.")
                             else:
@@ -1633,7 +1654,7 @@ def forgot_password_page():
 # SAFE Sign Up Page
 def sign_up_page():
     try:
-        st.markdown("<h1 style='text-align: center;'>🧠 The Brain App</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center;'>The Brain App</h1>", unsafe_allow_html=True)
         st.markdown("<h3 style='text-align: center;'>Create Account</h3>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 3, 1])
         with col2:
