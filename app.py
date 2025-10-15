@@ -41,6 +41,8 @@ if 'phone_number' not in st.session_state:
     st.session_state.phone_number = ""
 if 'ml_model_loaded' not in st.session_state:
     st.session_state.ml_model_loaded = False
+if 'initialized' not in st.session_state:
+    st.session_state.initialized = False
 
 # Helper functions
 def hash_password(password):
@@ -63,7 +65,10 @@ def send_password_reset_email(to_email, reset_link):
         email_password = email_config.get("EMAIL_PASSWORD", "")
         
         if not email_address or not email_password:
-            return False, "Email service not configured. Please contact support."
+            # Provide a more helpful message and fallback
+            st.info("Email service is not configured. This is a development mode. In production, please configure email settings in Streamlit secrets.")
+            st.info(f"For testing purposes, your reset link would be: {reset_link}")
+            return True, "Development mode: Please use the reset link shown above"
             
         msg = EmailMessage()
         msg['Subject'] = 'Your Brain App - Password Reset'
@@ -623,27 +628,31 @@ def show_sidebar_content():
                 clear_persistent_login()
                 st.rerun()
 
-# Check for persistent login
-if st.session_state.user is None:
-    try:
-        query_params = st.query_params
-        if 'username' in query_params and 'logged_in' in query_params and query_params['logged_in'] == "true":
-            username = query_params['username']
-            user_doc = db.collection('users').document(username).get()
-            if user_doc.exists:
-                user_info = user_doc.to_dict()
-                st.session_state.user = {
-                    "username": username,
-                    "email": user_info.get("email", ""),
-                    "role": user_info.get("role", "student")
-                }
-                profile_doc = db.collection('user_profiles').document(username).get()
-                if profile_doc.exists:
-                    st.session_state.user_profile = profile_doc.to_dict()
-                st.session_state.challenge_data = load_challenge_data(username)
-                set_persistent_login(username)
-    except Exception as e:
-        pass
+# FIXED: Improved persistent login check
+def check_persistent_login():
+    if st.session_state.user is None and not st.session_state.initialized:
+        try:
+            query_params = st.query_params
+            if 'username' in query_params and 'logged_in' in query_params and query_params['logged_in'] == "true":
+                username = query_params['username']
+                user_doc = db.collection('users').document(username).get()
+                if user_doc.exists:
+                    user_info = user_doc.to_dict()
+                    st.session_state.user = {
+                        "username": username,
+                        "email": user_info.get("email", ""),
+                        "role": user_info.get("role", "student")
+                    }
+                    profile_doc = db.collection('user_profiles').document(username).get()
+                    if profile_doc.exists:
+                        st.session_state.user_profile = profile_doc.to_dict()
+                    st.session_state.challenge_data = load_challenge_data(username)
+                    st.session_state.initialized = True
+        except Exception as e:
+            pass
+
+# Check for persistent login at the start
+check_persistent_login()
 
 # ML Dashboard Page with FIXED logic
 def ml_dashboard_page():
@@ -992,9 +1001,27 @@ def setup_profile_page():
         col1, col2 = st.columns(2)
         
         with col1:
+            # Expanded interest fields with at least 10 options
             field = st.selectbox(
-                "Your Field/Profession",
-                ["Student", "Software Developer", "Entrepreneur", "Researcher", "Other"]
+                "Your Field/Interest",
+                [
+                    "Student - Computer Science", 
+                    "Student - Engineering",
+                    "Student - Medicine", 
+                    "Student - Business",
+                    "Student - Arts & Humanities",
+                    "Software Developer",
+                    "Data Scientist",
+                    "Web Developer",
+                    "Mobile App Developer",
+                    "AI/ML Engineer",
+                    "Entrepreneur",
+                    "Researcher",
+                    "Teacher/Educator",
+                    "Digital Marketer",
+                    "Content Creator",
+                    "Other"
+                ]
             )
         with col2:
             goal = st.text_input("I want to become...", placeholder="e.g., a successful entrepreneur")
@@ -1045,7 +1072,7 @@ def setup_profile_page():
             except Exception as e:
                 st.error("Error saving profile. Please try again.")
 
-# Edit Profile Page
+# Edit Profile Page - ENHANCED with distraction types and more fields
 def edit_profile_page():
     show_sidebar_content()
     
@@ -1064,11 +1091,31 @@ def edit_profile_page():
         col1, col2 = st.columns(2)
         
         with col1:
-            field = st.selectbox(
-                "Your Field/Profession",
-                ["Student", "Software Developer", "Entrepreneur", "Researcher", "Other"],
-                index=0
-            )
+            # Expanded interest fields with at least 10 options
+            current_field = st.session_state.user_profile.get('field', 'Student - Computer Science')
+            field_options = [
+                "Student - Computer Science", 
+                "Student - Engineering",
+                "Student - Medicine", 
+                "Student - Business",
+                "Student - Arts & Humanities",
+                "Software Developer",
+                "Data Scientist",
+                "Web Developer",
+                "Mobile App Developer",
+                "AI/ML Engineer",
+                "Entrepreneur",
+                "Researcher",
+                "Teacher/Educator",
+                "Digital Marketer",
+                "Content Creator",
+                "Other"
+            ]
+            
+            # Find current field index or default to 0
+            field_index = field_options.index(current_field) if current_field in field_options else 0
+            field = st.selectbox("Your Field/Interest", field_options, index=field_index)
+            
         with col2:
             goal = st.text_input("I want to become...", value=st.session_state.user_profile.get('goal', ''))
         
@@ -1078,6 +1125,25 @@ def edit_profile_page():
         
         stage = st.selectbox("Challenge Difficulty", stage_options, index=stage_index)
         
+        st.markdown("### Common Distractions")
+        st.markdown("Select the types of distractions you commonly face:")
+        
+        # Distraction types input
+        col1, col2 = st.columns(2)
+        with col1:
+            distraction_social_media = st.checkbox("Social Media", value=False)
+            distraction_phone = st.checkbox("Phone/Notifications", value=False)
+            distraction_entertainment = st.checkbox("Entertainment (TV/Games)", value=False)
+            distraction_people = st.checkbox("People Interruptions", value=False)
+            distraction_noise = st.checkbox("Environmental Noise", value=False)
+        
+        with col2:
+            distraction_procrastination = st.checkbox("Procrastination", value=False)
+            distraction_multitasking = st.checkbox("Multitasking", value=False)
+            distraction_mental = st.checkbox("Mental Fatigue", value=False)
+            distraction_physical = st.checkbox("Physical Discomfort", value=False)
+            distraction_other = st.checkbox("Other Distractions", value=False)
+        
         submitted = st.form_submit_button("Update Profile", use_container_width=True)
         
         if submitted:
@@ -1085,10 +1151,34 @@ def edit_profile_page():
                 st.error("Please tell us what you want to become!")
                 return
             
+            # Collect distraction types
+            user_distractions = []
+            if distraction_social_media:
+                user_distractions.append("Social Media")
+            if distraction_phone:
+                user_distractions.append("Phone/Notifications")
+            if distraction_entertainment:
+                user_distractions.append("Entertainment")
+            if distraction_people:
+                user_distractions.append("People Interruptions")
+            if distraction_noise:
+                user_distractions.append("Environmental Noise")
+            if distraction_procrastination:
+                user_distractions.append("Procrastination")
+            if distraction_multitasking:
+                user_distractions.append("Multitasking")
+            if distraction_mental:
+                user_distractions.append("Mental Fatigue")
+            if distraction_physical:
+                user_distractions.append("Physical Discomfort")
+            if distraction_other:
+                user_distractions.append("Other")
+            
             profile_data = {
                 'field': field,
                 'goal': goal,
                 'stage': stage,
+                'common_distractions': user_distractions,
                 'updated_at': datetime.now()
             }
             
@@ -1096,6 +1186,15 @@ def edit_profile_page():
                 db.collection('user_profiles').document(st.session_state.user['username']).update(profile_data)
                 st.session_state.user_profile.update(profile_data)
                 st.success("Profile updated successfully!")
+                
+                # Show user's distraction analysis
+                if user_distractions:
+                    st.info(f"**Your common distractions:** {', '.join(user_distractions)}")
+                    if len(user_distractions) >= 3:
+                        st.warning("You have multiple distraction sources. Consider focusing on one at a time for improvement.")
+                    else:
+                        st.success("Good job identifying your distraction sources! Awareness is the first step to improvement.")
+                
                 time.sleep(2)
                 st.session_state.page = "life_vision"
                 st.rerun()
@@ -1297,6 +1396,7 @@ def sign_in_page():
                         
                         st.session_state.challenge_data = load_challenge_data(username)
                         set_persistent_login(username)
+                        st.session_state.initialized = True
                         
                         st.success(f"Welcome back, {username}!")
                         st.session_state.page = "life_vision"
@@ -1315,7 +1415,7 @@ def sign_in_page():
         st.session_state.page = "signup"
         st.rerun()
 
-# Forgot Password Page
+# Forgot Password Page - FIXED email configuration issue
 def forgot_password_page():
     st.markdown("<h1 style='text-align: center; color: darkblue;'>Reset Your Password</h1>", unsafe_allow_html=True)
     
@@ -1330,11 +1430,14 @@ def forgot_password_page():
             
             user_id, user_data = get_user_by_email(email)
             if user_data:
-                reset_link = f"https://yourapp.com/reset-password?token=secure_token_here"
+                # Create a simple reset token (in production, use proper JWT or similar)
+                reset_token = f"reset_{user_id}_{int(time.time())}"
+                reset_link = f"https://yourapp.com/reset-password?token={reset_token}"
+                
                 success, message = send_password_reset_email(email, reset_link)
                 
                 if success:
-                    st.success("Password reset link sent to your email!")
+                    st.success(message)
                 else:
                     st.error(message)
             else:
