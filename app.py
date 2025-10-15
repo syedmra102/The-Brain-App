@@ -1,4 +1,3 @@
-hey this is my opponent code what do u think about this visually , technically ,logically , ideas wise overall, is it is a top notch project
 
 import streamlit as st
 import re
