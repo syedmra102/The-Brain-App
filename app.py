@@ -237,7 +237,7 @@ if st.session_state.user is None:
                 if profile_doc.exists:
                     st.session_state.user_profile = profile_doc.to_dict()
                 st.session_state.challenge_data = load_challenge_data(username)
-                st.session_state.page = "daily_challenge" if st.session_state.user_profile else "ml_dashboard"
+                st.session_state.page = "daily_challenge" if st.session_state.user_profile else "life_vision"  # Changed to life_vision first
                 set_persistent_login(username)  # Ensure query params are set
             else:
                 st.session_state.page = "signin"
@@ -329,6 +329,12 @@ def show_sidebar_content():
                     st.session_state.page = "setup_profile"
                     st.rerun()
             
+            # ADDED: Edit Profile Button
+            if st.session_state.user_profile:
+                if st.button("Edit Profile", use_container_width=True):
+                    st.session_state.page = "edit_profile"
+                    st.rerun()
+            
             st.markdown("---")
             
             st.markdown("### My Profile")
@@ -417,7 +423,11 @@ def sign_in_page():
                                     st.session_state.challenge_data = load_challenge_data(username_clean)
                                     set_persistent_login(username_clean)
                                     st.success("Login successful")
-                                    st.session_state.page = "daily_challenge" if st.session_state.user_profile else "ml_dashboard"
+                                    # Changed navigation order: Life Vision first, then Rules, then Profile, then Challenge
+                                    if st.session_state.user_profile:
+                                        st.session_state.page = "life_vision"
+                                    else:
+                                        st.session_state.page = "life_vision"
                                     st.rerun()
                                 else:
                                     st.error("Invalid username or password")
@@ -427,7 +437,6 @@ def sign_in_page():
                             st.error("Login failed. Please try again.")
         col1, col2 = st.columns(2)
         with col1:
-            # navigate to forgot password page
             st.button("Forgot Password", use_container_width=True, on_click=lambda: st.session_state.update({"page":"forgot_password"}))
         with col2:
             st.button("Create Account", use_container_width=True, on_click=lambda: st.session_state.update({"page":"signup"}))
@@ -447,10 +456,7 @@ def forgot_password_page():
                     email_clean = sanitize_input(email)
                     with st.spinner("Sending password reset link..."):
                         time.sleep(1)
-                        # Verify user exists (optional) and generate reset link via Firebase Auth
                         username, user_info = get_user_by_email(email_clean)
-                        # Regardless of whether user exists or not, we call Firebase to generate a link only if user exists.
-                        # This avoids leaking which emails are registered.
                         if user_info:
                             try:
                                 reset_link = auth.generate_password_reset_link(email_clean)
@@ -460,10 +466,8 @@ def forgot_password_page():
                                 else:
                                     st.error("Failed to send reset email")
                             except Exception as e:
-                                # If Firebase fails to generate link, show a general message
                                 st.error("Failed to generate reset link. Please try again later.")
                         else:
-                            # Generic response to avoid revealing whether the email is registered
                             st.info("If this email is registered, a password reset link will be sent")
         st.button("Back to Sign In", use_container_width=True, on_click=lambda: st.session_state.update({"page":"signin"}))
 
@@ -503,7 +507,6 @@ def sign_up_page():
                                     st.error("Email already registered")
                                 else:
                                     hashed_password = hash_password(password_clean)
-                                    # Do NOT store plain text password
                                     user_data = {
                                         "email": email_clean,
                                         "password": hashed_password,
@@ -529,6 +532,11 @@ def ml_dashboard_page():
     
     st.markdown("<h1 style='text-align: center;'>Performance Predictor</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center;'>Discover Your Top Percentile</h3>", unsafe_allow_html=True)
+    
+    # ADDED: Back button
+    if st.button("← Back to Life Vision", use_container_width=False):
+        st.session_state.page = "life_vision"
+        st.rerun()
     
     with st.form("performance_form"):
         st.subheader("Your Daily Habits")
@@ -625,6 +633,11 @@ def life_vision_page():
     
     st.markdown("<h1 style='text-align: center; color: #7C3AED;'>After This Challenge How Your Life Is Looking</h1>", unsafe_allow_html=True)
     
+    # ADDED: Back button
+    if st.button("← Back to Predictor", use_container_width=False):
+        st.session_state.page = "ml_dashboard"
+        st.rerun()
+    
     st.markdown("---")
     
     st.markdown("<h2 style='text-align: center; color: #7C3AED;'>Your Life After Completing 105-Day Challenge</h2>", unsafe_allow_html=True)
@@ -674,9 +687,11 @@ def life_vision_page():
     st.markdown("<p style='text-align: center; font-weight: bold; font-size: 20px;'>This transformation will make you unrecognizable to your current self</p>", unsafe_allow_html=True)
     
     st.markdown("---")
-    if st.button("Back to Predictor", use_container_width=True):
-        st.session_state.page = "ml_dashboard"
-        st.rerun()
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("Next: Challenge Rules →", use_container_width=True):
+            st.session_state.page = "challenge_rules"
+            st.rerun()
 
 # CHALLENGE RULES PAGE
 def challenge_rules_page():
@@ -689,6 +704,11 @@ def challenge_rules_page():
     show_sidebar_content()
     
     st.markdown("<h1 style='text-align: center; color: #7C3AED;'>105 Days Transformation Challenge Rules</h1>", unsafe_allow_html=True)
+    
+    # ADDED: Back button
+    if st.button("← Back to Life Vision", use_container_width=False):
+        st.session_state.page = "life_vision"
+        st.rerun()
     
     st.markdown("---")
     
@@ -743,9 +763,14 @@ def challenge_rules_page():
     st.markdown("---")
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if st.button("Back to Life Vision", use_container_width=True):
-            st.session_state.page = "life_vision"
-            st.rerun()
+        if st.session_state.user_profile:
+            if st.button("Next: Daily Challenge →", use_container_width=True):
+                st.session_state.page = "daily_challenge"
+                st.rerun()
+        else:
+            if st.button("Next: Setup Profile →", use_container_width=True):
+                st.session_state.page = "setup_profile"
+                st.rerun()
 
 # SETUP PROFILE PAGE
 def setup_profile_page():
@@ -758,6 +783,11 @@ def setup_profile_page():
     show_sidebar_content()
     
     st.markdown("<h1 style='text-align: center; color: #7C3AED;'>Setup Your Challenge Profile</h1>", unsafe_allow_html=True)
+    
+    # ADDED: Back button
+    if st.button("← Back to Challenge Rules", use_container_width=False):
+        st.session_state.page = "challenge_rules"
+        st.rerun()
     
     st.markdown("---")
     
@@ -847,6 +877,116 @@ def setup_profile_page():
         st.session_state.page = "challenge_rules"
         st.rerun()
 
+# EDIT PROFILE PAGE (NEW)
+def edit_profile_page():
+    if "user" not in st.session_state or st.session_state.user is None:
+        st.session_state.page = "signin"
+        clear_persistent_login()
+        st.rerun()
+        return
+    
+    show_sidebar_content()
+    
+    st.markdown("<h1 style='text-align: center; color: #7C3AED;'>Edit Your Profile</h1>", unsafe_allow_html=True)
+    
+    # ADDED: Back button
+    if st.button("← Back to Previous Page", use_container_width=False):
+        st.session_state.page = "daily_challenge"
+        st.rerun()
+    
+    st.markdown("---")
+    
+    with st.form("edit_profile_form"):
+        st.subheader("Your Field & Goals")
+        
+        field = st.selectbox("Select Your Field", [
+            "Programming & Technology",
+            "Engineering",
+            "Medical & Healthcare",
+            "Business & Entrepreneurship",
+            "Science & Research",
+            "Arts & Creative",
+            "Sports & Fitness",
+            "Education & Teaching",
+            "Finance & Investment",
+            "Other"
+        ], index=[
+            "Programming & Technology",
+            "Engineering",
+            "Medical & Healthcare",
+            "Business & Entrepreneurship",
+            "Science & Research",
+            "Arts & Creative",
+            "Sports & Fitness",
+            "Education & Teaching",
+            "Finance & Investment",
+            "Other"
+        ].index(st.session_state.user_profile.get('field', 'Programming & Technology')))
+        
+        goal = st.text_input("What do you want to become?", value=st.session_state.user_profile.get('goal', ''))
+        
+        st.subheader("Your Current Distractions")
+        default_distractions = st.session_state.user_profile.get('distractions', [])
+        distractions = st.multiselect("Select distractions you currently face", [
+            "Social Media Scrolling",
+            "YouTube/Netflix Binging",
+            "Video Games",
+            "Masturbation/Porn",
+            "Procrastination",
+            "Phone Addiction",
+            "Unproductive Socializing",
+            "Overthinking",
+            "Substance Use",
+            "Other"
+        ], default=default_distractions)
+        
+        st.subheader("Challenge Stage Selection")
+        current_stage = st.session_state.user_profile.get('stage', 'Silver (15 Days - Easy)')
+        stage = st.selectbox("Choose your stage", [
+            "Silver (15 Days - Easy)",
+            "Platinum (30 Days - Medium)",
+            "Gold (60 Days - Hard)"
+        ], index=[
+            "Silver (15 Days - Easy)",
+            "Platinum (30 Days - Medium)", 
+            "Gold (60 Days - Hard)"
+        ].index(current_stage))
+        
+        save_btn = st.form_submit_button("Update Profile")
+        
+        if save_btn:
+            if not field or not goal or not stage:
+                st.error("Please fill all fields")
+            else:
+                with st.spinner("Updating your profile..."):
+                    profile_data = {
+                        'field': field,
+                        'goal': goal,
+                        'distractions': distractions,
+                        'stage': stage,
+                        'updated_at': firestore.SERVER_TIMESTAMP
+                    }
+                    
+                    # Update challenge data if stage changed
+                    if stage != st.session_state.user_profile.get('stage'):
+                        challenge_data = st.session_state.challenge_data
+                        challenge_data['current_stage'] = stage
+                        save_challenge_data(st.session_state.user['username'], challenge_data)
+                        st.session_state.challenge_data = challenge_data
+                    
+                    st.session_state.user_profile.update(profile_data)
+                    
+                    try:
+                        db.collection('user_profiles').document(st.session_state.user['username']).set(
+                            st.session_state.user_profile, merge=True
+                        )
+                        st.success("Profile updated successfully!")
+                        time.sleep(1)
+                        st.session_state.page = "daily_challenge"
+                        st.rerun()
+                    except Exception as e:
+                        st.error("Failed to update profile. Please try again.")
+
 # STAGE COMPLETION POPUP
 def stage_completion_popup():
     if st.session_state.show_stage_completion:
@@ -913,6 +1053,11 @@ def daily_challenge_page():
         return
     
     st.markdown("<h1 style='text-align: center; color: #7C3AED;'>Daily Challenge Tracker</h1>", unsafe_allow_html=True)
+    
+    # ADDED: Back button
+    if st.button("← Back to Setup Profile", use_container_width=False):
+        st.session_state.page = "setup_profile"
+        st.rerun()
     
     challenge_data = st.session_state.challenge_data
     user_profile = st.session_state.user_profile
@@ -1009,13 +1154,6 @@ def daily_challenge_page():
         st.markdown("### Your Challenge Savings")
         st.info(f"Total savings: **${challenge_data['total_savings']}**")
         st.markdown("Remember: When you complete this challenge, use this money for making a project in your field or invest it in your field.")
-    
-    st.markdown("---")
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        if st.button("Back to Predictor", use_container_width=True):
-            st.session_state.page = "ml_dashboard"
-            st.rerun()
 
 def process_daily_submission(completed_tasks, savings_amount, today, tasks):
     """Process the daily form submission"""
@@ -1027,10 +1165,11 @@ def process_daily_submission(completed_tasks, savings_amount, today, tasks):
     st.session_state.show_motivational_task = True
     
     if missed_tasks == 0:
+        # FIXED: Only count streak if ALL tasks completed (no penalties)
         challenge_data['completed_days'] += 1
         challenge_data['current_day'] += 1
         challenge_data['total_savings'] += savings_amount
-        challenge_data['streak_days'] += 1
+        challenge_data['streak_days'] += 1  # Only perfect days count for streak
         
         if 'daily_checkins' not in challenge_data:
             challenge_data['daily_checkins'] = {}
@@ -1049,10 +1188,11 @@ def process_daily_submission(completed_tasks, savings_amount, today, tasks):
         
     elif missed_tasks == 1:
         if savings_amount > 0:
-            challenge_data['streak_days'] += 1
+            # FIXED: Don't count streak for penalty days
             challenge_data['completed_days'] += 1
             challenge_data['current_day'] += 1
             challenge_data['total_savings'] += savings_amount
+            # streak_days remains the same - penalty days don't increase streak
             
             penalty_record = {
                 'date': today,
@@ -1078,8 +1218,8 @@ def process_daily_submission(completed_tasks, savings_amount, today, tasks):
             st.session_state.challenge_data = challenge_data
             st.session_state.form_submitted = True
             
-            st.warning(f"You missed 1 task but paid ${savings_amount} penalty. Day counted! Streak: {challenge_data['streak_days']} days")
-            st.info("According to rules: When you miss 1 task and pay penalty, the day counts toward your streak.")
+            st.warning(f"You missed 1 task but paid ${savings_amount} penalty. Day counted but streak remains: {challenge_data['streak_days']} days")
+            st.info("According to rules: When you miss 1 task and pay penalty, the day counts but doesn't increase your streak.")
             
         else:
             st.error("According to rules: You missed 1 task but didn't pay penalty. This day doesn't count toward your progress.")
@@ -1130,5 +1270,7 @@ elif st.session_state.page == "challenge_rules":
     challenge_rules_page()
 elif st.session_state.page == "setup_profile":
     setup_profile_page()
+elif st.session_state.page == "edit_profile":
+    edit_profile_page()
 elif st.session_state.page == "daily_challenge":
     daily_challenge_page()
