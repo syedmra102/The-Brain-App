@@ -215,11 +215,11 @@ def send_sms_reminder(phone_number, message):
         
         # Validate credentials format
         if not twilio_account_sid or not twilio_auth_token or not twilio_phone_number:
-            return False, "SMS service configuration incomplete"
+            return False, "SMS service configuration incomplete. Please check your Streamlit secrets configuration."
         
         # Check if credentials look valid
         if not twilio_account_sid.startswith("AC") or len(twilio_auth_token) < 20:
-            return False, "SMS service credentials are invalid"
+            return False, "SMS service credentials are invalid. Please check your Twilio credentials."
         
         # Try to import Twilio
         try:
@@ -243,23 +243,25 @@ def send_sms_reminder(phone_number, message):
     except Exception as e:
         error_msg = str(e)
         if "authenticate" in error_msg.lower():
-            return False, "SMS service authentication failed. Check your credentials."
+            return False, "SMS service authentication failed. Check your Twilio credentials in Streamlit secrets."
         elif "phone number" in error_msg.lower():
-            return False, "Invalid phone number format"
+            return False, "Invalid phone number format. Please use format: +1234567890"
+        elif "not found" in error_msg.lower():
+            return False, "Twilio account not found. Please check your Account SID."
         else:
             return False, f"SMS service error: {error_msg}"
 
-# FIXED PDF Certificate Generation
+# FIXED PDF Certificate Generation with encoding fix
 def generate_certificate(username, user_profile, challenge_data):
     """
-    Generate a PDF certificate for completed stages - FIXED VERSION
+    Generate a PDF certificate for completed stages - FIXED VERSION with encoding fix
     """
     try:
-        # Create PDF instance
+        # Create PDF instance with proper encoding
         pdf = FPDF()
         pdf.add_page()
         
-        # Add title
+        # Set font with proper encoding
         pdf.set_font('Arial', 'B', 24)
         pdf.cell(0, 20, 'CERTIFICATE OF ACHIEVEMENT', 0, 1, 'C')
         pdf.ln(10)
@@ -270,7 +272,9 @@ def generate_certificate(username, user_profile, challenge_data):
         pdf.ln(5)
         
         pdf.set_font('Arial', 'B', 22)
-        pdf.cell(0, 10, username, 0, 1, 'C')
+        # Sanitize username for PDF
+        safe_username = username.encode('latin-1', 'replace').decode('latin-1')
+        pdf.cell(0, 10, safe_username, 0, 1, 'C')
         pdf.ln(5)
         
         pdf.set_font('Arial', 'B', 16)
@@ -279,51 +283,55 @@ def generate_certificate(username, user_profile, challenge_data):
         
         # Add stage information
         current_stage = challenge_data.get('current_stage', 'Brain App Challenge')
+        safe_stage = current_stage.encode('latin-1', 'replace').decode('latin-1')
         pdf.set_font('Arial', 'B', 18)
-        pdf.cell(0, 10, current_stage, 0, 1, 'C')
+        pdf.cell(0, 10, safe_stage, 0, 1, 'C')
         pdf.ln(10)
         
         # Add achievements
         pdf.set_font('Arial', '', 12)
-        pdf.cell(0, 8, f'Field: {user_profile.get("field", "Not specified")}', 0, 1, 'C')
-        pdf.cell(0, 8, f'Goal: {user_profile.get("goal", "Not specified")}', 0, 1, 'C')
+        field = user_profile.get("field", "Not specified")
+        safe_field = field.encode('latin-1', 'replace').decode('latin-1')
+        pdf.cell(0, 8, f'Field: {safe_field}', 0, 1, 'C')
+        
+        goal = user_profile.get("goal", "Not specified")
+        safe_goal = goal.encode('latin-1', 'replace').decode('latin-1')
+        pdf.cell(0, 8, f'Goal: {safe_goal}', 0, 1, 'C')
+        
         pdf.cell(0, 8, f'Completed Days: {challenge_data.get("completed_days", 0)}', 0, 1, 'C')
         pdf.cell(0, 8, f'Total Savings: ${challenge_data.get("total_savings", 0)}', 0, 1, 'C')
         pdf.ln(10)
         
-        # Add badges
+        # Add badges with safe encoding
         badges = challenge_data.get('badges', [])
         if badges:
             pdf.set_font('Arial', 'B', 14)
             pdf.cell(0, 10, 'Badges Earned:', 0, 1, 'C')
             pdf.set_font('Arial', '', 12)
             for badge in badges:
-                pdf.cell(0, 8, f'• {badge}', 0, 1, 'C')
+                safe_badge = badge.encode('latin-1', 'replace').decode('latin-1')
+                pdf.cell(0, 8, f'- {safe_badge}', 0, 1, 'C')  # Using hyphen instead of bullet
             pdf.ln(10)
         
         # Add generation date
         pdf.set_font('Arial', 'I', 10)
         pdf.cell(0, 10, f'Generated on: {datetime.now().strftime("%Y-%m-%d")}', 0, 1, 'C')
         
-        # FIXED: Safe PDF output generation
+        # Safe PDF output generation
         try:
-            pdf_output = pdf.output(dest='S')
-            if isinstance(pdf_output, bytes):
-                return pdf_output
-            else:
-                return pdf_output.encode('utf-8')
-        except:
-            # Alternative method
+            return pdf.output(dest='S').encode('latin-1')
+        except Exception as e:
+            # Fallback to bytes output
             return pdf.output()
             
     except Exception as e:
         st.error(f"PDF Generation Error: {str(e)}")
         return None
 
-# Advanced Analytics Visualizations
+# Advanced Analytics Visualizations with Bar Charts
 def create_advanced_analytics(challenge_data, user_profile):
     """
-    Create advanced analytics visualizations with different graph types
+    Create advanced analytics visualizations with bar charts only
     """
     try:
         daily_checkins = challenge_data.get('daily_checkins', {})
@@ -379,36 +387,42 @@ def create_advanced_analytics(challenge_data, user_profile):
             total_savings = sum(daily_savings)
             st.metric("Total Savings", f"${total_savings}")
         
-        # Row 2: Performance Distribution Pie Chart
+        # Row 2: Performance Distribution Bar Chart
         st.markdown("#### Performance Distribution")
-        fig1, ax1 = plt.subplots(figsize=(8, 6))
+        fig1, ax1 = plt.subplots(figsize=(10, 6))
         
         labels = ['Perfect Days', 'Penalty Days', 'Skipped Days']
         sizes = [sum(perfect_days), sum(penalty_days), sum(skipped_days)]
         colors = ['seagreen', 'goldenrod', 'indianred']
         
-        # Only show pie chart if we have data
-        if sum(sizes) > 0:
-            explode = (0.1, 0, 0)
-            ax1.pie(sizes, explode=explode, labels=labels, colors=colors, autopct='%1.1f%%',
-                    shadow=True, startangle=90)
-            ax1.axis('equal')
-            ax1.set_title('Day Performance Distribution', fontweight='bold')
-            st.pyplot(fig1)
-        else:
-            st.info("No performance data available for chart")
+        # Create bar chart instead of pie chart
+        bars = ax1.bar(labels, sizes, color=colors, alpha=0.7)
+        ax1.set_ylabel('Number of Days')
+        ax1.set_title('Day Performance Distribution', fontweight='bold')
         
-        # Row 3: Savings Over Time - Area Chart
+        # Add value labels on bars
+        for bar, value in zip(bars, sizes):
+            ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1,
+                    f'{value}', ha='center', va='bottom')
+        
+        st.pyplot(fig1)
+        
+        # Row 3: Savings Over Time - Bar Chart
         if len(dates) > 1:
             st.markdown("#### Savings Growth Over Time")
-            fig2, ax2 = plt.subplots(figsize=(10, 4))
+            fig2, ax2 = plt.subplots(figsize=(12, 6))
             
             cumulative_savings = np.cumsum(daily_savings)
-            ax2.fill_between(range(len(dates)), cumulative_savings, alpha=0.4, color='steelblue')
-            ax2.plot(range(len(dates)), cumulative_savings, color='navy', linewidth=2, marker='o')
+            
+            # Create bar chart for savings
+            x_pos = np.arange(len(dates))
+            bars = ax2.bar(x_pos, daily_savings, color='steelblue', alpha=0.7, label='Daily Savings')
+            ax2.plot(x_pos, cumulative_savings, color='navy', linewidth=2, marker='o', label='Cumulative Savings')
+            
             ax2.set_xlabel('Days')
-            ax2.set_ylabel('Total Savings ($)')
-            ax2.set_title('Cumulative Savings Progress', fontweight='bold')
+            ax2.set_ylabel('Savings ($)')
+            ax2.set_title('Daily and Cumulative Savings Progress', fontweight='bold')
+            ax2.legend()
             ax2.grid(True, alpha=0.3)
             
             # Format x-axis
@@ -421,6 +435,32 @@ def create_advanced_analytics(challenge_data, user_profile):
                 ax2.set_xticklabels(dates, rotation=45)
             
             st.pyplot(fig2)
+        
+        # Row 4: Task Completion Rates - Bar Chart
+        if len(dates) > 1:
+            st.markdown("#### Task Completion Rates")
+            fig3, ax3 = plt.subplots(figsize=(12, 6))
+            
+            # Create bar chart for completion rates
+            x_pos = np.arange(len(dates))
+            bars = ax3.bar(x_pos, task_completion_rates, color='lightcoral', alpha=0.7)
+            
+            ax3.set_xlabel('Days')
+            ax3.set_ylabel('Completion Rate (%)')
+            ax3.set_title('Daily Task Completion Rates', fontweight='bold')
+            ax3.set_ylim(0, 100)
+            ax3.grid(True, alpha=0.3)
+            
+            # Format x-axis
+            if len(dates) > 10:
+                step = max(1, len(dates)//10)
+                ax3.set_xticks(range(0, len(dates), step))
+                ax3.set_xticklabels([dates[i] for i in range(0, len(dates), step)], rotation=45)
+            else:
+                ax3.set_xticks(range(len(dates)))
+                ax3.set_xticklabels(dates, rotation=45)
+            
+            st.pyplot(fig3)
         
     except Exception as e:
         st.info("Analytics will be available after you complete more challenge days")
@@ -573,7 +613,7 @@ def calculate_feature_percentiles(hours, distractions, habit_inputs):
             'Wake-up Time': 50
         }
 
-# Enhanced Sidebar with safe navigation
+# Enhanced Sidebar with safe navigation (no emojis)
 def show_sidebar_content():
     """Show navigation and full profile in sidebar for all pages when user is logged in"""
     if st.session_state.user:
@@ -645,9 +685,17 @@ def show_sidebar_content():
                     for badge in st.session_state.challenge_data['badges']:
                         st.success(f"{badge}")
             
-            # SMS Reminders Section - IMPROVED
+            # SMS Reminders Section - IMPROVED with better error messages
             st.markdown("---")
             st.markdown("### SMS Reminders")
+            
+            # Show SMS configuration status
+            twilio_config = st.secrets.get("twilio", {})
+            if not all([twilio_config.get("ACCOUNT_SID"), twilio_config.get("AUTH_TOKEN"), twilio_config.get("PHONE_NUMBER")]):
+                st.warning("SMS service not configured. Add Twilio credentials to Streamlit secrets.")
+            else:
+                st.success("SMS service: Configured")
+            
             phone_number = st.text_input("Phone Number", 
                                        value=st.session_state.phone_number,
                                        placeholder="+1234567890",
@@ -658,7 +706,7 @@ def show_sidebar_content():
                 st.session_state.phone_number = phone_number
             
             if phone_number and st.button("Test SMS", use_container_width=True):
-                success, message = send_sms_reminder(phone_number, "Test reminder from The Brain App! You're doing great!")
+                success, message = send_sms_reminder(phone_number, "Test reminder from The Brain App! You are doing great!")
                 if success:
                     st.success("Test SMS sent successfully!")
                 else:
@@ -712,7 +760,7 @@ if st.session_state.user is None:
     except Exception as e:
         pass  # Silently handle any errors during persistent login
 
-# ML Dashboard Page
+# ML Dashboard Page with Bar Charts
 def ml_dashboard_page():
     """Machine Learning Performance Prediction Dashboard"""
     show_sidebar_content()
@@ -771,20 +819,42 @@ def ml_dashboard_page():
             score = results['score']
             if score >= 80:
                 color = "green"
-                emoji = "🎯"
+                status = "Excellent"
             elif score >= 60:
                 color = "orange"
-                emoji = "📈"
+                status = "Good"
             else:
                 color = "red"
-                emoji = "📉"
+                status = "Needs Improvement"
             
-            st.markdown(f"<h1 style='text-align: center; color: {color};'>Performance Score: {score:.1f}% {emoji}</h1>", unsafe_allow_html=True)
+            st.markdown(f"<h1 style='text-align: center; color: {color};'>Performance Score: {score:.1f}%</h1>", unsafe_allow_html=True)
+            st.markdown(f"<h3 style='text-align: center; color: {color};'>{status}</h3>", unsafe_allow_html=True)
         
-        # Feature Analysis
+        # Feature Analysis with Bar Chart
         st.markdown("#### Feature Analysis")
         features_df = pd.DataFrame(list(results['percentiles'].items()), columns=['Feature', 'Percentile'])
         
+        # Create bar chart for feature percentiles
+        fig, ax = plt.subplots(figsize=(12, 6))
+        features = features_df['Feature']
+        percentiles = features_df['Percentile']
+        
+        bars = ax.bar(features, percentiles, color='skyblue', alpha=0.7)
+        ax.set_ylabel('Percentile Score')
+        ax.set_title('Feature Performance Percentiles', fontweight='bold')
+        ax.set_ylim(0, 100)
+        
+        # Add value labels on bars
+        for bar, value in zip(bars, percentiles):
+            ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 1,
+                   f'{value:.0f}%', ha='center', va='bottom')
+        
+        plt.xticks(rotation=45, ha='right')
+        plt.tight_layout()
+        st.pyplot(fig)
+        
+        # Individual progress bars
+        st.markdown("#### Detailed Feature Breakdown")
         for _, row in features_df.iterrows():
             col1, col2 = st.columns([1, 3])
             with col1:
@@ -799,7 +869,7 @@ def ml_dashboard_page():
         if low_percentile_features:
             st.warning("**Areas for Improvement:**")
             for feature in low_percentile_features:
-                st.write(f"• Improve your {feature.lower()}")
+                st.write(f"- Improve your {feature.lower()}")
         else:
             st.success("**Great job!** All your habits are in good standing.")
         
@@ -808,7 +878,7 @@ def ml_dashboard_page():
             st.session_state.prediction_results = None
             st.rerun()
 
-# Life Vision Page
+# Life Vision Page (no emojis)
 def life_vision_page():
     """Life Vision and Goal Setting Page"""
     show_sidebar_content()
@@ -823,7 +893,7 @@ def life_vision_page():
         return
     
     # Vision Board Section
-    st.markdown("### 🎯 My Vision Board")
+    st.markdown("### My Vision Board")
     
     col1, col2 = st.columns(2)
     
@@ -846,33 +916,44 @@ def life_vision_page():
             total_days = get_stage_days(stage)
             
             progress = (current_day / total_days) * 100
-            st.progress(progress/100, text=f"Stage Progress: {current_day}/{total_days} days ({progress:.1f}%)")
             
-            # Motivational quote based on progress
+            # Create progress bar chart
+            fig, ax = plt.subplots(figsize=(10, 2))
+            bars = ax.barh(['Progress'], [progress], color='steelblue', alpha=0.7)
+            ax.set_xlim(0, 100)
+            ax.set_xlabel('Progress (%)')
+            ax.set_title(f'Stage Progress: {current_day}/{total_days} days', fontweight='bold')
+            
+            # Add percentage text
+            ax.text(progress/2, 0, f'{progress:.1f}%', ha='center', va='center', color='white', fontweight='bold')
+            
+            st.pyplot(fig)
+            
+            # Motivational message based on progress
             if progress < 25:
-                st.info("🚀 **Getting started!** Every great journey begins with a single step.")
+                st.info("Getting started! Every great journey begins with a single step.")
             elif progress < 50:
-                st.info("📈 **Making progress!** Keep building momentum.")
+                st.info("Making progress! Keep building momentum.")
             elif progress < 75:
-                st.info("🔥 **Halfway there!** You're doing amazing.")
+                st.info("Halfway there! You are doing amazing.")
             else:
-                st.info("🎯 **Almost there!** Finish strong!")
+                st.info("Almost there! Finish strong!")
     
     # Daily Motivation Section
     st.markdown("---")
-    st.markdown("### 💪 Daily Motivation")
+    st.markdown("### Daily Motivation")
     
     motivational_quotes = [
         "The only way to do great work is to love what you do. - Steve Jobs",
         "Success is not final, failure is not fatal: it is the courage to continue that counts. - Winston Churchill",
         "The future depends on what you do today. - Mahatma Gandhi",
-        "Don't watch the clock; do what it does. Keep going. - Sam Levenson",
-        "The harder you work for something, the greater you'll feel when you achieve it.",
-        "Your limitation—it's only your imagination.",
+        "Do not watch the clock; do what it does. Keep going. - Sam Levenson",
+        "The harder you work for something, the greater you will feel when you achieve it.",
+        "Your limitation - it is only your imagination.",
         "Push yourself, because no one else is going to do it for you.",
         "Great things never come from comfort zones.",
         "Dream it. Wish it. Do it.",
-        "Success doesn't just find you. You have to go out and get it."
+        "Success does not just find you. You have to go out and get it."
     ]
     
     import random
@@ -881,7 +962,7 @@ def life_vision_page():
     
     # Quick Actions
     st.markdown("---")
-    st.markdown("### ⚡ Quick Actions")
+    st.markdown("### Quick Actions")
     
     col1, col2, col3 = st.columns(3)
     
@@ -900,7 +981,7 @@ def life_vision_page():
             st.session_state.page = "edit_profile"
             st.rerun()
 
-# Challenge Rules Page
+# Challenge Rules Page (no emojis)
 def challenge_rules_page():
     """Challenge Rules and Guidelines Page"""
     show_sidebar_content()
@@ -908,7 +989,7 @@ def challenge_rules_page():
     st.markdown("<h1 style='text-align: center; color: darkblue;'>Challenge Rules & Guidelines</h1>", unsafe_allow_html=True)
     
     st.markdown("""
-    ## 🎯 The Brain App Challenge System
+    ## The Brain App Challenge System
     
     ### Challenge Stages
     """)
@@ -918,7 +999,7 @@ def challenge_rules_page():
     
     with col1:
         st.markdown("""
-        ### 🥈 Silver Stage
+        ### Silver Stage
         **Duration:** 15 Days (Easy)
         
         **Daily Tasks:**
@@ -931,7 +1012,7 @@ def challenge_rules_page():
     
     with col2:
         st.markdown("""
-        ### 🥉 Platinum Stage  
+        ### Platinum Stage  
         **Duration:** 30 Days (Medium)
         
         **Daily Tasks:**
@@ -947,7 +1028,7 @@ def challenge_rules_page():
     
     with col3:
         st.markdown("""
-        ### 🥇 Gold Stage
+        ### Gold Stage
         **Duration:** 60 Days (Hard)
         
         **Daily Tasks:**
@@ -967,7 +1048,7 @@ def challenge_rules_page():
     
     # Rules Section
     st.markdown("""
-    ## 📜 Challenge Rules
+    ## Challenge Rules
     
     ### Task Completion Rules:
     1. **Perfect Day (All tasks completed):**
@@ -976,11 +1057,11 @@ def challenge_rules_page():
        - Savings added to total
     
     2. **Miss 1 Task:**
-       - **With Penalty Payment:** Day counts but streak doesn't increase
-       - **Without Penalty:** Day doesn't count toward progress
+       - **With Penalty Payment:** Day counts but streak does not increase
+       - **Without Penalty:** Day does not count toward progress
     
     3. **Miss 2+ Tasks:**
-       - Day doesn't count (even with penalty)
+       - Day does not count (even with penalty)
        - No progress made
     
     ### Penalty System:
@@ -990,14 +1071,14 @@ def challenge_rules_page():
     
     ### Streak System:
     - Perfect days increase your streak
-    - Breaking streak doesn't reset overall progress
+    - Breaking streak does not reset overall progress
     - Long streaks earn special badges!
     """)
     
     # Badges Section
     st.markdown("---")
     st.markdown("""
-    ## 🏆 Achievement Badges
+    ## Achievement Badges
     
     Earn badges for your accomplishments:
     
@@ -1045,7 +1126,7 @@ def setup_profile_page():
         stage = st.selectbox(
             "Challenge Difficulty",
             ["Silver (15 Days - Easy)", "Platinum (30 Days - Medium)", "Gold (60 Days - Hard)"],
-            help="Start with Silver if you're new to productivity challenges"
+            help="Start with Silver if you are new to productivity challenges"
         )
         
         # Distractions
@@ -1098,8 +1179,7 @@ def setup_profile_page():
                 save_challenge_data(st.session_state.user['username'], challenge_data)
                 st.session_state.challenge_data = challenge_data
                 
-                st.success("Profile setup complete! Welcome to The Brain App Challenge! 🎉")
-                st.balloons()
+                st.success("Profile setup complete! Welcome to The Brain App Challenge!")
                 
                 # Redirect to life vision page
                 time.sleep(2)
@@ -1217,7 +1297,7 @@ def edit_profile_page():
                     st.session_state.challenge_data = challenge_data
                     st.info("Challenge stage changed. Progress has been reset for the new stage.")
                 
-                st.success("Profile updated successfully! ✅")
+                st.success("Profile updated successfully!")
                 
                 # Redirect to life vision page
                 time.sleep(2)
@@ -1246,10 +1326,9 @@ def stage_completion_popup():
             """, unsafe_allow_html=True)
             
             st.markdown('<div class="celebration">', unsafe_allow_html=True)
-            st.balloons()
-            st.markdown("# 🎉 CONGRATULATIONS! 🎉")
-            st.markdown(f"### You've completed the {st.session_state.user_profile.get('stage')} Stage!")
-            st.markdown("### You are amazing! 🏆")
+            st.markdown("# CONGRATULATIONS!")
+            st.markdown(f"### You have completed the {st.session_state.user_profile.get('stage')} Stage!")
+            st.markdown("### You are amazing!")
             
             col1, col2 = st.columns(2)
             with col1:
@@ -1258,7 +1337,7 @@ def stage_completion_popup():
                     # Logic to advance to next stage would go here
                     st.rerun()
             with col2:
-                if st.button("Celebrate! 🎊", use_container_width=True):
+                if st.button("Celebrate", use_container_width=True):
                     st.session_state.show_stage_completion = False
                     st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
@@ -1306,7 +1385,7 @@ def daily_challenge_page():
     # Check if already submitted today
     today = datetime.now().strftime("%Y-%m-%d")
     if challenge_data.get('daily_checkins', {}).get(today):
-        st.success("✅ You've already completed today's check-in! Great job!")
+        st.success("You have already completed today's check-in! Great job!")
         st.info("Come back tomorrow for your next challenge.")
         
         if st.button("View My Progress", use_container_width=True):
@@ -1355,11 +1434,11 @@ def daily_challenge_page():
         st.write(f"Tasks missed: **{missed_tasks}**")
         
         if missed_tasks == 0:
-            st.success("Perfect day! All tasks completed! 🎉")
+            st.success("Perfect day! All tasks completed!")
         elif missed_tasks == 1:
             st.warning("You missed 1 task. Pay penalty to count this day.")
         else:
-            st.error(f"You missed {missed_tasks} tasks. This day won't count.")
+            st.error(f"You missed {missed_tasks} tasks. This day will not count.")
     
     # SMS Reminder Option
     st.markdown("---")
@@ -1386,7 +1465,7 @@ def analytics_page():
     challenge_data = st.session_state.challenge_data
     
     # Overview Metrics
-    st.markdown("### 📊 Progress Overview")
+    st.markdown("### Progress Overview")
     
     col1, col2, col3, col4 = st.columns(4)
     
@@ -1404,7 +1483,7 @@ def analytics_page():
     
     # Badges Section
     st.markdown("---")
-    st.markdown("### 🏆 Earned Badges")
+    st.markdown("### Earned Badges")
     
     badges = challenge_data.get('badges', [])
     if badges:
@@ -1415,7 +1494,7 @@ def analytics_page():
     
     # Export Data Option
     st.markdown("---")
-    st.markdown("### 📈 Data Export")
+    st.markdown("### Data Export")
     
     if st.button("Export My Progress Data", use_container_width=True):
         # Create downloadable data
@@ -1440,7 +1519,7 @@ def analytics_page():
 # Sign In Page
 def sign_in_page():
     """User Sign In Page"""
-    st.markdown("<h1 style='text-align: center; color: darkblue;'>The Brain App 🧠</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: darkblue;'>The Brain App</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center;'>Sign In to Your Account</h3>", unsafe_allow_html=True)
     
     with st.form("signin_form"):
@@ -1483,7 +1562,7 @@ def sign_in_page():
                         # Set persistent login
                         set_persistent_login(username)
                         
-                        st.success(f"Welcome back, {username}! 🎉")
+                        st.success(f"Welcome back, {username}!")
                         st.session_state.page = "life_vision"
                         time.sleep(1)
                         st.rerun()
@@ -1495,7 +1574,7 @@ def sign_in_page():
                 st.error("Login failed. Please try again.")
     
     st.markdown("---")
-    st.markdown("Don't have an account?")
+    st.markdown("Do not have an account?")
     if st.button("Sign Up", use_container_width=True):
         st.session_state.page = "signup"
         st.rerun()
@@ -1555,7 +1634,7 @@ def sign_up_page():
         if password:
             is_valid, message = validate_password(password)
             if is_valid:
-                st.success("✓ Password strength: Good")
+                st.success("Password strength: Good")
             else:
                 st.warning(f"Password requirements: {message}")
         
@@ -1608,7 +1687,7 @@ def sign_up_page():
                 
                 db.collection('users').document(username).set(user_data)
                 
-                st.success("Account created successfully! 🎉")
+                st.success("Account created successfully!")
                 st.info("You can now sign in with your credentials.")
                 
                 time.sleep(2)
@@ -1624,7 +1703,7 @@ def sign_up_page():
         st.session_state.page = "signin"
         st.rerun()
 
-# IMPROVED Certificate Page
+# IMPROVED Certificate Page with encoding fix
 def certificate_page():
     try:
         if "user" not in st.session_state or st.session_state.user is None:
@@ -1699,14 +1778,14 @@ def process_daily_submission(completed_tasks, savings_amount, today, tasks, send
         
         # Send SMS reminder if requested and phone number is available
         if send_reminder and st.session_state.phone_number:
-            reminder_message = f"Hello {user['username']}! Don't forget your Brain App challenge today. Stay focused on your goals!"
+            reminder_message = f"Hello {user['username']}! Do not forget your Brain App challenge today. Stay focused on your goals!"
             success, msg = send_sms_reminder(st.session_state.phone_number, reminder_message)
             if success:
                 st.success("SMS reminder scheduled for tomorrow!")
             else:
                 # Show specific error message for SMS
                 if "authentication" in msg.lower() or "credentials" in msg.lower():
-                    st.info("SMS service needs proper configuration")
+                    st.info("SMS service needs proper configuration. Check your Twilio credentials in Streamlit secrets.")
                 elif "phone number" in msg.lower():
                     st.warning("Please check your phone number format (include country code)")
                 else:
@@ -1764,10 +1843,10 @@ def process_daily_submission(completed_tasks, savings_amount, today, tasks, send
                 st.session_state.form_submitted = True
                 
                 st.warning(f"You missed 1 task but paid ${savings_amount} penalty. Day counted but streak remains: {challenge_data['streak_days']} days")
-                st.info("According to rules: When you miss 1 task and pay penalty, the day counts but doesn't increase your streak.")
+                st.info("According to rules: When you miss 1 task and pay penalty, the day counts but does not increase your streak.")
                 
             else:
-                st.error("According to rules: You missed 1 task but didn't pay penalty. This day doesn't count toward your progress.")
+                st.error("According to rules: You missed 1 task but did not pay penalty. This day does not count toward your progress.")
                 
                 if 'daily_checkins' not in challenge_data:
                     challenge_data['daily_checkins'] = {}
@@ -1783,7 +1862,7 @@ def process_daily_submission(completed_tasks, savings_amount, today, tasks, send
                 st.session_state.form_submitted = True
                 
         else:
-            st.error(f"According to rules: You missed {missed_tasks} tasks. This day doesn't count even if you pay penalty.")
+            st.error(f"According to rules: You missed {missed_tasks} tasks. This day does not count even if you pay penalty.")
             
             if 'daily_checkins' not in challenge_data:
                 challenge_data['daily_checkins'] = {}
