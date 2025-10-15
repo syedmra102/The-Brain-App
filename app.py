@@ -70,11 +70,7 @@ def generate_reset_token():
 def store_reset_token(username, token):
     """Store reset token in Firebase with expiration"""
     try:
-        expires_at = datetime.now() + timedelta(hours=24)  # Token valid for 24 hours
-        
-        # Convert to Firestore timestamp
-        from google.cloud import firestore as google_firestore
-        firestore_expires = google_firestore.SERVER_TIMESTAMP
+        expires_at = datetime.now() + timedelta(hours=24)
         
         reset_data = {
             'token': token,
@@ -96,34 +92,26 @@ def validate_reset_token(token):
         doc = doc_ref.get()
         
         if not doc.exists:
-            st.error("Token not found in database")
             return None
             
         reset_data = doc.to_dict()
         
-        # Check if token is used
         if reset_data.get('used', False):
-            st.error("Token has already been used")
             return None
             
-        # Check expiration
         expires_at = reset_data.get('expires_at')
         if not expires_at:
-            st.error("Token has no expiration date")
             return None
             
-        # Convert Firestore timestamp to datetime if needed
         if hasattr(expires_at, 'timestamp'):
             expires_at = expires_at.replace(tzinfo=None)
         
         if expires_at < datetime.now():
-            st.error("Token has expired")
             return None
             
         return reset_data.get('username')
         
     except Exception as e:
-        st.error(f"Error validating token: {str(e)}")
         return None
 
 def mark_token_used(token):
@@ -135,7 +123,6 @@ def mark_token_used(token):
         })
         return True
     except Exception as e:
-        st.error(f"Error marking token as used: {str(e)}")
         return False
 
 def send_password_reset_email(to_email, reset_token):
@@ -145,7 +132,6 @@ def send_password_reset_email(to_email, reset_token):
         email_password = email_config.get("EMAIL_PASSWORD", "")
         
         if not email_address or not email_password:
-            # DEVELOPMENT MODE - Show token directly
             return True, "development", reset_token
             
         msg = EmailMessage()
@@ -198,8 +184,6 @@ def get_user_by_email(email):
         return None, None
     except Exception as e:
         return None, None
-
-# ... (KEEP ALL YOUR EXISTING FUNCTIONS - sanitize_input, set_persistent_login, clear_persistent_login, challenge functions, etc.)
 
 def sanitize_input(text):
     return re.sub(r'[<>"\']', '', text.strip())
@@ -284,6 +268,187 @@ def save_challenge_data(username, data):
     except Exception as e:
         return False
 
+def send_sms_reminder(phone_number, message):
+    try:
+        twilio_config = st.secrets.get("twilio", {})
+        twilio_account_sid = twilio_config.get("ACCOUNT_SID", "")
+        twilio_auth_token = twilio_config.get("AUTH_TOKEN", "")
+        twilio_phone_number = twilio_config.get("PHONE_NUMBER", "")
+        
+        if not twilio_account_sid or not twilio_auth_token or not twilio_phone_number:
+            return False, "SMS service configuration incomplete."
+        
+        if not phone_number.startswith('+'):
+            return False, "Phone number must include country code (e.g., +1234567890)"
+        
+        try:
+            from twilio.rest import Client
+            client = Client(twilio_account_sid, twilio_auth_token)
+            message = client.messages.create(
+                body=message,
+                from_=twilio_phone_number,
+                to=phone_number
+            )
+            return True, "SMS reminder sent successfully"
+        except ImportError:
+            return False, "Twilio package not installed"
+        except Exception as e:
+            return False, f"SMS service error: {str(e)}"
+            
+    except Exception as e:
+        return False, f"SMS service unavailable: {str(e)}"
+
+def generate_certificate(username, user_profile, challenge_data):
+    try:
+        pdf = FPDF()
+        pdf.add_page()
+        
+        pdf.set_font('Arial', 'B', 24)
+        pdf.cell(0, 20, 'CERTIFICATE OF ACHIEVEMENT', 0, 1, 'C')
+        pdf.ln(10)
+        
+        pdf.set_font('Arial', 'B', 18)
+        pdf.cell(0, 10, 'This certifies that', 0, 1, 'C')
+        pdf.ln(5)
+        
+        pdf.set_font('Arial', 'B', 22)
+        safe_username = username.encode('latin-1', 'replace').decode('latin-1')
+        pdf.cell(0, 10, safe_username, 0, 1, 'C')
+        pdf.ln(5)
+        
+        pdf.set_font('Arial', 'B', 16)
+        pdf.cell(0, 10, 'has successfully completed the', 0, 1, 'C')
+        pdf.ln(5)
+        
+        current_stage = challenge_data.get('current_stage', 'Brain App Challenge')
+        safe_stage = current_stage.encode('latin-1', 'replace').decode('latin-1')
+        pdf.set_font('Arial', 'B', 18)
+        pdf.cell(0, 10, safe_stage, 0, 1, 'C')
+        pdf.ln(10)
+        
+        pdf.set_font('Arial', '', 12)
+        field = user_profile.get("field", "Not specified")
+        safe_field = field.encode('latin-1', 'replace').decode('latin-1')
+        pdf.cell(0, 8, f'Field: {safe_field}', 0, 1, 'C')
+        
+        goal = user_profile.get("goal", "Not specified")
+        safe_goal = goal.encode('latin-1', 'replace').decode('latin-1')
+        pdf.cell(0, 8, f'Goal: {safe_goal}', 0, 1, 'C')
+        
+        pdf.cell(0, 8, f'Completed Days: {challenge_data.get("completed_days", 0)}', 0, 1, 'C')
+        pdf.cell(0, 8, f'Total Savings: ${challenge_data.get("total_savings", 0)}', 0, 1, 'C')
+        pdf.ln(10)
+        
+        badges = challenge_data.get('badges', [])
+        if badges:
+            pdf.set_font('Arial', 'B', 14)
+            pdf.cell(0, 10, 'Badges Earned:', 0, 1, 'C')
+            pdf.set_font('Arial', '', 12)
+            for badge in badges:
+                safe_badge = badge.encode('latin-1', 'replace').decode('latin-1')
+                pdf.cell(0, 8, f'- {safe_badge}', 0, 1, 'C')
+            pdf.ln(10)
+        
+        pdf.set_font('Arial', 'I', 10)
+        pdf.cell(0, 10, f'Generated on: {datetime.now().strftime("%Y-%m-%d")}', 0, 1, 'C')
+        
+        try:
+            return pdf.output(dest='S').encode('latin-1')
+        except:
+            return pdf.output()
+            
+    except Exception as e:
+        st.error(f"PDF Generation Error: {str(e)}")
+        return None
+
+# Simple Analytics Visualizations
+def create_advanced_analytics(challenge_data, user_profile):
+    try:
+        daily_checkins = challenge_data.get('daily_checkins', {})
+        if not daily_checkins:
+            st.info("Complete more days to see analytics!")
+            return
+            
+        dates = sorted(daily_checkins.keys())
+        if not dates:
+            st.info("No data available for analytics")
+            return
+            
+        perfect_days = []
+        penalty_days = []
+        daily_savings = []
+        task_completion_rates = []
+        distraction_days = []
+        
+        for date in dates:
+            checkin = daily_checkins[date]
+            perfect_days.append(1 if checkin.get('perfect_day', False) else 0)
+            penalty_days.append(1 if checkin.get('penalty_paid', False) else 0)
+            daily_savings.append(checkin.get('savings_added', 0))
+            
+            tasks_completed = checkin.get('tasks_completed', [])
+            distraction_day = 0 if "No distractions today" in tasks_completed else 1
+            distraction_days.append(distraction_day)
+            
+            completed = len(tasks_completed)
+            total_tasks = completed + checkin.get('missed_tasks', 0)
+            rate = (completed / total_tasks * 100) if total_tasks > 0 else 0
+            task_completion_rates.append(rate)
+        
+        st.markdown("### Performance Analytics")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Days", len(dates))
+        with col2:
+            st.metric("Perfect Days", sum(perfect_days))
+        with col3:
+            st.metric("Distraction Days", sum(distraction_days))
+        with col4:
+            st.metric("Total Savings", f"${sum(daily_savings)}")
+        
+        if len(dates) > 1:
+            st.markdown("#### Distraction Trend")
+            fig, ax = plt.subplots(figsize=(10, 4))
+            
+            distraction_trend = np.cumsum(distraction_days)
+            ax.plot(range(len(dates)), distraction_trend, 'navy', linewidth=2, label='Total Distraction Days')
+            ax.set_xlabel('Days')
+            ax.set_ylabel('Cumulative Distraction Days')
+            ax.set_title('Distraction Trend Over Time')
+            ax.grid(True, alpha=0.3)
+            ax.legend()
+            
+            if len(dates) > 10:
+                step = max(1, len(dates)//10)
+                ax.set_xticks(range(0, len(dates), step))
+            else:
+                ax.set_xticks(range(len(dates)))
+            
+            st.pyplot(fig)
+        
+        if len(dates) > 1:
+            st.markdown("#### Progress Over Time")
+            fig, ax = plt.subplots(figsize=(10, 4))
+            
+            cumulative_savings = np.cumsum(daily_savings)
+            ax.plot(range(len(dates)), cumulative_savings, 'b-', linewidth=2)
+            ax.set_xlabel('Days')
+            ax.set_ylabel('Total Savings ($)')
+            ax.set_title('Savings Progress')
+            ax.grid(True, alpha=0.3)
+            
+            if len(dates) > 10:
+                step = max(1, len(dates)//10)
+                ax.set_xticks(range(0, len(dates), step))
+            else:
+                ax.set_xticks(range(len(dates)))
+            
+            st.pyplot(fig)
+        
+    except Exception as e:
+        st.info("Analytics will be available after you complete more challenge days")
+
 # Firebase setup
 try:
     if 'firebase' in st.secrets:
@@ -312,8 +477,6 @@ except Exception as e:
     st.error("Database connection failed.")
     st.stop()
 
-# ... (KEEP ALL YOUR EXISTING ML model functions, sidebar, page functions)
-
 # ML Model loading
 @st.cache_resource
 def load_ml_model():
@@ -329,7 +492,10 @@ def load_ml_model():
         st.session_state.ml_model_loaded = False
         return None
 
-# ... (KEEP ALL YOUR EXISTING predict_performance, calculate_feature_percentiles, get_distraction_trend functions)
+if not st.session_state.ml_model_loaded:
+    model_data = load_ml_model()
+else:
+    model_data = None
 
 def predict_performance(hours, distraction_count, habits):
     try:
@@ -518,7 +684,7 @@ def show_sidebar_content():
                 clear_persistent_login()
                 st.rerun()
 
-# FIXED: Improved persistent login check
+# FIXED: Improved persistent login check - NO MORE LOGOUT ON REFRESH
 def check_persistent_login():
     if st.session_state.user is None and not st.session_state.initialized:
         try:
@@ -538,19 +704,703 @@ def check_persistent_login():
                         st.session_state.user_profile = profile_doc.to_dict()
                     st.session_state.challenge_data = load_challenge_data(username)
                     st.session_state.initialized = True
+                    st.session_state.page = "life_vision"  # Redirect to main page
         except Exception as e:
             pass
 
 # Check for persistent login at the start
 check_persistent_login()
 
-# ... (KEEP ALL YOUR EXISTING PAGE FUNCTIONS - ml_dashboard_page, life_vision_page, challenge_rules_page, setup_profile_page, edit_profile_page, daily_challenge_page, analytics_page)
+# ML Dashboard Page
+def ml_dashboard_page():
+    show_sidebar_content()
+    
+    st.markdown("<h1 style='text-align: center; color: darkblue;'>Performance Predictor</h1>", unsafe_allow_html=True)
+    st.markdown("### Predict your performance based on your daily habits")
+    
+    with st.form("prediction_form"):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            hours = st.slider("Study Hours", 0, 12, 4)
+            distraction_count = st.slider("Distractions Count", 0, 20, 5)
+            
+            st.markdown("#### Distraction Types")
+            social_media = st.checkbox("Social Media", value=False)
+            phone_calls = st.checkbox("Phone Calls", value=False)
+            entertainment = st.checkbox("Entertainment", value=False)
+            people_interruptions = st.checkbox("People Interruptions", value=False)
+            other_distractions = st.checkbox("Other Distractions", value=False)
+        
+        with col2:
+            st.markdown("#### Daily Habits")
+            avoid_sugar = st.checkbox("Avoided Sugar", value=True)
+            avoid_junk_food = st.checkbox("Avoided Junk Food", value=True)
+            drink_5L_water = st.checkbox("Drank 5L Water", value=False)
+            sleep_early = st.checkbox("Slept Before 11 PM", value=False)
+            exercise_daily = st.checkbox("Daily Exercise", value=False)
+            wakeup_early = st.checkbox("Woke Up Before 7 AM", value=False)
+        
+        submitted = st.form_submit_button("Predict My Performance", use_container_width=True)
+        
+        if submitted:
+            habit_inputs = {
+                'avoid_sugar': 1 if avoid_sugar else 0,
+                'avoid_junk_food': 1 if avoid_junk_food else 0,
+                'drink_5L_water': 1 if drink_5L_water else 0,
+                'sleep_early': 1 if sleep_early else 0,
+                'exercise_daily': 1 if exercise_daily else 0,
+                'wakeup_early': 1 if wakeup_early else 0
+            }
+            
+            distraction_types = []
+            if social_media:
+                distraction_types.append("Social Media")
+            if phone_calls:
+                distraction_types.append("Phone Calls")
+            if entertainment:
+                distraction_types.append("Entertainment")
+            if people_interruptions:
+                distraction_types.append("People Interruptions")
+            if other_distractions:
+                distraction_types.append("Other")
+            
+            prediction = predict_performance(hours, distraction_count, habit_inputs)
+            percentiles = calculate_feature_percentiles(hours, distraction_count, habit_inputs)
+            
+            st.session_state.prediction_results = {
+                'score': prediction,
+                'percentiles': percentiles,
+                'hours': hours,
+                'distractions': distraction_count,
+                'distraction_types': distraction_types,
+                'habits': habit_inputs
+            }
+    
+    if st.session_state.prediction_results:
+        results = st.session_state.prediction_results
+        
+        st.markdown("---")
+        st.markdown("### Prediction Results")
+        
+        col1, col2, col3 = st.columns([1,2,1])
+        with col2:
+            score = results['score']
+            if score <= 20:
+                color = "green"
+                status = "Elite Performer"
+                interpretation = f"You're in the top {score}% of users! Excellent!"
+            elif score <= 40:
+                color = "blue"
+                status = "Great Performer"
+                interpretation = f"You're in the top {score}% - Great job!"
+            elif score <= 60:
+                color = "orange"
+                status = "Good Performer"
+                interpretation = f"You're in the top {score}% - Good work!"
+            else:
+                color = "red"
+                status = "Needs Improvement"
+                interpretation = f"You're in the top {score}% - Room to grow"
+            
+            st.markdown(f"<h1 style='text-align: center; color: {color};'>Performance Score: {score:.1f}%</h1>", unsafe_allow_html=True)
+            st.markdown(f"<h3 style='text-align: center; color: {color};'>{status}</h3>", unsafe_allow_html=True)
+            st.markdown(f"<p style='text-align: center;'>{interpretation}</p>", unsafe_allow_html=True)
+        
+        if results['distraction_types']:
+            st.markdown("#### Your Distractions Today")
+            for distraction in results['distraction_types']:
+                st.write(f"- {distraction}")
+        
+        st.markdown("#### Feature Analysis - Percentile Ranking")
+        features_df = pd.DataFrame(list(results['percentiles'].items()), columns=['Feature', 'Percentile'])
+        
+        fig, ax = plt.subplots(figsize=(12, 6))
+        features = features_df['Feature']
+        percentiles = features_df['Percentile']
+        
+        bars = ax.bar(features, percentiles, color='navy', alpha=0.7)
+        ax.set_ylabel('Percentile Score (%)')
+        ax.set_title('Feature Performance (Lower % = Better Ranking)')
+        ax.set_ylim(0, 100)
+        
+        for bar, value in zip(bars, percentiles):
+            ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 1,
+                   f'{value:.0f}%', ha='center', va='bottom')
+        
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        st.pyplot(fig)
+        
+        st.markdown("#### Detailed Feature Breakdown")
+        for _, row in features_df.iterrows():
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                st.write(f"{row['Feature']}:")
+            with col2:
+                percentile = row['Percentile']
+                progress_value = max(0, 100 - percentile) / 100
+                st.progress(progress_value, text=f"Top {percentile:.0f}%")
+        
+        st.markdown("#### Recommendations")
+        excellent_features = [f for f, p in results['percentiles'].items() if p <= 20]
+        good_features = [f for f, p in results['percentiles'].items() if p <= 40]
+        needs_work_features = [f for f, p in results['percentiles'].items() if p > 60]
+        
+        if excellent_features:
+            st.success("**Your Strengths (Elite Level):**")
+            for feature in excellent_features:
+                percentile = results['percentiles'][feature]
+                st.write(f"- {feature} (Top {percentile:.0f}%)")
+        
+        if good_features:
+            st.info("**Good Performance:**")
+            for feature in good_features:
+                if feature not in excellent_features:
+                    percentile = results['percentiles'][feature]
+                    st.write(f"- {feature} (Top {percentile:.0f}%)")
+        
+        if needs_work_features:
+            st.warning("**Areas for Improvement:**")
+            for feature in needs_work_features:
+                percentile = results['percentiles'][feature]
+                st.write(f"- {feature} (Top {percentile:.0f}%)")
+        
+        if st.button("Make Another Prediction", use_container_width=True):
+            st.session_state.prediction_results = None
+            st.rerun()
 
-# NEW: SIMPLE RESET PASSWORD PAGE THAT ACTUALLY WORKS
+# Life Vision Page
+def life_vision_page():
+    show_sidebar_content()
+    
+    st.markdown("<h1 style='text-align: center; color: darkblue;'>My Life Vision</h1>", unsafe_allow_html=True)
+    
+    if not st.session_state.user_profile:
+        st.info("Please complete your profile setup to access the full Life Vision features.")
+        if st.button("Setup Profile", use_container_width=True):
+            st.session_state.page = "setup_profile"
+            st.rerun()
+        return
+    
+    st.markdown("### My Vision Board")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### Current Status")
+        st.write(f"**Field:** {st.session_state.user_profile.get('field', 'Not set')}")
+        st.write(f"**Goal:** {st.session_state.user_profile.get('goal', 'Not set')}")
+        st.write(f"**Stage:** {st.session_state.user_profile.get('stage', 'Not set')}")
+        
+        if st.session_state.challenge_data:
+            distraction_trend = get_distraction_trend(st.session_state.challenge_data)
+            st.write(f"**Distraction Trend:** {distraction_trend}")
+            
+        if st.session_state.challenge_data:
+            st.write(f"**Current Day:** {st.session_state.challenge_data.get('current_day', 1)}")
+            st.write(f"**Streak:** {st.session_state.challenge_data.get('streak_days', 0)} days")
+            st.write(f"**Total Savings:** ${st.session_state.challenge_data.get('total_savings', 0)}")
+    
+    with col2:
+        st.markdown("#### Progress Visualization")
+        if st.session_state.challenge_data:
+            current_day = st.session_state.challenge_data.get('current_day', 1)
+            stage = st.session_state.user_profile.get('stage', 'Silver (15 Days - Easy)')
+            total_days = get_stage_days(stage)
+            
+            progress = (current_day / total_days) * 100
+            st.progress(progress/100, text=f"Stage Progress: {current_day}/{total_days} days ({progress:.1f}%)")
+            
+            if progress < 25:
+                st.info("Getting started! Every great journey begins with a single step.")
+            elif progress < 50:
+                st.info("Making progress! Keep building momentum.")
+            elif progress < 75:
+                st.info("Halfway there! You are doing amazing.")
+            else:
+                st.info("Almost there! Finish strong!")
+    
+    st.markdown("---")
+    st.markdown("### Daily Motivation")
+    
+    motivational_quotes = [
+        "The only way to do great work is to love what you do. - Steve Jobs",
+        "Success is not final, failure is not fatal: it is the courage to continue that counts. - Winston Churchill",
+        "The future depends on what you do today. - Mahatma Gandhi",
+        "Do not watch the clock; do what it does. Keep going. - Sam Levenson",
+        "The harder you work for something, the greater you will feel when you achieve it.",
+    ]
+    
+    import random
+    daily_quote = random.choice(motivational_quotes)
+    st.success(f"**Today's Motivation:** {daily_quote}")
+    
+    st.markdown("---")
+    st.markdown("### Quick Actions")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("Start Today's Challenge", use_container_width=True):
+            st.session_state.page = "daily_challenge"
+            st.rerun()
+    
+    with col2:
+        if st.button("View Analytics", use_container_width=True):
+            st.session_state.page = "analytics"
+            st.rerun()
+    
+    with col3:
+        if st.button("Edit Profile", use_container_width=True):
+            st.session_state.page = "edit_profile"
+            st.rerun()
+
+# Challenge Rules Page
+def challenge_rules_page():
+    show_sidebar_content()
+    
+    st.markdown("<h1 style='text-align: center; color: darkblue;'>Challenge Rules & Guidelines</h1>", unsafe_allow_html=True)
+    
+    st.markdown("""
+    ## The Brain App Challenge System
+    
+    ### Challenge Stages
+    """)
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        ### Silver Stage
+        **Duration:** 15 Days (Easy)
+        
+        **Daily Tasks:**
+        - 2 hours of focused work
+        - No distractions
+        - Fill daily routine form
+        """)
+    
+    with col2:
+        st.markdown("""
+        ### Platinum Stage  
+        **Duration:** 30 Days (Medium)
+        
+        **Daily Tasks:**
+        - 4 hours of focused work
+        - No distractions
+        - 30 pushups exercise
+        - Drink 5L water
+        - Avoid junk food
+        - Fill daily form
+        """)
+    
+    with col3:
+        st.markdown("""
+        ### Gold Stage
+        **Duration:** 60 Days (Hard)
+        
+        **Daily Tasks:**
+        - 6 hours of focused work
+        - No distractions
+        - 50 pushups exercise
+        - Drink 5L water
+        - Avoid junk food & sugar
+        - Wake up before 7 AM
+        - Sleep before 11 PM
+        - Fill daily form
+        """)
+    
+    st.markdown("---")
+    
+    st.markdown("""
+    ## Challenge Rules
+    
+    ### Task Completion Rules:
+    1. **Perfect Day (All tasks completed):**
+       - Day counts toward progress
+       - Streak increases by 1
+       - Savings added to total
+    
+    2. **Miss 1 Task:**
+       - **With Penalty Payment:** Day counts but streak does not increase
+       - **Without Penalty:** Day does not count toward progress
+    
+    3. **Miss 2+ Tasks:**
+       - Day does not count (even with penalty)
+       - No progress made
+    """)
+    
+    if st.button("Back to Dashboard", use_container_width=True):
+        st.session_state.page = "life_vision"
+        st.rerun()
+
+# Setup Profile Page
+def setup_profile_page():
+    show_sidebar_content()
+    
+    st.markdown("<h1 style='text-align: center; color: darkblue;'>Setup Your Profile</h1>", unsafe_allow_html=True)
+    
+    with st.form("profile_setup"):
+        st.markdown("### Tell Us About Yourself")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            field = st.selectbox(
+                "Your Field/Interest",
+                [
+                    "Student - Computer Science", 
+                    "Student - Engineering",
+                    "Student - Medicine", 
+                    "Student - Business",
+                    "Student - Arts & Humanities",
+                    "Software Developer",
+                    "Data Scientist",
+                    "Web Developer",
+                    "Mobile App Developer",
+                    "AI/ML Engineer",
+                    "Entrepreneur",
+                    "Researcher",
+                    "Teacher/Educator",
+                    "Digital Marketer",
+                    "Content Creator",
+                    "Other"
+                ]
+            )
+        with col2:
+            goal = st.text_input("I want to become...", placeholder="e.g., a successful entrepreneur")
+        
+        st.markdown("### Choose Your Challenge Stage")
+        stage = st.selectbox(
+            "Challenge Difficulty",
+            ["Silver (15 Days - Easy)", "Platinum (30 Days - Medium)", "Gold (60 Days - Hard)"]
+        )
+        
+        submitted = st.form_submit_button("Save Profile & Start Challenge", use_container_width=True)
+        
+        if submitted:
+            if not goal:
+                st.error("Please tell us what you want to become!")
+                return
+            
+            profile_data = {
+                'field': field,
+                'goal': goal,
+                'stage': stage,
+                'created_at': datetime.now()
+            }
+            
+            try:
+                db.collection('user_profiles').document(st.session_state.user['username']).set(profile_data)
+                st.session_state.user_profile = profile_data
+                
+                challenge_data = {
+                    'current_stage': stage,
+                    'start_date': datetime.now(),
+                    'current_day': 1,
+                    'streak_days': 0,
+                    'total_savings': 0,
+                    'completed_days': 0,
+                    'penalty_history': [],
+                    'daily_checkins': {},
+                    'badges': []
+                }
+                save_challenge_data(st.session_state.user['username'], challenge_data)
+                st.session_state.challenge_data = challenge_data
+                
+                st.success("Profile setup complete! Welcome to The Brain App Challenge!")
+                time.sleep(2)
+                st.session_state.page = "life_vision"
+                st.rerun()
+                
+            except Exception as e:
+                st.error("Error saving profile. Please try again.")
+
+# Edit Profile Page
+def edit_profile_page():
+    show_sidebar_content()
+    
+    st.markdown("<h1 style='text-align: center; color: darkblue;'>Edit Your Profile</h1>", unsafe_allow_html=True)
+    
+    if not st.session_state.user_profile:
+        st.error("No profile found. Please setup your profile first.")
+        if st.button("Setup Profile", use_container_width=True):
+            st.session_state.page = "setup_profile"
+            st.rerun()
+        return
+    
+    with st.form("edit_profile"):
+        st.markdown("### Update Your Information")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            current_field = st.session_state.user_profile.get('field', 'Student - Computer Science')
+            field_options = [
+                "Student - Computer Science", 
+                "Student - Engineering",
+                "Student - Medicine", 
+                "Student - Business",
+                "Student - Arts & Humanities",
+                "Software Developer",
+                "Data Scientist",
+                "Web Developer",
+                "Mobile App Developer",
+                "AI/ML Engineer",
+                "Entrepreneur",
+                "Researcher",
+                "Teacher/Educator",
+                "Digital Marketer",
+                "Content Creator",
+                "Other"
+            ]
+            
+            field_index = field_options.index(current_field) if current_field in field_options else 0
+            field = st.selectbox("Your Field/Interest", field_options, index=field_index)
+            
+        with col2:
+            goal = st.text_input("I want to become...", value=st.session_state.user_profile.get('goal', ''))
+        
+        current_stage = st.session_state.user_profile.get('stage', 'Silver (15 Days - Easy)')
+        stage_options = ["Silver (15 Days - Easy)", "Platinum (30 Days - Medium)", "Gold (60 Days - Hard)"]
+        stage_index = stage_options.index(current_stage) if current_stage in stage_options else 0
+        
+        stage = st.selectbox("Challenge Difficulty", stage_options, index=stage_index)
+        
+        st.markdown("### Common Distractions")
+        st.markdown("Select the types of distractions you commonly face:")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            distraction_social_media = st.checkbox("Social Media", value=False)
+            distraction_phone = st.checkbox("Phone/Notifications", value=False)
+            distraction_entertainment = st.checkbox("Entertainment (TV/Games)", value=False)
+            distraction_people = st.checkbox("People Interruptions", value=False)
+            distraction_noise = st.checkbox("Environmental Noise", value=False)
+        
+        with col2:
+            distraction_procrastination = st.checkbox("Procrastination", value=False)
+            distraction_multitasking = st.checkbox("Multitasking", value=False)
+            distraction_mental = st.checkbox("Mental Fatigue", value=False)
+            distraction_physical = st.checkbox("Physical Discomfort", value=False)
+            distraction_other = st.checkbox("Other Distractions", value=False)
+        
+        submitted = st.form_submit_button("Update Profile", use_container_width=True)
+        
+        if submitted:
+            if not goal:
+                st.error("Please tell us what you want to become!")
+                return
+            
+            user_distractions = []
+            if distraction_social_media:
+                user_distractions.append("Social Media")
+            if distraction_phone:
+                user_distractions.append("Phone/Notifications")
+            if distraction_entertainment:
+                user_distractions.append("Entertainment")
+            if distraction_people:
+                user_distractions.append("People Interruptions")
+            if distraction_noise:
+                user_distractions.append("Environmental Noise")
+            if distraction_procrastination:
+                user_distractions.append("Procrastination")
+            if distraction_multitasking:
+                user_distractions.append("Multitasking")
+            if distraction_mental:
+                user_distractions.append("Mental Fatigue")
+            if distraction_physical:
+                user_distractions.append("Physical Discomfort")
+            if distraction_other:
+                user_distractions.append("Other")
+            
+            profile_data = {
+                'field': field,
+                'goal': goal,
+                'stage': stage,
+                'common_distractions': user_distractions,
+                'updated_at': datetime.now()
+            }
+            
+            try:
+                db.collection('user_profiles').document(st.session_state.user['username']).update(profile_data)
+                st.session_state.user_profile.update(profile_data)
+                st.success("Profile updated successfully!")
+                
+                if user_distractions:
+                    st.info(f"**Your common distractions:** {', '.join(user_distractions)}")
+                    if len(user_distractions) >= 3:
+                        st.warning("You have multiple distraction sources. Consider focusing on one at a time for improvement.")
+                    else:
+                        st.success("Good job identifying your distraction sources! Awareness is the first step to improvement.")
+                
+                time.sleep(2)
+                st.session_state.page = "life_vision"
+                st.rerun()
+                
+            except Exception as e:
+                st.error("Error updating profile. Please try again.")
+
+# Daily Challenge Page
+def daily_challenge_page():
+    show_sidebar_content()
+    
+    st.markdown("<h1 style='text-align: center; color: darkblue;'>Daily Challenge</h1>", unsafe_allow_html=True)
+    
+    if not st.session_state.user_profile:
+        st.error("Please complete your profile setup first.")
+        if st.button("Setup Profile", use_container_width=True):
+            st.session_state.page = "setup_profile"
+            st.rerun()
+        return
+    
+    challenge_data = st.session_state.challenge_data
+    current_stage = st.session_state.user_profile.get('stage', 'Silver (15 Days - Easy)')
+    current_day = challenge_data.get('current_day', 1)
+    total_days = get_stage_days(current_stage)
+    
+    st.markdown(f"### {current_stage} - Day {current_day}/{total_days}")
+    
+    progress = (current_day / total_days) * 100
+    st.progress(progress/100, text=f"Stage Progress: {progress:.1f}%")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Current Streak", f"{challenge_data.get('streak_days', 0)} days")
+    with col2:
+        st.metric("Completed Days", challenge_data.get('completed_days', 0))
+    with col3:
+        st.metric("Total Savings", f"${challenge_data.get('total_savings', 0)}")
+    
+    st.markdown("---")
+    
+    today = datetime.now().strftime("%Y-%m-%d")
+    if challenge_data.get('daily_checkins', {}).get(today):
+        st.success("You have already completed today's check-in! Great job!")
+        st.info("Come back tomorrow for your next challenge.")
+        return
+    
+    st.markdown("### Today's Tasks")
+    tasks = get_stage_tasks(current_stage)
+    
+    completed_tasks = []
+    for task in tasks:
+        if st.checkbox(task, key=f"task_{task}"):
+            completed_tasks.append(task)
+    
+    st.markdown("---")
+    st.markdown("### Penalty & Savings")
+    
+    missed_tasks = len(tasks) - len(completed_tasks)
+    if missed_tasks == 1:
+        savings_amount = st.number_input("Penalty Amount", min_value=0.0, value=5.0, step=1.0)
+    else:
+        savings_amount = st.number_input("Savings to Add", min_value=0.0, value=10.0, step=1.0)
+    
+    if st.button("Submit Daily Check-in", use_container_width=True, type="primary"):
+        process_daily_submission(completed_tasks, savings_amount, today, tasks)
+
+def process_daily_submission(completed_tasks, savings_amount, today, tasks):
+    try:
+        user = st.session_state.user
+        challenge_data = st.session_state.challenge_data
+        
+        missed_tasks = len(tasks) - len(completed_tasks)
+        
+        if missed_tasks == 0:
+            challenge_data['completed_days'] += 1
+            challenge_data['current_day'] += 1
+            challenge_data['total_savings'] += savings_amount
+            challenge_data['streak_days'] += 1
+            
+            if 'daily_checkins' not in challenge_data:
+                challenge_data['daily_checkins'] = {}
+            challenge_data['daily_checkins'][today] = {
+                'tasks_completed': completed_tasks,
+                'missed_tasks': 0,
+                'savings_added': savings_amount,
+                'perfect_day': True
+            }
+            
+            save_challenge_data(user['username'], challenge_data)
+            st.session_state.challenge_data = challenge_data
+            st.session_state.form_submitted = True
+            
+            st.success("Perfect day! All tasks completed!")
+            
+        elif missed_tasks == 1:
+            if savings_amount > 0:
+                challenge_data['completed_days'] += 1
+                challenge_data['current_day'] += 1
+                challenge_data['total_savings'] += savings_amount
+                
+                if 'daily_checkins' not in challenge_data:
+                    challenge_data['daily_checkins'] = {}
+                challenge_data['daily_checkins'][today] = {
+                    'tasks_completed': completed_tasks,
+                    'missed_tasks': 1,
+                    'savings_added': savings_amount,
+                    'perfect_day': False,
+                    'penalty_paid': True
+                }
+                
+                save_challenge_data(user['username'], challenge_data)
+                st.session_state.challenge_data = challenge_data
+                st.session_state.form_submitted = True
+                
+                st.warning(f"You missed 1 task but paid ${savings_amount} penalty. Day counted.")
+                
+            else:
+                st.error("You missed 1 task but did not pay penalty. This day does not count.")
+        else:
+            st.error(f"You missed {missed_tasks} tasks. This day does not count.")
+        
+        st.rerun()
+    except Exception as e:
+        st.error("Error processing submission. Please try again.")
+
+# Analytics Page
+def analytics_page():
+    show_sidebar_content()
+    
+    st.markdown("<h1 style='text-align: center; color: darkblue;'>Advanced Analytics</h1>", unsafe_allow_html=True)
+    
+    if not st.session_state.user_profile:
+        st.error("Please complete your profile setup first.")
+        if st.button("Setup Profile", use_container_width=True):
+            st.session_state.page = "setup_profile"
+            st.rerun()
+        return
+    
+    challenge_data = st.session_state.challenge_data
+    
+    st.markdown("### Progress Overview")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Current Stage", st.session_state.user_profile.get('stage', 'Not set'))
+    with col2:
+        st.metric("Current Day", challenge_data.get('current_day', 1))
+    with col3:
+        st.metric("Streak Days", challenge_data.get('streak_days', 0))
+    with col4:
+        st.metric("Total Savings", f"${challenge_data.get('total_savings', 0)}")
+    
+    create_advanced_analytics(challenge_data, st.session_state.user_profile)
+    
+    badges = challenge_data.get('badges', [])
+    if badges:
+        st.markdown("---")
+        st.markdown("### Earned Badges")
+        for badge in badges:
+            st.success(f"**{badge}**")
+
+# Reset Password Page
 def reset_password_page():
     st.markdown("<h1 style='text-align: center; color: darkblue;'>Reset Your Password</h1>", unsafe_allow_html=True)
     
-    # If we have username from token, show password reset form
     if st.session_state.reset_username:
         st.success(f"Reset authorized for user: {st.session_state.reset_username}")
         
@@ -575,26 +1425,22 @@ def reset_password_page():
                     return
                 
                 try:
-                    # Hash new password
                     hashed_password = hash_password(new_password)
                     if not hashed_password:
                         st.error("Error resetting password. Please try again.")
                         return
                     
-                    # Update password in database
                     db.collection('users').document(st.session_state.reset_username).update({
                         'password': hashed_password,
                         'updated_at': datetime.now()
                     })
                     
-                    # Mark token as used if we have one
                     if st.session_state.reset_token:
                         mark_token_used(st.session_state.reset_token)
                     
                     st.success("✅ Password reset successfully! You can now sign in with your new password.")
                     time.sleep(3)
                     
-                    # Clear reset state and go to sign in
                     st.session_state.reset_token = None
                     st.session_state.reset_username = None
                     st.session_state.page = "signin"
@@ -604,7 +1450,6 @@ def reset_password_page():
                     st.error(f"Error resetting password: {str(e)}")
     
     else:
-        # Show token input form
         st.info("Please enter the reset token you received")
         
         with st.form("enter_token_form"):
@@ -630,7 +1475,7 @@ def reset_password_page():
         st.session_state.page = "signin"
         st.rerun()
 
-# UPDATED: Forgot Password Page - SIMPLIFIED AND WORKS
+# Forgot Password Page
 def forgot_password_page():
     st.markdown("<h1 style='text-align: center; color: darkblue;'>Reset Your Password</h1>", unsafe_allow_html=True)
     
@@ -647,24 +1492,18 @@ def forgot_password_page():
             
             user_id, user_data = get_user_by_email(email)
             if user_data:
-                # Generate secure reset token
                 reset_token = generate_reset_token()
                 
-                # Store token in database
                 if store_reset_token(user_id, reset_token):
-                    
-                    # Try to send email
                     success, message, token = send_password_reset_email(email, reset_token)
                     
                     if success:
                         if message == "development":
-                            # DEVELOPMENT MODE - Show token directly
                             st.success("🔧 Development Mode - Email service not configured")
                             st.info("**Your Reset Token (copy this):**")
                             st.code(reset_token, language="text")
                             st.info("👉 Use this token on the reset password page")
                             
-                            # Auto-redirect to reset page
                             st.session_state.reset_token = reset_token
                             st.session_state.reset_username = user_id
                             st.success("Auto-redirecting to reset page...")
@@ -680,7 +1519,6 @@ def forgot_password_page():
             else:
                 st.error("❌ No account found with this email address")
     
-    # Direct manual token entry
     st.markdown("---")
     st.markdown("### Already have a reset token?")
     if st.button("Enter Reset Token Manually", use_container_width=True):
@@ -826,8 +1664,7 @@ def sign_up_page():
         st.session_state.page = "signin"
         st.rerun()
 
-# ... (KEEP ALL YOUR EXISTING Certificate Page and other pages)
-
+# Certificate Page
 def certificate_page():
     try:
         if "user" not in st.session_state or st.session_state.user is None:
@@ -866,7 +1703,7 @@ def certificate_page():
     except Exception as e:
         st.error("Something went wrong with certificate generation.")
 
-# Main app routing - UPDATED with new reset_password_page
+# Main app routing
 try:
     if st.session_state.page == "signin":
         sign_in_page()
