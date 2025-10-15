@@ -1196,3 +1196,10 @@ elif st.session_state.page == "daily_challenge":
 else:
     st.session_state.page = "signin"
     st.rerun()
+
+
+
+
+
+
+
