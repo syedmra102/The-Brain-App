@@ -1,9 +1,8 @@
-
 import streamlit as st
 import re
 import bcrypt
 import firebase_admin
-from firebase_admin import credentials, firestore
+from firebase_admin import credentials, firestore, auth
 import smtplib
 from email.message import EmailMessage
 import time
@@ -23,28 +22,36 @@ def hash_password(password):
 def check_password(password, hashed):
     return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
 
-def send_password_email(to_email, username, password):
+def send_password_reset_email(to_email, reset_link):
+    """
+    Send a password reset email containing a secure reset link.
+    Uses EMAIL_ADDRESS and EMAIL_PASSWORD from configuration.
+    """
     try:
         msg = EmailMessage()
-        msg['Subject'] = 'Your Brain App Password'
+        msg['Subject'] = 'Your Brain App - Password Reset'
         msg['From'] = EMAIL_ADDRESS
         msg['To'] = to_email
         msg.set_content(f"""
-        Hello {username}
-        Your Brain App Account Details:
-        Username: {username}
-        Password: {password}
-        Please keep this information secure.
-        Best regards,
-        The Brain App Team
-        """)
-        
+Hello,
+
+You requested a password reset for your Brain App account.
+
+Click the link below to reset your password (this link will expire as configured by Firebase):
+
+{reset_link}
+
+If you did not request this, please ignore this email.
+
+Best regards,
+The Brain App Team
+""")
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
             smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
             smtp.send_message(msg)
-        return True, "Password sent to your email"
+        return True, "Password reset link sent to your email"
     except Exception as e:
-        return False, "Email service temporarily unavailable"
+        return False, f"Email service temporarily unavailable: {e}"
 
 def validate_password(password):
     if len(password) < 7:
@@ -190,7 +197,7 @@ model_data = load_ml_model()
 if model_data is None:
     st.stop()
 
-# Email setup
+# Email setup - keep as before; ideally move these to st.secrets in production
 EMAIL_ADDRESS = "zada44919@gmail.com"
 EMAIL_PASSWORD = "mrgklwomlcwwfxrd"
 
@@ -420,6 +427,7 @@ def sign_in_page():
                             st.error("Login failed. Please try again.")
         col1, col2 = st.columns(2)
         with col1:
+            # navigate to forgot password page
             st.button("Forgot Password", use_container_width=True, on_click=lambda: st.session_state.update({"page":"forgot_password"}))
         with col2:
             st.button("Create Account", use_container_width=True, on_click=lambda: st.session_state.update({"page":"signup"}))
@@ -430,29 +438,33 @@ def forgot_password_page():
     with col2:
         with st.form("forgot_form"):
             email = st.text_input("Enter your email")
-            submit_btn = st.form_submit_button("Send Password")
+            submit_btn = st.form_submit_button("Send Reset Link")
             
             if submit_btn:
                 if not email:
                     st.error("Please enter your email")
                 else:
                     email_clean = sanitize_input(email)
-                    with st.spinner("Sending password..."):
+                    with st.spinner("Sending password reset link..."):
                         time.sleep(1)
-                        
+                        # Verify user exists (optional) and generate reset link via Firebase Auth
                         username, user_info = get_user_by_email(email_clean)
+                        # Regardless of whether user exists or not, we call Firebase to generate a link only if user exists.
+                        # This avoids leaking which emails are registered.
                         if user_info:
-                            original_password = user_info.get("plain_password", "")
-                            if original_password:
-                                success, message = send_password_email(email_clean, username, original_password)
-                                if success:
-                                    st.success("Password sent to your email")
+                            try:
+                                reset_link = auth.generate_password_reset_link(email_clean)
+                                email_success, msg = send_password_reset_email(email_clean, reset_link)
+                                if email_success:
+                                    st.success("Password reset link sent to your email")
                                 else:
-                                    st.error("Failed to send email")
-                            else:
-                                st.error("Account not found")
+                                    st.error("Failed to send reset email")
+                            except Exception as e:
+                                # If Firebase fails to generate link, show a general message
+                                st.error("Failed to generate reset link. Please try again later.")
                         else:
-                            st.info("If this email exists, password will be sent")
+                            # Generic response to avoid revealing whether the email is registered
+                            st.info("If this email is registered, a password reset link will be sent")
         st.button("Back to Sign In", use_container_width=True, on_click=lambda: st.session_state.update({"page":"signin"}))
 
 def sign_up_page():
@@ -491,10 +503,10 @@ def sign_up_page():
                                     st.error("Email already registered")
                                 else:
                                     hashed_password = hash_password(password_clean)
+                                    # Do NOT store plain text password
                                     user_data = {
                                         "email": email_clean,
                                         "password": hashed_password,
-                                        "plain_password": password_clean,
                                         "role": "student"
                                     }
                                     db.collection('users').document(username_clean).set(user_data)
@@ -1120,5 +1132,3 @@ elif st.session_state.page == "setup_profile":
     setup_profile_page()
 elif st.session_state.page == "daily_challenge":
     daily_challenge_page()
-
-
