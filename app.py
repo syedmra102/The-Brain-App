@@ -9,7 +9,6 @@ import time
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 import pickle
 from datetime import datetime, timedelta
 import json
@@ -17,21 +16,6 @@ from fpdf import FPDF
 import base64
 from io import BytesIO
 import traceback
-
-# Set professional styling
-plt.style.use('seaborn-v0_8-whitegrid')
-sns.set_palette("husl")
-
-# Professional color scheme
-PROFESSIONAL_COLORS = {
-    'primary': '#1f4e79',  # Dark blue
-    'secondary': '#2e75b6',  # Medium blue
-    'accent': '#9dc3e6',  # Light blue
-    'success': '#2e8b57',  # Sea green
-    'warning': '#ff8c00',  # Dark orange
-    'error': '#c00000',  # Crimson red
-    'background': '#f8f9fa'  # Light gray
-}
 
 # Page config
 st.set_page_config(page_title="The Brain App", page_icon="🧠", layout="centered")
@@ -73,11 +57,7 @@ def check_password(password, hashed):
         return False
 
 def send_password_reset_email(to_email, reset_link):
-    """
-    Send a password reset email containing a secure reset link.
-    """
     try:
-        # Safely get email credentials from secrets
         email_config = st.secrets.get("email", {})
         email_address = email_config.get("EMAIL_ADDRESS", "")
         email_password = email_config.get("EMAIL_PASSWORD", "")
@@ -136,15 +116,13 @@ def sanitize_input(text):
     return re.sub(r'[<>"\']', '', text.strip())
 
 def set_persistent_login(username):
-    """Set persistent login using query parameters"""
     try:
         st.query_params["username"] = username
         st.query_params["logged_in"] = "true"
     except Exception as e:
-        pass  # Silently fail if query params not available
+        pass
 
 def clear_persistent_login():
-    """Clear persistent login"""
     try:
         st.query_params.clear()
     except Exception as e:
@@ -217,78 +195,50 @@ def save_challenge_data(username, data):
     except Exception as e:
         return False
 
-# FIXED Twilio SMS Reminders Function
 def send_sms_reminder(phone_number, message):
-    """
-    Send SMS reminder using Twilio - FIXED VERSION
-    """
     try:
-        # Safely get Twilio credentials
         twilio_config = st.secrets.get("twilio", {})
         twilio_account_sid = twilio_config.get("ACCOUNT_SID", "")
         twilio_auth_token = twilio_config.get("AUTH_TOKEN", "")
         twilio_phone_number = twilio_config.get("PHONE_NUMBER", "")
         
-        # Validate credentials format
         if not twilio_account_sid or not twilio_auth_token or not twilio_phone_number:
-            return False, "SMS service configuration incomplete. Please check your Streamlit secrets configuration."
+            return False, "SMS service configuration incomplete."
         
-        # Check if credentials look valid
-        if not twilio_account_sid.startswith("AC") or len(twilio_auth_token) < 20:
-            return False, "SMS service credentials are invalid. Please check your Twilio credentials."
-        
-        # Try to import Twilio
-        try:
-            from twilio.rest import Client
-        except ImportError:
-            return False, "Twilio package not installed. Run: pip install twilio"
-        
-        # Validate phone number format
         if not phone_number.startswith('+'):
             return False, "Phone number must include country code (e.g., +1234567890)"
         
-        client = Client(twilio_account_sid, twilio_auth_token)
-        
-        message = client.messages.create(
-            body=message,
-            from_=twilio_phone_number,
-            to=phone_number
-        )
-        
-        return True, "SMS reminder sent successfully"
+        try:
+            from twilio.rest import Client
+            client = Client(twilio_account_sid, twilio_auth_token)
+            message = client.messages.create(
+                body=message,
+                from_=twilio_phone_number,
+                to=phone_number
+            )
+            return True, "SMS reminder sent successfully"
+        except ImportError:
+            return False, "Twilio package not installed"
+        except Exception as e:
+            return False, f"SMS service error: {str(e)}"
+            
     except Exception as e:
-        error_msg = str(e)
-        if "authenticate" in error_msg.lower():
-            return False, "SMS service authentication failed. Check your Twilio credentials in Streamlit secrets."
-        elif "phone number" in error_msg.lower():
-            return False, "Invalid phone number format. Please use format: +1234567890"
-        elif "not found" in error_msg.lower():
-            return False, "Twilio account not found. Please check your Account SID."
-        else:
-            return False, f"SMS service error: {error_msg}"
+        return False, f"SMS service unavailable: {str(e)}"
 
-# FIXED PDF Certificate Generation with encoding fix
 def generate_certificate(username, user_profile, challenge_data):
-    """
-    Generate a PDF certificate for completed stages - FIXED VERSION with encoding fix
-    """
     try:
-        # Create PDF instance with proper encoding
         pdf = FPDF()
         pdf.add_page()
         
-        # Set font with proper encoding
         pdf.set_font('Arial', 'B', 24)
         pdf.cell(0, 20, 'CERTIFICATE OF ACHIEVEMENT', 0, 1, 'C')
         pdf.ln(10)
         
-        # Add user information
         pdf.set_font('Arial', 'B', 18)
         pdf.cell(0, 10, 'This certifies that', 0, 1, 'C')
         pdf.ln(5)
         
         pdf.set_font('Arial', 'B', 22)
-        # Sanitize username for PDF
         safe_username = username.encode('latin-1', 'replace').decode('latin-1')
         pdf.cell(0, 10, safe_username, 0, 1, 'C')
         pdf.ln(5)
@@ -297,14 +247,12 @@ def generate_certificate(username, user_profile, challenge_data):
         pdf.cell(0, 10, 'has successfully completed the', 0, 1, 'C')
         pdf.ln(5)
         
-        # Add stage information
         current_stage = challenge_data.get('current_stage', 'Brain App Challenge')
         safe_stage = current_stage.encode('latin-1', 'replace').decode('latin-1')
         pdf.set_font('Arial', 'B', 18)
         pdf.cell(0, 10, safe_stage, 0, 1, 'C')
         pdf.ln(10)
         
-        # Add achievements
         pdf.set_font('Arial', '', 12)
         field = user_profile.get("field", "Not specified")
         safe_field = field.encode('latin-1', 'replace').decode('latin-1')
@@ -318,7 +266,6 @@ def generate_certificate(username, user_profile, challenge_data):
         pdf.cell(0, 8, f'Total Savings: ${challenge_data.get("total_savings", 0)}', 0, 1, 'C')
         pdf.ln(10)
         
-        # Add badges with safe encoding
         badges = challenge_data.get('badges', [])
         if badges:
             pdf.set_font('Arial', 'B', 14)
@@ -326,36 +273,29 @@ def generate_certificate(username, user_profile, challenge_data):
             pdf.set_font('Arial', '', 12)
             for badge in badges:
                 safe_badge = badge.encode('latin-1', 'replace').decode('latin-1')
-                pdf.cell(0, 8, f'- {safe_badge}', 0, 1, 'C')  # Using hyphen instead of bullet
+                pdf.cell(0, 8, f'- {safe_badge}', 0, 1, 'C')
             pdf.ln(10)
         
-        # Add generation date
         pdf.set_font('Arial', 'I', 10)
         pdf.cell(0, 10, f'Generated on: {datetime.now().strftime("%Y-%m-%d")}', 0, 1, 'C')
         
-        # Safe PDF output generation
         try:
             return pdf.output(dest='S').encode('latin-1')
-        except Exception as e:
-            # Fallback to bytes output
+        except:
             return pdf.output()
             
     except Exception as e:
         st.error(f"PDF Generation Error: {str(e)}")
         return None
 
-# Advanced Analytics Visualizations with Professional Charts
+# Simple Analytics Visualizations
 def create_advanced_analytics(challenge_data, user_profile):
-    """
-    Create advanced analytics visualizations with professional, university-level charts
-    """
     try:
         daily_checkins = challenge_data.get('daily_checkins', {})
         if not daily_checkins:
-            st.info("Complete more days to see advanced analytics!")
+            st.info("Complete more days to see analytics!")
             return
             
-        # Prepare data for analytics
         dates = sorted(daily_checkins.keys())
         if not dates:
             st.info("No data available for analytics")
@@ -363,213 +303,57 @@ def create_advanced_analytics(challenge_data, user_profile):
             
         perfect_days = []
         penalty_days = []
-        skipped_days = []
         daily_savings = []
         task_completion_rates = []
-        daily_hours = []
-        daily_distractions = []
         
         for date in dates:
             checkin = daily_checkins[date]
             perfect_days.append(1 if checkin.get('perfect_day', False) else 0)
             penalty_days.append(1 if checkin.get('penalty_paid', False) else 0)
-            skipped_days.append(1 if checkin.get('day_not_counted', False) else 0)
             daily_savings.append(checkin.get('savings_added', 0))
             
-            # Calculate task completion rate
             completed = len(checkin.get('tasks_completed', []))
             total_tasks = completed + checkin.get('missed_tasks', 0)
             rate = (completed / total_tasks * 100) if total_tasks > 0 else 0
             task_completion_rates.append(rate)
-            
-            # Extract hours and distractions if available
-            daily_hours.append(checkin.get('study_hours', 0))
-            daily_distractions.append(checkin.get('distraction_count', 0))
         
-        # Create advanced analytics dashboard
-        st.markdown("### Advanced Performance Analytics")
+        st.markdown("### Performance Analytics")
         
-        # Row 1: Performance Metrics
+        # Simple metrics
         col1, col2, col3, col4 = st.columns(4)
-        
         with col1:
-            total_days = len(dates)
-            perfect_count = sum(perfect_days)
-            st.metric("Perfect Days", f"{perfect_count}/{total_days}")
-        
+            st.metric("Total Days", len(dates))
         with col2:
-            completion_avg = np.mean(task_completion_rates) if task_completion_rates else 0
-            st.metric("Avg Completion", f"{completion_avg:.1f}%")
-        
+            st.metric("Perfect Days", sum(perfect_days))
         with col3:
-            penalty_count = sum(penalty_days)
-            st.metric("Penalty Days", penalty_count)
-        
+            st.metric("Penalty Days", sum(penalty_days))
         with col4:
-            total_savings = sum(daily_savings)
-            st.metric("Total Savings", f"${total_savings}")
+            st.metric("Total Savings", f"${sum(daily_savings)}")
         
-        # Row 2: Performance Distribution - Donut Chart
-        st.markdown("#### Performance Distribution")
-        fig1, ax1 = plt.subplots(figsize=(10, 8))
-        
-        labels = ['Perfect Days', 'Penalty Days', 'Skipped Days']
-        sizes = [sum(perfect_days), sum(penalty_days), sum(skipped_days)]
-        colors = [PROFESSIONAL_COLORS['success'], PROFESSIONAL_COLORS['warning'], PROFESSIONAL_COLORS['error']]
-        
-        # Create donut chart for better visual appeal
-        wedges, texts, autotexts = ax1.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%',
-                                          startangle=90, pctdistance=0.85)
-        
-        # Draw a circle in the center to make it a donut
-        centre_circle = plt.Circle((0,0),0.70,fc='white')
-        ax1.add_artist(centre_circle)
-        
-        # Equal aspect ratio ensures that pie is drawn as a circle
-        ax1.axis('equal')
-        ax1.set_title('Performance Distribution Analysis', fontsize=16, fontweight='bold', pad=20)
-        
-        # Style the text
-        for text in texts:
-            text.set_fontsize(12)
-            text.set_fontweight('bold')
-        for autotext in autotexts:
-            autotext.set_fontsize(11)
-            autotext.set_color('white')
-            autotext.set_fontweight('bold')
-        
-        st.pyplot(fig1)
-        
-        # Row 3: Savings Growth Over Time - Area Chart with Trend Line
+        # Simple progress chart
         if len(dates) > 1:
-            st.markdown("#### Savings Growth Analysis")
-            fig2, ax2 = plt.subplots(figsize=(12, 6))
+            st.markdown("#### Progress Over Time")
+            fig, ax = plt.subplots(figsize=(10, 4))
             
             cumulative_savings = np.cumsum(daily_savings)
+            ax.plot(range(len(dates)), cumulative_savings, 'b-', linewidth=2)
+            ax.set_xlabel('Days')
+            ax.set_ylabel('Total Savings ($)')
+            ax.set_title('Savings Progress')
+            ax.grid(True, alpha=0.3)
             
-            # Create area chart with gradient fill
-            ax2.fill_between(range(len(dates)), cumulative_savings, alpha=0.4, color=PROFESSIONAL_COLORS['primary'])
-            ax2.plot(range(len(dates)), cumulative_savings, color=PROFESSIONAL_COLORS['primary'], 
-                    linewidth=3, marker='o', markersize=6, label='Cumulative Savings')
-            
-            # Add trend line
-            z = np.polyfit(range(len(dates)), cumulative_savings, 1)
-            p = np.poly1d(z)
-            ax2.plot(range(len(dates)), p(range(len(dates))), "--", color=PROFESSIONAL_COLORS['secondary'], 
-                    linewidth=2, alpha=0.8, label='Trend Line')
-            
-            ax2.set_xlabel('Timeline (Days)', fontsize=12, fontweight='bold')
-            ax2.set_ylabel('Total Savings ($)', fontsize=12, fontweight='bold')
-            ax2.set_title('Cumulative Savings Progress with Trend Analysis', fontsize=14, fontweight='bold')
-            ax2.legend()
-            ax2.grid(True, alpha=0.3)
-            
-            # Format x-axis
             if len(dates) > 10:
                 step = max(1, len(dates)//10)
-                ax2.set_xticks(range(0, len(dates), step))
-                ax2.set_xticklabels([dates[i] for i in range(0, len(dates), step)], rotation=45)
+                ax.set_xticks(range(0, len(dates), step))
             else:
-                ax2.set_xticks(range(len(dates)))
-                ax2.set_xticklabels(dates, rotation=45)
+                ax.set_xticks(range(len(dates)))
             
-            st.pyplot(fig2)
-        
-        # Row 4: Task Completion Heatmap
-        if len(dates) > 7:
-            st.markdown("#### Weekly Performance Heatmap")
-            
-            # Create weekly data
-            weeks_data = []
-            current_week = []
-            
-            for i, rate in enumerate(task_completion_rates):
-                current_week.append(rate)
-                if len(current_week) == 7 or i == len(task_completion_rates) - 1:
-                    weeks_data.append(current_week)
-                    current_week = []
-            
-            # Pad last week if necessary
-            if current_week:
-                while len(current_week) < 7:
-                    current_week.append(0)
-                weeks_data.append(current_week)
-            
-            if weeks_data:
-                fig3, ax3 = plt.subplots(figsize=(12, 6))
-                
-                # Create heatmap
-                im = ax3.imshow(weeks_data, cmap='YlGnBu', aspect='auto', vmin=0, vmax=100)
-                
-                # Set labels
-                days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-                ax3.set_xticks(range(7))
-                ax3.set_xticklabels(days)
-                ax3.set_xlabel('Days of Week', fontweight='bold')
-                ax3.set_ylabel('Weeks', fontweight='bold')
-                ax3.set_title('Weekly Task Completion Heatmap', fontsize=14, fontweight='bold')
-                
-                # Add colorbar
-                cbar = plt.colorbar(im, ax=ax3)
-                cbar.set_label('Completion Rate (%)', fontweight='bold')
-                
-                # Add text annotations
-                for i in range(len(weeks_data)):
-                    for j in range(len(weeks_data[i])):
-                        text = ax3.text(j, i, f'{weeks_data[i][j]:.0f}%',
-                                       ha="center", va="center", color="black" if weeks_data[i][j] > 50 else "white",
-                                       fontweight='bold')
-                
-                st.pyplot(fig3)
-        
-        # Row 5: Performance Metrics Radar Chart
-        if len(dates) > 1:
-            st.markdown("#### Performance Metrics Radar Chart")
-            
-            # Calculate metrics for radar chart
-            metrics = {
-                'Consistency': (sum(perfect_days) / len(dates)) * 100,
-                'Task Completion': np.mean(task_completion_rates),
-                'Savings Rate': (sum(daily_savings) / len(dates)) * 10,  # Scaled for better visualization
-                'Discipline': 100 - (sum(penalty_days) / len(dates)) * 100,
-                'Progress Rate': (challenge_data.get('completed_days', 0) / len(dates)) * 100
-            }
-            
-            categories = list(metrics.keys())
-            values = list(metrics.values())
-            
-            # Complete the circle
-            values += values[:1]
-            categories += categories[:1]
-            
-            fig4, ax4 = plt.subplots(figsize=(10, 10), subplot_kw=dict(projection='polar'))
-            
-            # Compute angles for each category
-            angles = [n / float(len(categories)-1) * 2 * np.pi for n in range(len(categories))]
-            
-            # Plot the radar chart
-            ax4.plot(angles, values, 'o-', linewidth=2, color=PROFESSIONAL_COLORS['primary'], label='Your Performance')
-            ax4.fill(angles, values, alpha=0.25, color=PROFESSIONAL_COLORS['primary'])
-            
-            # Add category labels
-            ax4.set_xticks(angles[:-1])
-            ax4.set_xticklabels(categories[:-1], fontsize=12, fontweight='bold')
-            
-            # Set y-axis limits and labels
-            ax4.set_ylim(0, 100)
-            ax4.set_yticks([20, 40, 60, 80, 100])
-            ax4.set_yticklabels(['20%', '40%', '60%', '80%', '100%'], fontsize=10)
-            ax4.grid(True)
-            
-            ax4.set_title('Comprehensive Performance Analysis', size=16, fontweight='bold', pad=20)
-            ax4.legend(loc='upper right', bbox_to_anchor=(1.3, 1.0))
-            
-            st.pyplot(fig4)
+            st.pyplot(fig)
         
     except Exception as e:
-        st.info("Advanced analytics will be available after you complete more challenge days")
+        st.info("Analytics will be available after you complete more challenge days")
 
-# Firebase setup with error handling
+# Firebase setup
 try:
     if 'firebase' in st.secrets:
         firebase_secrets = st.secrets["firebase"]
@@ -591,13 +375,13 @@ try:
         
         db = firestore.client()
     else:
-        st.error("Firebase configuration not found. Please check your secrets configuration.")
+        st.error("Firebase configuration not found.")
         st.stop()
 except Exception as e:
-    st.error("Database connection failed. Please try again later.")
+    st.error("Database connection failed.")
     st.stop()
 
-# Load ML Model from model.pkl with safe handling
+# ML Model loading
 @st.cache_resource
 def load_ml_model():
     try:
@@ -612,60 +396,48 @@ def load_ml_model():
         st.session_state.ml_model_loaded = False
         return None
 
-# Initialize ML model
 if not st.session_state.ml_model_loaded:
     model_data = load_ml_model()
 else:
     model_data = None
 
-# ML Prediction Function - SAFE VERSION
 def predict_performance(hours, distraction_count, habits):
     try:
         if model_data is None:
-            return 75.0  # Default value if model not available
+            return 75.0
             
-        # Create input data with proper structure
         input_data = {}
-        
-        # Add numeric features
         input_data['hours'] = hours
         input_data['distraction_count'] = distraction_count
         
-        # Add encoded categorical features
         for col, value in habits.items():
             input_data[col] = value
         
-        # Convert to DataFrame
         input_df = pd.DataFrame([input_data])
         
-        # Ensure all required columns are present
         required_columns = model_data.get('feature_columns', [])
         for col in required_columns:
             if col not in input_df.columns:
                 input_df[col] = 0
         
-        # Reorder columns to match training data
         input_df = input_df[required_columns]
         
-        # Scale numeric features if scaler exists
         if 'scaler' in model_data:
             numeric_cols = model_data.get('numeric_columns', ['hours', 'distraction_count'])
             input_df[numeric_cols] = model_data['scaler'].transform(input_df[numeric_cols])
         
-        # Make prediction
         prediction = model_data['model'].predict(input_df)[0]
         prediction = max(1, min(100, prediction))
         
         return prediction
         
     except Exception as e:
-        return 75.0  # Safe default
+        return 75.0
 
-# FIXED: Higher percentiles are now better (reversed the logic)
+# FIXED: Lower percentage means better performance (top X%)
 def calculate_feature_percentiles(hours, distractions, habit_inputs):
     try:
         if model_data is None:
-            # Return default percentiles if model not available
             return {
                 'Study Hours': 50,
                 'Distraction Control': 50,
@@ -680,13 +452,14 @@ def calculate_feature_percentiles(hours, distractions, habit_inputs):
         feature_percentiles = {}
         df = model_data['df']
         
-        # FIXED: Higher hours should give higher percentile (better)
-        hours_percentile = (df['hours'] <= hours).mean() * 100
-        feature_percentiles['Study Hours'] = hours_percentile  # Higher is better
+        # FIXED: Lower percentage means you're in top X% (better)
+        # For hours: if you're in top 10%, you get 10% (low is good)
+        hours_percentile = (df['hours'] > hours).mean() * 100
+        feature_percentiles['Study Hours'] = max(1, hours_percentile)
         
-        # FIXED: Lower distractions should give higher percentile (better)
-        dist_percentile = (df['distraction_count'] >= distractions).mean() * 100
-        feature_percentiles['Distraction Control'] = 100 - dist_percentile  # Higher is better
+        # For distractions: if you're in top 10% (less distractions), you get 10% (low is good)
+        dist_percentile = (df['distraction_count'] < distractions).mean() * 100
+        feature_percentiles['Distraction Control'] = max(1, dist_percentile)
         
         habit_mapping = {
             'avoid_sugar': 'Sugar Avoidance',
@@ -700,17 +473,16 @@ def calculate_feature_percentiles(hours, distractions, habit_inputs):
         for col, friendly_name in habit_mapping.items():
             habit_value = habit_inputs[col]
             if habit_value == 1:
-                # FIXED: Having good habit (value=1) should give higher percentile
+                # If you have good habit, lower percentage means you're in elite group
                 habit_percentile = (df[col] == 1).mean() * 100
-                feature_percentiles[friendly_name] = habit_percentile  # Higher is better
+                feature_percentiles[friendly_name] = max(1, 100 - habit_percentile)  # Reversed for consistency
             else:
-                # FIXED: Not having good habit should give lower percentile
+                # If you don't have good habit, higher percentage means you're in majority (worse)
                 habit_percentile = (df[col] == 0).mean() * 100
-                feature_percentiles[friendly_name] = habit_percentile  # Higher is better
+                feature_percentiles[friendly_name] = max(1, habit_percentile)
         
         return feature_percentiles
     except Exception as e:
-        # Return default values if calculation fails
         return {
             'Study Hours': 50,
             'Distraction Control': 50,
@@ -722,9 +494,7 @@ def calculate_feature_percentiles(hours, distractions, habit_inputs):
             'Wake-up Time': 50
         }
 
-# Enhanced Sidebar with safe navigation (no emojis)
 def show_sidebar_content():
-    """Show navigation and full profile in sidebar for all pages when user is logged in"""
     if st.session_state.user:
         with st.sidebar:
             st.markdown("### Navigation")
@@ -746,7 +516,6 @@ def show_sidebar_content():
                     st.session_state.page = "daily_challenge"
                     st.rerun()
                 
-                # Analytics Page Button
                 if st.button("Advanced Analytics", use_container_width=True):
                     st.session_state.page = "analytics"
                     st.rerun()
@@ -762,7 +531,6 @@ def show_sidebar_content():
                     st.rerun()
             
             st.markdown("---")
-            
             st.markdown("### My Profile")
             st.write(f"**Username:** {st.session_state.user['username']}")
             st.write(f"**Email:** {st.session_state.user['email']}")
@@ -771,63 +539,15 @@ def show_sidebar_content():
                 st.markdown("---")
                 st.markdown("### My Goals")
                 st.write(f"**Field:** {st.session_state.user_profile.get('field', 'Not set')}")
-                st.write(f"**I want to become:** {st.session_state.user_profile.get('goal', 'Not set')}")
-                st.write(f"**Current Stage:** {st.session_state.user_profile.get('stage', 'Not set')}")
+                st.write(f"**Goal:** {st.session_state.user_profile.get('goal', 'Not set')}")
+                st.write(f"**Stage:** {st.session_state.user_profile.get('stage', 'Not set')}")
                 
-                distractions = st.session_state.user_profile.get('distractions', [])
-                if distractions:
-                    st.write(f"**My Distractions:** {', '.join(distractions)}")
-                else:
-                    st.write("**My Distractions:** None selected")
-                
-                if st.session_state.challenge_data:
-                    st.markdown("---")
-                    st.markdown("### My Progress")
-                    st.write(f"**Current Day:** {st.session_state.challenge_data.get('current_day', 1)}")
-                    st.write(f"**Streak Days:** {st.session_state.challenge_data.get('streak_days', 0)}")
-                    st.write(f"**Total Savings:** ${st.session_state.challenge_data.get('total_savings', 0)}")
-                    st.write(f"**Completed Days:** {st.session_state.challenge_data.get('completed_days', 0)}")
-                
-                if st.session_state.challenge_data.get('badges'):
-                    st.markdown("---")
-                    st.markdown("### My Badges")
-                    for badge in st.session_state.challenge_data['badges']:
-                        st.success(f"{badge}")
-            
-            # SMS Reminders Section - IMPROVED with better error messages
-            st.markdown("---")
-            st.markdown("### SMS Reminders")
-            
-            # Show SMS configuration status
-            twilio_config = st.secrets.get("twilio", {})
-            if not all([twilio_config.get("ACCOUNT_SID"), twilio_config.get("AUTH_TOKEN"), twilio_config.get("PHONE_NUMBER")]):
-                st.warning("SMS service not configured. Add Twilio credentials to Streamlit secrets.")
-            else:
-                st.success("SMS service: Configured")
-            
-            phone_number = st.text_input("Phone Number", 
-                                       value=st.session_state.phone_number,
-                                       placeholder="+1234567890",
-                                       key="phone_input",
-                                       help="Include country code (e.g., +923001234567)")
-            
-            if phone_number != st.session_state.phone_number:
-                st.session_state.phone_number = phone_number
-            
-            if phone_number and st.button("Test SMS", use_container_width=True):
-                success, message = send_sms_reminder(phone_number, "Test reminder from The Brain App! You are doing great!")
-                if success:
-                    st.success("Test SMS sent successfully!")
-                else:
-                    st.warning(f"SMS not sent: {message}")
-            
-            # Certificate Download
-            if st.session_state.challenge_data.get('badges'):
+            if st.session_state.challenge_data:
                 st.markdown("---")
-                st.markdown("### Certificates")
-                if st.button("Download Progress Certificate", use_container_width=True):
-                    st.session_state.page = "certificate"
-                    st.rerun()
+                st.markdown("### My Progress")
+                st.write(f"**Current Day:** {st.session_state.challenge_data.get('current_day', 1)}")
+                st.write(f"**Streak Days:** {st.session_state.challenge_data.get('streak_days', 0)}")
+                st.write(f"**Total Savings:** ${st.session_state.challenge_data.get('total_savings', 0)}")
             
             st.markdown("---")
             if st.button("Logout", use_container_width=True):
@@ -836,14 +556,10 @@ def show_sidebar_content():
                 st.session_state.challenge_data = {}
                 st.session_state.page = "signin"
                 st.session_state.prediction_results = None
-                st.session_state.show_stage_completion = False
-                st.session_state.form_submitted = False
-                st.session_state.show_motivational_task = False
-                st.session_state.phone_number = ""
                 clear_persistent_login()
                 st.rerun()
 
-# Check for persistent login - FIXED VERSION
+# Check for persistent login
 if st.session_state.user is None:
     try:
         query_params = st.query_params
@@ -861,28 +577,23 @@ if st.session_state.user is None:
                 if profile_doc.exists:
                     st.session_state.user_profile = profile_doc.to_dict()
                 st.session_state.challenge_data = load_challenge_data(username)
-                if st.session_state.user_profile:
-                    st.session_state.page = "life_vision"
-                else:
-                    st.session_state.page = "life_vision"
                 set_persistent_login(username)
     except Exception as e:
-        pass  # Silently handle any errors during persistent login
+        pass
 
-# ML Dashboard Page with Professional Bar Charts
+# ML Dashboard Page with FIXED logic
 def ml_dashboard_page():
-    """Machine Learning Performance Prediction Dashboard"""
     show_sidebar_content()
     
-    st.markdown("<h1 style='text-align: center; color: #1f4e79;'>Performance Predictor</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: darkblue;'>Performance Predictor</h1>", unsafe_allow_html=True)
     st.markdown("### Predict your performance based on your daily habits")
     
     with st.form("prediction_form"):
         col1, col2 = st.columns(2)
         
         with col1:
-            hours = st.slider("Study Hours", 0, 12, 4, help="Hours spent on focused work")
-            distraction_count = st.slider("Distractions Count", 0, 20, 5, help="Number of distractions encountered")
+            hours = st.slider("Study Hours", 0, 12, 4)
+            distraction_count = st.slider("Distractions Count", 0, 20, 5)
         
         with col2:
             st.markdown("#### Daily Habits")
@@ -922,129 +633,102 @@ def ml_dashboard_page():
         st.markdown("---")
         st.markdown("### Prediction Results")
         
-        # Performance Score with professional styling
+        # FIXED: Lower percentage means better performance
         col1, col2, col3 = st.columns([1,2,1])
         with col2:
             score = results['score']
-            if score >= 80:
-                color = PROFESSIONAL_COLORS['success']
-                status = "Excellent"
-                interpretation = f"You're in the top {100 - score:.1f}% of performers!"
-            elif score >= 60:
-                color = PROFESSIONAL_COLORS['secondary']
-                status = "Good"
-                interpretation = f"You're performing better than {score:.1f}% of users!"
+            # FIXED: Now lower score means better (top X%)
+            if score <= 20:
+                color = "green"
+                status = "Elite Performer"
+                interpretation = f"You're in the top {score}% of users! Excellent!"
+            elif score <= 40:
+                color = "blue"
+                status = "Great Performer"
+                interpretation = f"You're in the top {score}% - Great job!"
+            elif score <= 60:
+                color = "orange"
+                status = "Good Performer"
+                interpretation = f"You're in the top {score}% - Good work!"
             else:
-                color = PROFESSIONAL_COLORS['warning']
+                color = "red"
                 status = "Needs Improvement"
-                interpretation = f"You're in the bottom {100 - score:.1f}% - time to optimize!"
+                interpretation = f"You're in the top {score}% - Room to grow"
             
             st.markdown(f"<h1 style='text-align: center; color: {color};'>Performance Score: {score:.1f}%</h1>", unsafe_allow_html=True)
             st.markdown(f"<h3 style='text-align: center; color: {color};'>{status}</h3>", unsafe_allow_html=True)
-            st.markdown(f"<p style='text-align: center; font-size: 16px;'>{interpretation}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='text-align: center;'>{interpretation}</p>", unsafe_allow_html=True)
         
-        # Feature Analysis with Professional Bar Chart
+        # Feature Analysis with Bar Chart
         st.markdown("#### Feature Analysis - Percentile Ranking")
         features_df = pd.DataFrame(list(results['percentiles'].items()), columns=['Feature', 'Percentile'])
         
-        # Create professional bar chart with dark blue colors
-        fig, ax = plt.subplots(figsize=(12, 8))
+        fig, ax = plt.subplots(figsize=(12, 6))
         features = features_df['Feature']
         percentiles = features_df['Percentile']
         
-        # Create gradient colors based on percentile values
-        colors = [PROFESSIONAL_COLORS['primary'] if p >= 70 else 
-                 PROFESSIONAL_COLORS['secondary'] if p >= 40 else 
-                 PROFESSIONAL_COLORS['warning'] for p in percentiles]
+        # FIXED: Green for low percentages (good), Red for high percentages (needs improvement)
+        colors = ['green' if p <= 20 else 'blue' if p <= 40 else 'orange' if p <= 60 else 'red' for p in percentiles]
         
-        bars = ax.bar(features, percentiles, color=colors, alpha=0.8, edgecolor='white', linewidth=2)
-        ax.set_ylabel('Percentile Score (%)', fontsize=12, fontweight='bold')
-        ax.set_xlabel('Performance Features', fontsize=12, fontweight='bold')
-        ax.set_title('Feature Performance Percentile Analysis', fontsize=16, fontweight='bold', pad=20)
+        bars = ax.bar(features, percentiles, color=colors, alpha=0.7)
+        ax.set_ylabel('Percentile Score (%)')
+        ax.set_title('Feature Performance (Lower % = Better Ranking)')
         ax.set_ylim(0, 100)
-        ax.grid(True, alpha=0.3, axis='y')
         
-        # Add value labels on bars with improved positioning
         for bar, value in zip(bars, percentiles):
-            height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2, height + 1,
-                   f'{value:.0f}%', ha='center', va='bottom', fontweight='bold', fontsize=11)
+            ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 1,
+                   f'{value:.0f}%', ha='center', va='bottom')
         
-        # Add percentile interpretation
-        for i, (feature, percentile) in enumerate(zip(features, percentiles)):
-            if percentile >= 80:
-                interpretation = "Top 20% - Excellent!"
-            elif percentile >= 60:
-                interpretation = "Top 40% - Very Good"
-            elif percentile >= 40:
-                interpretation = "Average - Room for growth"
-            else:
-                interpretation = "Needs attention"
-            ax.text(bar.get_x() + bar.get_width()/2, -5, interpretation, 
-                   ha='center', va='top', fontsize=9, color='gray', rotation=45)
-        
-        plt.xticks(rotation=45, ha='right')
+        plt.xticks(rotation=45)
         plt.tight_layout()
         st.pyplot(fig)
         
-        # Individual progress bars with improved styling
+        # Individual progress bars
         st.markdown("#### Detailed Feature Breakdown")
         for _, row in features_df.iterrows():
-            col1, col2, col3 = st.columns([2, 3, 2])
+            col1, col2 = st.columns([1, 3])
             with col1:
-                st.write(f"**{row['Feature']}:**")
+                st.write(f"{row['Feature']}:")
             with col2:
                 percentile = row['Percentile']
-                # Use different colors based on percentile
-                if percentile >= 70:
-                    color = PROFESSIONAL_COLORS['success']
-                elif percentile >= 40:
-                    color = PROFESSIONAL_COLORS['secondary']
-                else:
-                    color = PROFESSIONAL_COLORS['warning']
-                
-                st.progress(percentile/100, text=f"{percentile:.0f}%")
-            with col3:
-                if percentile >= 80:
-                    st.markdown("<span style='color: #2e8b57; font-weight: bold;'>Excellent</span>", unsafe_allow_html=True)
-                elif percentile >= 60:
-                    st.markdown("<span style='color: #2e75b6; font-weight: bold;'>Good</span>", unsafe_allow_html=True)
-                elif percentile >= 40:
-                    st.markdown("<span style='color: #ff8c00; font-weight: bold;'>Average</span>", unsafe_allow_html=True)
-                else:
-                    st.markdown("<span style='color: #c00000; font-weight: bold;'>Needs Work</span>", unsafe_allow_html=True)
+                # FIXED: Reverse the progress bar - lower is better
+                progress_value = max(0, 100 - percentile) / 100
+                st.progress(progress_value, text=f"Top {percentile:.0f}%")
         
-        # Professional Recommendations
-        st.markdown("#### Strategic Recommendations")
-        low_percentile_features = [(f, p) for f, p in results['percentiles'].items() if p < 40]
-        high_percentile_features = [(f, p) for f, p in results['percentiles'].items() if p >= 80]
+        # Recommendations
+        st.markdown("#### Recommendations")
+        excellent_features = [f for f, p in results['percentiles'].items() if p <= 20]
+        good_features = [f for f, p in results['percentiles'].items() if p <= 40]
+        needs_work_features = [f for f, p in results['percentiles'].items() if p > 60]
         
-        if low_percentile_features:
-            st.warning("**Priority Improvement Areas:**")
-            for feature, percentile in low_percentile_features:
-                st.write(f"- **{feature}** ({percentile:.0f}%): Focus on improving this area for maximum impact")
+        if excellent_features:
+            st.success("**Your Strengths (Elite Level):**")
+            for feature in excellent_features:
+                percentile = results['percentiles'][feature]
+                st.write(f"- {feature} (Top {percentile:.0f}%)")
         
-        if high_percentile_features:
-            st.success("**Your Strengths:**")
-            for feature, percentile in high_percentile_features:
-                st.write(f"- **{feature}** ({percentile:.0f}%): Maintain this excellent performance")
+        if good_features:
+            st.info("**Good Performance:**")
+            for feature in good_features:
+                if feature not in excellent_features:
+                    percentile = results['percentiles'][feature]
+                    st.write(f"- {feature} (Top {percentile:.0f}%)")
         
-        if not low_percentile_features and not high_percentile_features:
-            st.info("**Balanced Performance:** All your metrics are in the average range. Consider focusing on specific areas to achieve excellence.")
+        if needs_work_features:
+            st.warning("**Areas for Improvement:**")
+            for feature in needs_work_features:
+                percentile = results['percentiles'][feature]
+                st.write(f"- {feature} (Top {percentile:.0f}%)")
         
-        # Reset button
         if st.button("Make Another Prediction", use_container_width=True):
             st.session_state.prediction_results = None
             st.rerun()
 
-# [Other page functions remain the same as previous implementation - Life Vision, Challenge Rules, Setup Profile, Edit Profile, Daily Challenge, Analytics, Sign In, Forgot Password, Sign Up, Certificate]
-
-# Life Vision Page (no emojis)
+# Life Vision Page
 def life_vision_page():
-    """Life Vision and Goal Setting Page"""
     show_sidebar_content()
     
-    st.markdown("<h1 style='text-align: center; color: #1f4e79;'>My Life Vision</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: darkblue;'>My Life Vision</h1>", unsafe_allow_html=True)
     
     if not st.session_state.user_profile:
         st.info("Please complete your profile setup to access the full Life Vision features.")
@@ -1053,7 +737,6 @@ def life_vision_page():
             st.rerun()
         return
     
-    # Vision Board Section
     st.markdown("### My Vision Board")
     
     col1, col2 = st.columns(2)
@@ -1077,27 +760,8 @@ def life_vision_page():
             total_days = get_stage_days(stage)
             
             progress = (current_day / total_days) * 100
+            st.progress(progress/100, text=f"Stage Progress: {current_day}/{total_days} days ({progress:.1f}%)")
             
-            # Create professional progress visualization
-            fig, ax = plt.subplots(figsize=(10, 3))
-            
-            # Background bar
-            ax.barh(['Progress'], [100], color=PROFESSIONAL_COLORS['accent'], alpha=0.3)
-            # Progress bar
-            progress_bar = ax.barh(['Progress'], [progress], color=PROFESSIONAL_COLORS['primary'], alpha=0.8)
-            
-            ax.set_xlim(0, 100)
-            ax.set_xlabel('Completion Percentage', fontweight='bold')
-            ax.set_title(f'Stage Progress: {current_day}/{total_days} Days', fontweight='bold', pad=10)
-            ax.grid(True, alpha=0.3, axis='x')
-            
-            # Add percentage text
-            ax.text(progress/2, 0, f'{progress:.1f}% Complete', ha='center', va='center', 
-                   color='white', fontweight='bold', fontsize=12)
-            
-            st.pyplot(fig)
-            
-            # Motivational message based on progress
             if progress < 25:
                 st.info("Getting started! Every great journey begins with a single step.")
             elif progress < 50:
@@ -1107,7 +771,6 @@ def life_vision_page():
             else:
                 st.info("Almost there! Finish strong!")
     
-    # Daily Motivation Section
     st.markdown("---")
     st.markdown("### Daily Motivation")
     
@@ -1117,18 +780,12 @@ def life_vision_page():
         "The future depends on what you do today. - Mahatma Gandhi",
         "Do not watch the clock; do what it does. Keep going. - Sam Levenson",
         "The harder you work for something, the greater you will feel when you achieve it.",
-        "Your limitation - it is only your imagination.",
-        "Push yourself, because no one else is going to do it for you.",
-        "Great things never come from comfort zones.",
-        "Dream it. Wish it. Do it.",
-        "Success does not just find you. You have to go out and get it."
     ]
     
     import random
     daily_quote = random.choice(motivational_quotes)
     st.success(f"**Today's Motivation:** {daily_quote}")
     
-    # Quick Actions
     st.markdown("---")
     st.markdown("### Quick Actions")
     
@@ -1149,14 +806,331 @@ def life_vision_page():
             st.session_state.page = "edit_profile"
             st.rerun()
 
-# [Other page functions - Challenge Rules, Setup Profile, Edit Profile, Daily Challenge, Analytics, Sign In, Forgot Password, Sign Up, Certificate - remain the same as previous implementation but with professional colors]
-
-# Analytics Page with Professional Visualizations
-def analytics_page():
-    """Advanced Analytics and Progress Tracking"""
+# Challenge Rules Page
+def challenge_rules_page():
     show_sidebar_content()
     
-    st.markdown("<h1 style='text-align: center; color: #1f4e79;'>Advanced Analytics</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: darkblue;'>Challenge Rules & Guidelines</h1>", unsafe_allow_html=True)
+    
+    st.markdown("""
+    ## The Brain App Challenge System
+    
+    ### Challenge Stages
+    """)
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        ### Silver Stage
+        **Duration:** 15 Days (Easy)
+        
+        **Daily Tasks:**
+        - 2 hours of focused work
+        - No distractions
+        - Fill daily routine form
+        """)
+    
+    with col2:
+        st.markdown("""
+        ### Platinum Stage  
+        **Duration:** 30 Days (Medium)
+        
+        **Daily Tasks:**
+        - 4 hours of focused work
+        - No distractions
+        - 30 pushups exercise
+        - Drink 5L water
+        - Avoid junk food
+        - Fill daily form
+        """)
+    
+    with col3:
+        st.markdown("""
+        ### Gold Stage
+        **Duration:** 60 Days (Hard)
+        
+        **Daily Tasks:**
+        - 6 hours of focused work
+        - No distractions
+        - 50 pushups exercise
+        - Drink 5L water
+        - Avoid junk food & sugar
+        - Wake up before 7 AM
+        - Sleep before 11 PM
+        - Fill daily form
+        """)
+    
+    st.markdown("---")
+    
+    st.markdown("""
+    ## Challenge Rules
+    
+    ### Task Completion Rules:
+    1. **Perfect Day (All tasks completed):**
+       - Day counts toward progress
+       - Streak increases by 1
+       - Savings added to total
+    
+    2. **Miss 1 Task:**
+       - **With Penalty Payment:** Day counts but streak does not increase
+       - **Without Penalty:** Day does not count toward progress
+    
+    3. **Miss 2+ Tasks:**
+       - Day does not count (even with penalty)
+       - No progress made
+    """)
+    
+    if st.button("Back to Dashboard", use_container_width=True):
+        st.session_state.page = "life_vision"
+        st.rerun()
+
+# Setup Profile Page
+def setup_profile_page():
+    show_sidebar_content()
+    
+    st.markdown("<h1 style='text-align: center; color: darkblue;'>Setup Your Profile</h1>", unsafe_allow_html=True)
+    
+    with st.form("profile_setup"):
+        st.markdown("### Tell Us About Yourself")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            field = st.selectbox(
+                "Your Field/Profession",
+                ["Student", "Software Developer", "Entrepreneur", "Researcher", "Other"]
+            )
+        with col2:
+            goal = st.text_input("I want to become...", placeholder="e.g., a successful entrepreneur")
+        
+        st.markdown("### Choose Your Challenge Stage")
+        stage = st.selectbox(
+            "Challenge Difficulty",
+            ["Silver (15 Days - Easy)", "Platinum (30 Days - Medium)", "Gold (60 Days - Hard)"]
+        )
+        
+        submitted = st.form_submit_button("Save Profile & Start Challenge", use_container_width=True)
+        
+        if submitted:
+            if not goal:
+                st.error("Please tell us what you want to become!")
+                return
+            
+            profile_data = {
+                'field': field,
+                'goal': goal,
+                'stage': stage,
+                'created_at': datetime.now()
+            }
+            
+            try:
+                db.collection('user_profiles').document(st.session_state.user['username']).set(profile_data)
+                st.session_state.user_profile = profile_data
+                
+                challenge_data = {
+                    'current_stage': stage,
+                    'start_date': datetime.now(),
+                    'current_day': 1,
+                    'streak_days': 0,
+                    'total_savings': 0,
+                    'completed_days': 0,
+                    'penalty_history': [],
+                    'daily_checkins': {},
+                    'badges': []
+                }
+                save_challenge_data(st.session_state.user['username'], challenge_data)
+                st.session_state.challenge_data = challenge_data
+                
+                st.success("Profile setup complete! Welcome to The Brain App Challenge!")
+                time.sleep(2)
+                st.session_state.page = "life_vision"
+                st.rerun()
+                
+            except Exception as e:
+                st.error("Error saving profile. Please try again.")
+
+# Edit Profile Page
+def edit_profile_page():
+    show_sidebar_content()
+    
+    st.markdown("<h1 style='text-align: center; color: darkblue;'>Edit Your Profile</h1>", unsafe_allow_html=True)
+    
+    if not st.session_state.user_profile:
+        st.error("No profile found. Please setup your profile first.")
+        if st.button("Setup Profile", use_container_width=True):
+            st.session_state.page = "setup_profile"
+            st.rerun()
+        return
+    
+    with st.form("edit_profile"):
+        st.markdown("### Update Your Information")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            field = st.selectbox(
+                "Your Field/Profession",
+                ["Student", "Software Developer", "Entrepreneur", "Researcher", "Other"],
+                index=0
+            )
+        with col2:
+            goal = st.text_input("I want to become...", value=st.session_state.user_profile.get('goal', ''))
+        
+        current_stage = st.session_state.user_profile.get('stage', 'Silver (15 Days - Easy)')
+        stage_options = ["Silver (15 Days - Easy)", "Platinum (30 Days - Medium)", "Gold (60 Days - Hard)"]
+        stage_index = stage_options.index(current_stage) if current_stage in stage_options else 0
+        
+        stage = st.selectbox("Challenge Difficulty", stage_options, index=stage_index)
+        
+        submitted = st.form_submit_button("Update Profile", use_container_width=True)
+        
+        if submitted:
+            if not goal:
+                st.error("Please tell us what you want to become!")
+                return
+            
+            profile_data = {
+                'field': field,
+                'goal': goal,
+                'stage': stage,
+                'updated_at': datetime.now()
+            }
+            
+            try:
+                db.collection('user_profiles').document(st.session_state.user['username']).update(profile_data)
+                st.session_state.user_profile.update(profile_data)
+                st.success("Profile updated successfully!")
+                time.sleep(2)
+                st.session_state.page = "life_vision"
+                st.rerun()
+                
+            except Exception as e:
+                st.error("Error updating profile. Please try again.")
+
+# Daily Challenge Page
+def daily_challenge_page():
+    show_sidebar_content()
+    
+    st.markdown("<h1 style='text-align: center; color: darkblue;'>Daily Challenge</h1>", unsafe_allow_html=True)
+    
+    if not st.session_state.user_profile:
+        st.error("Please complete your profile setup first.")
+        if st.button("Setup Profile", use_container_width=True):
+            st.session_state.page = "setup_profile"
+            st.rerun()
+        return
+    
+    challenge_data = st.session_state.challenge_data
+    current_stage = st.session_state.user_profile.get('stage', 'Silver (15 Days - Easy)')
+    current_day = challenge_data.get('current_day', 1)
+    total_days = get_stage_days(current_stage)
+    
+    st.markdown(f"### {current_stage} - Day {current_day}/{total_days}")
+    
+    progress = (current_day / total_days) * 100
+    st.progress(progress/100, text=f"Stage Progress: {progress:.1f}%")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Current Streak", f"{challenge_data.get('streak_days', 0)} days")
+    with col2:
+        st.metric("Completed Days", challenge_data.get('completed_days', 0))
+    with col3:
+        st.metric("Total Savings", f"${challenge_data.get('total_savings', 0)}")
+    
+    st.markdown("---")
+    
+    today = datetime.now().strftime("%Y-%m-%d")
+    if challenge_data.get('daily_checkins', {}).get(today):
+        st.success("You have already completed today's check-in! Great job!")
+        st.info("Come back tomorrow for your next challenge.")
+        return
+    
+    st.markdown("### Today's Tasks")
+    tasks = get_stage_tasks(current_stage)
+    
+    completed_tasks = []
+    for task in tasks:
+        if st.checkbox(task, key=f"task_{task}"):
+            completed_tasks.append(task)
+    
+    st.markdown("---")
+    st.markdown("### Penalty & Savings")
+    
+    missed_tasks = len(tasks) - len(completed_tasks)
+    if missed_tasks == 1:
+        savings_amount = st.number_input("Penalty Amount", min_value=0.0, value=5.0, step=1.0)
+    else:
+        savings_amount = st.number_input("Savings to Add", min_value=0.0, value=10.0, step=1.0)
+    
+    if st.button("Submit Daily Check-in", use_container_width=True, type="primary"):
+        process_daily_submission(completed_tasks, savings_amount, today, tasks)
+
+def process_daily_submission(completed_tasks, savings_amount, today, tasks):
+    try:
+        user = st.session_state.user
+        challenge_data = st.session_state.challenge_data
+        
+        missed_tasks = len(tasks) - len(completed_tasks)
+        
+        if missed_tasks == 0:
+            challenge_data['completed_days'] += 1
+            challenge_data['current_day'] += 1
+            challenge_data['total_savings'] += savings_amount
+            challenge_data['streak_days'] += 1
+            
+            if 'daily_checkins' not in challenge_data:
+                challenge_data['daily_checkins'] = {}
+            challenge_data['daily_checkins'][today] = {
+                'tasks_completed': completed_tasks,
+                'missed_tasks': 0,
+                'savings_added': savings_amount,
+                'perfect_day': True
+            }
+            
+            save_challenge_data(user['username'], challenge_data)
+            st.session_state.challenge_data = challenge_data
+            st.session_state.form_submitted = True
+            
+            st.success("Perfect day! All tasks completed!")
+            
+        elif missed_tasks == 1:
+            if savings_amount > 0:
+                challenge_data['completed_days'] += 1
+                challenge_data['current_day'] += 1
+                challenge_data['total_savings'] += savings_amount
+                
+                if 'daily_checkins' not in challenge_data:
+                    challenge_data['daily_checkins'] = {}
+                challenge_data['daily_checkins'][today] = {
+                    'tasks_completed': completed_tasks,
+                    'missed_tasks': 1,
+                    'savings_added': savings_amount,
+                    'perfect_day': False,
+                    'penalty_paid': True
+                }
+                
+                save_challenge_data(user['username'], challenge_data)
+                st.session_state.challenge_data = challenge_data
+                st.session_state.form_submitted = True
+                
+                st.warning(f"You missed 1 task but paid ${savings_amount} penalty. Day counted.")
+                
+            else:
+                st.error("You missed 1 task but did not pay penalty. This day does not count.")
+        else:
+            st.error(f"You missed {missed_tasks} tasks. This day does not count.")
+        
+        st.rerun()
+    except Exception as e:
+        st.error("Error processing submission. Please try again.")
+
+# Analytics Page
+def analytics_page():
+    show_sidebar_content()
+    
+    st.markdown("<h1 style='text-align: center; color: darkblue;'>Advanced Analytics</h1>", unsafe_allow_html=True)
     
     if not st.session_state.user_profile:
         st.error("Please complete your profile setup first.")
@@ -1167,7 +1141,6 @@ def analytics_page():
     
     challenge_data = st.session_state.challenge_data
     
-    # Overview Metrics
     st.markdown("### Progress Overview")
     
     col1, col2, col3, col4 = st.columns(4)
@@ -1181,47 +1154,218 @@ def analytics_page():
     with col4:
         st.metric("Total Savings", f"${challenge_data.get('total_savings', 0)}")
     
-    # Advanced Analytics with Professional Charts
     create_advanced_analytics(challenge_data, st.session_state.user_profile)
-    
-    # Badges Section
-    st.markdown("---")
-    st.markdown("### Earned Badges")
     
     badges = challenge_data.get('badges', [])
     if badges:
+        st.markdown("---")
+        st.markdown("### Earned Badges")
         for badge in badges:
             st.success(f"**{badge}**")
-    else:
-        st.info("Complete more challenges to earn badges!")
+
+# Sign In Page
+def sign_in_page():
+    st.markdown("<h1 style='text-align: center; color: darkblue;'>The Brain App</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center;'>Sign In to Your Account</h3>", unsafe_allow_html=True)
     
-    # Export Data Option
+    with st.form("signin_form"):
+        username = st.text_input("Username", placeholder="Enter your username")
+        password = st.text_input("Password", type="password", placeholder="Enter your password")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            submitted = st.form_submit_button("Sign In", use_container_width=True)
+        with col2:
+            if st.form_submit_button("Forgot Password?", use_container_width=True):
+                st.session_state.page = "forgot_password"
+                st.rerun()
+        
+        if submitted:
+            if not username or not password:
+                st.error("Please enter both username and password")
+                return
+            
+            try:
+                user_doc = db.collection('users').document(username).get()
+                if user_doc.exists:
+                    user_data = user_doc.to_dict()
+                    if check_password(password, user_data['password']):
+                        st.session_state.user = {
+                            "username": username,
+                            "email": user_data.get("email", ""),
+                            "role": user_data.get("role", "student")
+                        }
+                        
+                        profile_doc = db.collection('user_profiles').document(username).get()
+                        if profile_doc.exists:
+                            st.session_state.user_profile = profile_doc.to_dict()
+                        
+                        st.session_state.challenge_data = load_challenge_data(username)
+                        set_persistent_login(username)
+                        
+                        st.success(f"Welcome back, {username}!")
+                        st.session_state.page = "life_vision"
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error("Invalid password")
+                else:
+                    st.error("Username not found")
+            except Exception as e:
+                st.error("Login failed. Please try again.")
+    
     st.markdown("---")
-    st.markdown("### Data Export")
+    st.markdown("Don't have an account?")
+    if st.button("Sign Up", use_container_width=True):
+        st.session_state.page = "signup"
+        st.rerun()
+
+# Forgot Password Page
+def forgot_password_page():
+    st.markdown("<h1 style='text-align: center; color: darkblue;'>Reset Your Password</h1>", unsafe_allow_html=True)
     
-    if st.button("Export My Progress Data", use_container_width=True):
-        # Create downloadable data
-        progress_data = {
-            'username': st.session_state.user['username'],
-            'profile': st.session_state.user_profile,
-            'challenge_data': challenge_data,
-            'export_date': datetime.now().isoformat()
-        }
+    with st.form("forgot_password_form"):
+        email = st.text_input("Email Address", placeholder="Enter your registered email")
+        submitted = st.form_submit_button("Send Reset Link", use_container_width=True)
         
-        # Convert to JSON
-        json_data = json.dumps(progress_data, indent=2, default=str)
+        if submitted:
+            if not email:
+                st.error("Please enter your email address")
+                return
+            
+            user_id, user_data = get_user_by_email(email)
+            if user_data:
+                reset_link = f"https://yourapp.com/reset-password?token=secure_token_here"
+                success, message = send_password_reset_email(email, reset_link)
+                
+                if success:
+                    st.success("Password reset link sent to your email!")
+                else:
+                    st.error(message)
+            else:
+                st.error("No account found with this email address")
+    
+    st.markdown("---")
+    if st.button("Back to Sign In", use_container_width=True):
+        st.session_state.page = "signin"
+        st.rerun()
+
+# Sign Up Page
+def sign_up_page():
+    st.markdown("<h1 style='text-align: center; color: darkblue;'>Create Your Account</h1>", unsafe_allow_html=True)
+    
+    with st.form("signup_form"):
+        col1, col2 = st.columns(2)
         
-        st.download_button(
-            label="Download Progress Data (JSON)",
-            data=json_data,
-            file_name=f"brain_app_progress_{st.session_state.user['username']}.json",
-            mime="application/json",
-            use_container_width=True
-        )
+        with col1:
+            username = st.text_input("Username", placeholder="Choose a username")
+            email = st.text_input("Email Address", placeholder="Enter your email")
+        
+        with col2:
+            password = st.text_input("Password", type="password", placeholder="Create a password")
+            confirm_password = st.text_input("Confirm Password", type="password", placeholder="Confirm your password")
+        
+        if password:
+            is_valid, message = validate_password(password)
+            if not is_valid:
+                st.warning(f"Password requirements: {message}")
+        
+        agreed = st.checkbox("I agree to the Terms of Service and Privacy Policy")
+        
+        submitted = st.form_submit_button("Create Account", use_container_width=True)
+        
+        if submitted:
+            if not all([username, email, password, confirm_password]):
+                st.error("Please fill in all fields")
+                return
+            
+            if password != confirm_password:
+                st.error("Passwords do not match")
+                return
+            
+            if not agreed:
+                st.error("Please agree to the Terms of Service")
+                return
+            
+            user_doc = db.collection('users').document(username).get()
+            if user_doc.exists:
+                st.error("Username already taken. Please choose another.")
+                return
+            
+            _, existing_user = get_user_by_email(email)
+            if existing_user:
+                st.error("Email already registered. Please use a different email or sign in.")
+                return
+            
+            try:
+                hashed_password = hash_password(password)
+                if not hashed_password:
+                    st.error("Error creating account. Please try again.")
+                    return
+                
+                user_data = {
+                    'username': username,
+                    'email': email,
+                    'password': hashed_password,
+                    'created_at': datetime.now()
+                }
+                
+                db.collection('users').document(username).set(user_data)
+                st.success("Account created successfully!")
+                st.info("You can now sign in with your credentials.")
+                time.sleep(2)
+                st.session_state.page = "signin"
+                st.rerun()
+                
+            except Exception as e:
+                st.error("Error creating account. Please try again.")
+    
+    st.markdown("---")
+    st.markdown("Already have an account?")
+    if st.button("Sign In", use_container_width=True):
+        st.session_state.page = "signin"
+        st.rerun()
 
-# [Sign In, Forgot Password, Sign Up, Certificate pages remain the same but with professional colors]
+# Certificate Page
+def certificate_page():
+    try:
+        if "user" not in st.session_state or st.session_state.user is None:
+            st.session_state.page = "signin"
+            st.rerun()
+            return
+        
+        show_sidebar_content()
+        
+        st.markdown("<h1 style='text-align: center; color: darkblue;'>Your Achievement Certificate</h1>", unsafe_allow_html=True)
+        
+        if st.button("Back to Dashboard", use_container_width=False):
+            st.session_state.page = "daily_challenge"
+            st.rerun()
+        
+        with st.spinner("Generating your certificate..."):
+            pdf_bytes = generate_certificate(
+                st.session_state.user['username'],
+                st.session_state.user_profile,
+                st.session_state.challenge_data
+            )
+        
+        if pdf_bytes:
+            st.success("Your certificate is ready!")
+            
+            st.download_button(
+                label="Download PDF Certificate",
+                data=pdf_bytes,
+                file_name=f"brain_app_certificate_{st.session_state.user['username']}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+        else:
+            st.error("Failed to generate certificate. Please try again.")
+            
+    except Exception as e:
+        st.error("Something went wrong with certificate generation.")
 
-# Main app routing with error handling
+# Main app routing
 try:
     if st.session_state.page == "signin":
         sign_in_page()
@@ -1246,10 +1390,8 @@ try:
     elif st.session_state.page == "certificate":
         certificate_page()
     else:
-        # Default to sign in page
         st.session_state.page = "signin"
         st.rerun()
 
 except Exception as e:
-    st.error("An unexpected error occurred. Please refresh the page and try again.")
-    st.info("If the problem persists, please contact support.")
+    st.error("An unexpected error occurred. Please refresh the page.")
