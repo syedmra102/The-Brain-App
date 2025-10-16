@@ -49,7 +49,7 @@ if 'reset_token' not in st.session_state:
 if 'reset_username' not in st.session_state:
     st.session_state.reset_username = None
 
-# Helper functions
+# Hashing passwords 
 def hash_password(password):
     try:
         return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -135,7 +135,7 @@ def send_password_reset_email(to_email, reset_token):
             return True, "development", reset_token
             
         msg = EmailMessage()
-        msg['Subject'] = 'Your Brain App - Password Reset'
+        msg['Subject'] = 'Your Brain App , Password Reset'
         msg['From'] = email_address
         msg['To'] = to_email
         msg.set_content(f"""
@@ -209,7 +209,7 @@ def get_stage_days(stage):
         "Gold (60 Days - Hard)": 60
     }
     return stage_days.get(stage, 15)
-
+#All Stages 
 def get_stage_tasks(stage):
     tasks = {
         "Silver (15 Days - Easy)": [
