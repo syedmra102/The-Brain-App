@@ -1,3 +1,5 @@
+🧠 The Brain App
+
 A comprehensive productivity platform that combines machine learning performance prediction with gamified habit-building challenges to help users overcome distractions and achieve their goals.
 
 🌟 Live Demo
