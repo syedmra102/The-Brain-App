@@ -203,8 +203,7 @@ We welcome contributions! Please see our Contributing Guidelines for details.
 Development Setup
 bash
 # Fork and clone the repository
-git clone https://github.com/yourusername/brain-app.git
-
+git clone(https://github.com/syedmra102/The-Brain-App)
 # Create a feature branch
 git checkout -b feature/amazing-feature
 
@@ -257,9 +256,3 @@ Email: zada44919@gmail.com
 
 
 
-🏆 Awards & Recognition
-Featured in [List any features or recognitions]
-
-[Award Name] - [Year]
-
-[Scholarship/Hackathon recognition]
